@@ -1,0 +1,7 @@
+# IDE specific files
+.vs/
+
+# Object files
+*.obj
+*.pdb
+*.exe

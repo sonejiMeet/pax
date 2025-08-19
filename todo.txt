@@ -1,0 +1,24 @@
+What should work?
+- Comments ( //, /**/ )
+- assignement operator for different types (both un/initialised (if time allows))
+- types integer, float, string, bool, (including different sizes of types)
+- struct (c style)
+- array using ( [] ) operators
+
+Check things for correctness and proof of concept
+- should obey operator precedence (pemdas eg.)
+- some simple programs like computing factorial, estimating arctan with taylor series or something (this could be hard)
+-
+
+
+things to implement
+- code manager for error checking and outputing
+- mylang to cpp converter
+
+
+
+My philosophy when writing compiler
+
+use inline functions to reduce overhead of control transfer (places a copy of function's code at each point where it is called at compile time)
+
+no classes or modern c++ junk
