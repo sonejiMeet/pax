@@ -15,8 +15,8 @@ int main(int argc, char **args) {
 
     Parser parser(&lexer);
 
-    // ASTNode* ast = parser.parseExpression();
-    ASTNode* ast = parser.parseProgram();
+    ASTNode* ast = parser.parseExpression();
+    // ASTNode* ast = parser.parseProgram();
     printAST(ast);
     // printf("Parsed program with %zu statements.\n", ast->children.size());
 
