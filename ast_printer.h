@@ -4,36 +4,6 @@
 #include <iomanip>
 #include <string>
 
-inline std::string astNodeTypeToString(ASTNodeType type) {
-    switch (type) {
-        case AST_PROGRAM:     return "Program";
-        case AST_VAR_DECL: return "VarDecl";
-        case AST_FUNCTION_DECL: return "FuncDecl";
-        case AST_STRUCT_DECL:  return "StructDef";
-
-        case AST_BINARY_EXPR: return "BinaryExpr";
-        case AST_UNARY_EXPR: return "UnaryExpr";
-        case AST_NUMBER_LITERAL: return "Number";
-        case AST_STRING_LITERAL: return "String";
-        case AST_BOOLEAN_LITERAL: return "BoolLiter";
-        case AST_IDENTIFIER:  return "Identifier";
-        case AST_ASSIGNMENT: return "Assign";
-        case AST_CALL_EXPR: return "CallExpr";
-        case AST_MEMBER_ACCESS: return "MemberAccess";
-        case AST_ARRAY_ACCESS: return "ArrAccess";
-
-        case AST_IF_STMT:     return "IfStmt";
-        case AST_ELSE_CLAUSE: return "ElseClause";
-        case AST_BLOCK_STMT: return "BlockStmt";
-        case AST_RETURN_STMT: return "ReturnStmt";
-        case AST_EXPR_STMT: return "ExprStmt"; // not sure
-        case AST_PRINT_STMT:  return "PrintStmt";
-
-        case AST_UNKNOWN:     return "Unknown";
-        default:              return "??";
-    }
-}
-
 inline void printAST(const ASTNode* node, std::string indent = "", bool isLast = true) {
     if (!node) return;
 

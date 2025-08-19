@@ -14,7 +14,7 @@ struct Lexer
     bool has_peeked;
 
     Lexer(const char *data, size_t len)
-     : Source(data), size(len), Pos(0), Row(1), Col(1), has_peeked(false)
+     : Source(data), size(len), Pos(0), Row(1), Col(1), peeked_token({}), has_peeked(false)
     {
 
     }
@@ -67,7 +67,7 @@ struct Lexer
     Token identifierToken(char first, int row, int col);
 
     Token nextToken();
-
+    Token peekNextToken();
 
 };
 

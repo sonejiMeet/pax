@@ -14,13 +14,14 @@ struct Parser {
 
     void advance();
 
-    ASTNode* parseProgram();
+    ASTNode* parseExpression();
+    // ASTNode* parseProgram();
 private:
     ASTNode* parseFactor();
     ASTNode* parseTerm();
-    ASTNode* parseExpression();
-    ASTNode* parseVarDeclaration();
-    ASTNode* parseStatement();
+    // ASTNode* parseExpression();
+    // ASTNode* parseVarDeclaration();
+    // ASTNode* parseStatement();
 
 
 };

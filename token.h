@@ -48,6 +48,7 @@ enum TokenType {
     TOK_END_OF_FILE,
 
     TOK_UNKNOWN,
+    TOK_PEEK
 };
 
 const char* tokenTypeToString(TokenType type);
