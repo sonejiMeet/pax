@@ -91,9 +91,15 @@ Token Lexer::identifierToken(char first, int row, int col)
 
     TokenType type = TOK_IDENTIFIER;
 
+    printf("ident: %s\n", ident);
+
     if (strcmp(ident, "printf") == 0) type = TOK_PRINT;
     else if (strcmp(ident, "if") == 0) type = TOK_IF;
     else if (strcmp(ident, "struct") == 0) type = TOK_STRUCT;
+    else if (strcmp(ident, "int") == 0) type = TOK_TYPE_INT;
+    else if (strcmp(ident, "float") == 0) type = TOK_TYPE_FLOAT;
+    else if (strcmp(ident, "string") == 0) type = TOK_TYPE_STRING;
+    else if (strcmp(ident, "bool") == 0) type = TOK_TYPE_BOOL;
 
     Token t = makeToken(type, ident, row, col);
 
@@ -105,10 +111,10 @@ Token Lexer::identifierToken(char first, int row, int col)
 
 Token Lexer::nextToken()
 {
-    if(has_peeked) {
+    /*if(has_peeked) {
         has_peeked = false;
         return peeked_token;
-    }
+    }*/
     skipUnwantedChar();
 
     if (Pos >= size) {
@@ -174,8 +180,7 @@ Token Lexer::nextToken()
 
 Token Lexer::peekNextToken()
 {
-    Token peek = {TOK_PEEK};
-    if(has_peeked) return peek;
+    if(has_peeked) return peeked_token;
 
     size_t origPos = Pos;
     int origRow = Row;
@@ -184,12 +189,15 @@ Token Lexer::peekNextToken()
     peeked_token = nextToken();
     has_peeked = true;
 
-    size_t Pos = origPos;
-    int Row = origRow;
-    int Col = origCol;
+    Pos = origPos;
+    Row = origRow;
+    Col = origCol;
 
     return peeked_token;
 }
+
+
+// move this to tools.h !!!
 
 FileBuffer read_entire_file(const char *path)
 {

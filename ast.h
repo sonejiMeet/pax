@@ -3,18 +3,18 @@
 #include <vector>
 
 // Forward declare Token (from lexer)
-// struct Token;
+struct Token;
 
 enum ASTNodeType {
-    // Program structure
-    AST_PROGRAM,           // The root of the AST, representing the entire program
+    AST_PROGRAM,           // The root of the AST
     AST_STATEMENT_LIST,    // A container for a sequence of statements
 
-    // Declarations
-    AST_VAR_DECL,   // Node for variable declarations (e.g., `var x = 10;`)
+    AST_VAR_DECL,   // int x = 10;
     AST_FUNCTION_DECL,     // Node for function declarations
     AST_STRUCT_DECL,       // Node for struct type declarations
 
+    AST_TYPE_SPECIFIER,
+    
     // Expressions
     AST_BINARY_EXPR,       // Node for binary operations (e.g., `a + b`, `x == y`)
     AST_UNARY_EXPR,        // Node for unary operations (e.g., `-x`, `!flag`)
@@ -46,6 +46,8 @@ inline std::string astNodeTypeToString(ASTNodeType type) {
         case AST_FUNCTION_DECL: return "FuncDecl";
         case AST_STRUCT_DECL:  return "StructDef";
 
+        case AST_TYPE_SPECIFIER: return "TypeSpecifier";
+
         case AST_BINARY_EXPR: return "BinaryExpr";
         case AST_UNARY_EXPR: return "UnaryExpr";
         case AST_NUMBER_LITERAL: return "Number";
@@ -61,7 +63,7 @@ inline std::string astNodeTypeToString(ASTNodeType type) {
         case AST_ELSE_CLAUSE: return "ElseClause";
         case AST_BLOCK_STMT: return "BlockStmt";
         case AST_RETURN_STMT: return "ReturnStmt";
-        case AST_EXPR_STMT: return "ExprStmt"; // not sure
+        case AST_EXPR_STMT: return "ExprStmt";
         case AST_PRINT_STMT:  return "PrintStmt";
 
         case AST_UNKNOWN:     return "Unknown";
@@ -77,7 +79,9 @@ struct ASTNode
 
     ASTNode(ASTNodeType t, const Token& tok) : type(t), token(tok) {}
 
-    ASTNode(ASTNodeType t) : type(t) {}
+    ASTNode(ASTNodeType t) : type(t), token({}) // we have to initialize token to defualt
+                                                // otherwise segfault !!!
+     {}
 
 
     ~ASTNode() {
