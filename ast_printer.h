@@ -34,6 +34,7 @@ inline void printAST(const ASTNode* node, std::string indent = "", bool isLast =
                                      node->token.string_value.count)
                       << "\")";
             break;
+
         default:
             if (node->token.value) {
                 std::cout << " (\"" << node->token.value << "\")";

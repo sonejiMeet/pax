@@ -8,7 +8,9 @@
 Token Lexer::makeToken(TokenType type, const char* value, int row, int col) {
     Token t;
     t.type = type;
-    if (type == TOK_IDENTIFIER || type == TOK_PRINT || type == TOK_IF || type == TOK_STRUCT) {
+    if (type == TOK_IDENTIFIER || type == TOK_PRINT || type == TOK_IF || type == TOK_STRUCT
+        || type == TOK_TYPE_INT || type == TOK_TYPE_FLOAT || type == TOK_TYPE_STRING
+        || type == TOK_TYPE_BOOL ) {
 
         char* copy = _strdup(value);
         t.value = copy;

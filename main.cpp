@@ -60,6 +60,9 @@ int main(int argc, char **args) {
 //             case TOK_IF:
 //             case TOK_STRUCT:
 //             case TOK_TYPE_INT:
+//             case TOK_TYPE_FLOAT:
+//             case TOK_TYPE_STRING:
+//             case TOK_TYPE_BOOL:
 //             case TOK_COMMENT:
 //             case TOK_L_MULTILINE_COMMENT:
 //             case TOK_R_MULTILINE_COMMENT:
