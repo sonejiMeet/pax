@@ -1,6 +1,6 @@
 #include "parser.h"
 #include "ast_printer.h"
-// #include <chrono>
+#include <chrono>
 
 int main(int argc, char **args) {
     if (argc < 2) {
@@ -15,19 +15,16 @@ int main(int argc, char **args) {
 
     Parser parser(&lexer);
 
-    ASTNode* ast = parser.parseExpression();
-    // ASTNode* ast = parser.parseProgram();
+    // ASTNode* ast = parser.parseExpression();
+    ASTNode* ast = parser.parseProgram();
     printAST(ast);
+    printf("done!!");
     // printf("Parsed program with %zu statements.\n", ast->children.size());
 
     free(buf.data);
     return 0;
 }
 
-// void printTokens(const Token& token){
-
-
-// }
 
 // int main(int argc, char **args)
 // {
@@ -62,6 +59,7 @@ int main(int argc, char **args) {
 //             case TOK_PRINT:
 //             case TOK_IF:
 //             case TOK_STRUCT:
+//             case TOK_TYPE_INT:
 //             case TOK_COMMENT:
 //             case TOK_L_MULTILINE_COMMENT:
 //             case TOK_R_MULTILINE_COMMENT:

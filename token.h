@@ -13,6 +13,11 @@ enum TokenType {
     TOK_NUMBER,
     TOK_STRING,
 
+    TOK_TYPE_INT,
+    TOK_TYPE_FLOAT,
+    TOK_TYPE_STRING,
+    TOK_TYPE_BOOL,
+
     TOK_LPAREN,
     TOK_RPAREN,
     TOK_LCURLY_PAREN,

@@ -7,6 +7,12 @@ const char* tokenTypeToString(TokenType type) {
         case TOK_IF: return "TOK_IF";
         case TOK_IDENTIFIER: return "TOK_IDENTIFIER";
         case TOK_STRUCT: return "TOK_STRUCT";
+
+        case TOK_TYPE_INT: return "TOK_TYPE_INT";
+        case TOK_TYPE_FLOAT: return "TOK_TYPE_FLOAT,";
+        case TOK_TYPE_STRING: return "TOK_TYPE_STRING";
+        case TOK_TYPE_BOOL: return "TOK_TYPE_BOOL";
+
         case TOK_NUMBER: return "TOK_NUMBER";
         case TOK_STRING: return "TOK_STRING";
         case TOK_LPAREN: return "TOK_LPAREN";

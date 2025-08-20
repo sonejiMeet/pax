@@ -6,22 +6,26 @@ struct Parser {
     Lexer* lexer;
     Token current;
 
+    std::vector<Token> tempTokens;
+
     Parser(Lexer* l);
 
     // Token peekNextToken();
     void parseError(const std::string& message);
     void expect(TokenType expectedType, const std::string& errorMessage);
-
+    void logDebug(const std::string& message, const Token* token) const;
     void advance();
 
-    ASTNode* parseExpression();
-    // ASTNode* parseProgram();
+    // ASTNode* parseExpression();
+    ASTNode* parseProgram();
+
 private:
     ASTNode* parseFactor();
     ASTNode* parseTerm();
-    // ASTNode* parseExpression();
-    // ASTNode* parseVarDeclaration();
-    // ASTNode* parseStatement();
+    ASTNode* parseExpression();
+    ASTNode* parseTypeSpecifier();
+    ASTNode* parseVarDeclaration();
+    ASTNode* parseStatement();
 
 
 };
