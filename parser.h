@@ -6,6 +6,7 @@ struct Parser {
     Lexer* lexer;
     Token current;
 
+    // (TEMP) for debugging
     std::vector<Token> tempTokens;
 
     Parser(Lexer* l);

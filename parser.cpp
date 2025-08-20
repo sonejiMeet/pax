@@ -3,63 +3,22 @@
 #include <iostream>
 #include <vector>
 //CAC6B3FF
+
+// F6F42EFF
 Parser::Parser(Lexer* l) : lexer(l) {
     current = lexer->nextToken();
-    tempTokens.push_back(current);
 
+    // (TEMP) for debugging
+    tempTokens.push_back(current);
 }
 
 void Parser::advance() {
 
     current = lexer->nextToken();
+
+    // (TEMP) for debugging
     tempTokens.push_back(current);
 }
-
-
-
-// ASTNode* Parser::parseFactor() {
-//     if (current.type == TOK_NUMBER) {
-//         ASTNode* node = new ASTNode(AST_NUMBER_LITERAL, current);
-//         advance();
-//         return node;
-//     } else if(current.type == TOK_IDENTIFIER){
-//         ASTNode* node = new ASTNode(AST_IDENTIFIER, current);
-//         advance();
-//         return node;
-
-//     }
-
-//     // fallback
-//     return new ASTNode(AST_UNKNOWN, current);
-// }
-
-// ASTNode* Parser::parseTerm() {
-//     ASTNode* left = parseFactor();
-//     while (current.type == TOK_STAR) {
-//         Token op = current;
-//         advance();
-//         ASTNode* right = parseFactor();
-//         ASTNode* node = new ASTNode(AST_BINARY_EXPR, op);
-//         node->children.push_back(left);
-//         node->children.push_back(right);
-//         left = node;
-//     }
-//     return left;
-// }
-
-// ASTNode* Parser::parseExpression() {
-//     ASTNode* left = parseTerm();
-//     while (current.type == TOK_PLUS) {
-//         Token op = current;
-//         advance();
-//         ASTNode* right = parseTerm();
-//         ASTNode* node = new ASTNode(AST_BINARY_EXPR, op);
-//         node->children.push_back(left);
-//         node->children.push_back(right);
-//         left = node;
-//     }
-//     return left;
-// }
 
 // Reports parsing errors and terminates execution.
 void Parser::parseError(const std::string& message) {
@@ -70,7 +29,8 @@ void Parser::parseError(const std::string& message) {
 }
 
 // Consumes an expected token, or reports an error if mismatch.
-void Parser::expect(TokenType expectedType, const std::string& errorMessage) {
+void Parser::expect(TokenType expectedType, const std::string& errorMessage)
+{
     if (current.type != expectedType) {
         parseError(errorMessage);
     }
@@ -78,16 +38,17 @@ void Parser::expect(TokenType expectedType, const std::string& errorMessage) {
 }
 
 // Parses a factor in an expression (numbers, identifiers, parenthesized expressions).
-ASTNode* Parser::parseFactor() {
-    if (current.type == TOK_NUMBER) {
+ASTNode* Parser::parseFactor()
+{
+    if (current.type == TOK_NUMBER){
         ASTNode* node = new ASTNode(AST_NUMBER_LITERAL, current);
         advance();
         return node;
-    } else if (current.type == TOK_IDENTIFIER) {
+    } else if (current.type == TOK_IDENTIFIER){
         ASTNode* node = new ASTNode(AST_IDENTIFIER, current); // Use AST_IDENTIFIER for expression identifiers
         advance();
         return node;
-    } else if (current.type == TOK_LPAREN) {
+    } else if (current.type == TOK_LPAREN){
         expect(TOK_LPAREN, "Expected '(' for parenthesized expression.");
         ASTNode* expr = parseExpression();
         expect(TOK_RPAREN, "Expected ')' after expression in parentheses.");
@@ -98,7 +59,8 @@ ASTNode* Parser::parseFactor() {
 }
 
 // Parses a term (multiplication and division operations).
-ASTNode* Parser::parseTerm() {
+ASTNode* Parser::parseTerm()
+{
     ASTNode* left = parseFactor();
 
     while (current.type == TOK_STAR || current.type == TOK_SLASH) {
@@ -116,7 +78,8 @@ ASTNode* Parser::parseTerm() {
 }
 
 // Parses an expression (addition, subtraction, and comparison operations).
-ASTNode* Parser::parseExpression() {
+ASTNode* Parser::parseExpression()
+{
     ASTNode* left = parseTerm();
 
     while (current.type == TOK_PLUS || current.type == TOK_MINUS ||
@@ -137,7 +100,8 @@ ASTNode* Parser::parseExpression() {
     return left;
 }
 
-ASTNode* Parser::parseTypeSpecifier() {
+ASTNode* Parser::parseTypeSpecifier()
+{
     // Expect a type keyword
     if (!(current.type == TOK_TYPE_INT || current.type == TOK_TYPE_FLOAT ||
           current.type == TOK_TYPE_STRING || current.type == TOK_TYPE_BOOL)) {
@@ -151,7 +115,8 @@ ASTNode* Parser::parseTypeSpecifier() {
 }
 
 // Parses a variable declaration statement (e.g., `identifier = expression;`).
-ASTNode* Parser::parseVarDeclaration() {
+ASTNode* Parser::parseVarDeclaration()
+{
     if (current.type != TOK_IDENTIFIER) {
         parseError("Expected identifier for variable declaration.");
     }
@@ -162,7 +127,6 @@ ASTNode* Parser::parseVarDeclaration() {
 
     // 3. Parse the type specifier (e.g., 'int', 'float')
     ASTNode* typeSpecifierNode = parseTypeSpecifier();
-    // advance();
 
     if (!typeSpecifierNode) {
         parseError("Failed to parse type specifier for variable declaration.");
@@ -180,7 +144,7 @@ ASTNode* Parser::parseVarDeclaration() {
     expect(TOK_SEMICOLON, "Expected ';' after variable declaration.");
 
     ASTNode* varDeclNode = new ASTNode(AST_VAR_DECL, varNameToken); // Using AST_VAR_DECL
-    varDeclNode->children.push_back(initializerExpr);
+    varDeclNode->children.push_back(typeSpecifierNode);
 
     if (initializerExpr) {
         varDeclNode->children.push_back(initializerExpr); // Child 1 (optional): Initializer Expression
@@ -189,17 +153,19 @@ ASTNode* Parser::parseVarDeclaration() {
     return varDeclNode;
 }
 
-void Parser::logDebug(const std::string& message, const Token* token = nullptr) const {
-        std::cout << "DEBUG: " << message;
-        if (token) {
-            std::cout << " Token: " << tokenTypeToString(token->type)
-                      << " ('" << token->value << "')"
-                      << " Line: " << token->row << ", Col: " << token->col;
-        }
-        std::cout << std::endl;
+void Parser::logDebug(const std::string& message, const Token* token = nullptr) const
+{
+    std::cout << "DEBUG: " << message;
+    if (token) {
+        std::cout << " Token: " << tokenTypeToString(token->type)
+                  << " ('" << token->value << "')"
+                  << " Line: " << token->row << ", Col: " << token->col;
     }
+    std::cout << std::endl;
+}
 
-ASTNode* Parser::parseStatement() {
+ASTNode* Parser::parseStatement()
+{
     std::cout << "\n--- DEBUG: Entering parseStatement() ---" << std::endl; // Keep this one for high-level entry
     logDebug("Current token at start of parseStatement", &current);
 
@@ -257,7 +223,8 @@ ASTNode* Parser::parseStatement() {
 
 // Parses the entire program, which is a list of statements.
 // This is the top-level parsing function you'd call from main.
-ASTNode* Parser::parseProgram() {
+ASTNode* Parser::parseProgram()
+{
     // Create the root node for the entire program
     ASTNode* programNode = new ASTNode(AST_PROGRAM);
 
