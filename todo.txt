@@ -1,8 +1,29 @@
+
+
+
+        to be FIXed
+
+
+
+
+DONE: floats are not lexed correctly there is unknown token for decimal
+
+
+
+
+
+
+
+
+
+
+
+
 What should work?
 - Comments ( //, /**/ )
 - assignement operator for different types (both un/initialised (if time allows))
 - types integer, float, string, bool, (including different sizes of types)
-- struct (c style)
+- struct (c style but slightly differnt)
 - array using ( [] ) operators
 
 Check things for correctness and proof of concept
@@ -21,4 +42,89 @@ My philosophy when writing compiler
 
 use inline functions to reduce overhead of control transfer (places a copy of function's code at each point where it is called at compile time)
 
-no classes or modern c++ junk
+no classes or modern c++ junk, just simple easy to read code
+
+
+Why its will actually be a compiler and not just a stupid transpiler?
+
+- we dont wanna be doing just minimal work (since we will be generating c code), its for losers. we want to actually make the compiler understand the syntax and manage errors (one way is proper type checking). so ideally there is should be no error from c compiler (if there is then it means our compiler has error!). we wanna be able to catch errors easily during lexer(throw error for unkown literals or tokens)/parsing/code_manager/and with good error messages.
+
+
+
+
+
+
+
+
+What works?
+Operator precedence is parsed correctly!
+ex.
+
+-------------------------
+a:int=(1+2*3*4+5)/2;
+b : int = (4 + 5) * 2;
+c : int = 5 * 2 + 4;
+
+num : int = a + 5;
+
+s : string = "something";
+
+if(a == b) {
+
+    x : int;
+}
+-------------------------
+
+OUTPUT
+
+-------------------------
+
+Program
+    `-- StatementList
+        |-- VarDecl ("a")
+        |   |-- TypeSpecifier ("int")
+        |   `-- BinaryExpr ("/")
+        |       |-- ParenthesizedExpr
+        |       |   `-- BinaryExpr ("+")
+        |       |       |-- BinaryExpr ("+")
+        |       |       |   |-- Number (1)
+        |       |       |   `-- BinaryExpr ("*")
+        |       |       |       |-- BinaryExpr ("*")
+        |       |       |       |   |-- Number (2)
+        |       |       |       |   `-- Number (3)
+        |       |       |       `-- Number (4)
+        |       |       `-- Number (5)
+        |       `-- Number (2)
+        |-- VarDecl ("b")
+        |   |-- TypeSpecifier ("int")
+        |   `-- BinaryExpr ("*")
+        |       |-- ParenthesizedExpr
+        |       |   `-- BinaryExpr ("+")
+        |       |       |-- Number (4)
+        |       |       `-- Number (5)
+        |       `-- Number (2)
+        |-- VarDecl ("c")
+        |   |-- TypeSpecifier ("int")
+        |   `-- BinaryExpr ("+")
+        |       |-- BinaryExpr ("*")
+        |       |   |-- Number (5)
+        |       |   `-- Number (2)
+        |       `-- Number (4)
+        |-- VarDecl ("num")
+        |   |-- TypeSpecifier ("int")
+        |   `-- BinaryExpr ("+")
+        |       |-- Identifier (a)
+        |       `-- Number (5)
+        |-- VarDecl ("s")
+        |   |-- TypeSpecifier ("string")
+        |   `-- String ("something")
+        `-- IfStmt ("if")
+            |-- BinaryExpr ("==")
+            |   |-- Identifier (a)
+            |   `-- Identifier (b)
+            `-- BlockStmt
+                `-- StatementList
+                    `-- VarDecl ("x")
+                        `-- TypeSpecifier ("int")
+
+------------------------

@@ -28,6 +28,9 @@ inline void printAST(const ASTNode* node, std::string indent = "", bool isLast =
         case AST_NUMBER_LITERAL:
             std::cout << " (" << node->token.int_value << ")";
             break;
+        case AST_FLOAT_LITERAL:
+            std::cout << " (" << node->token.float32_value << ")";
+            break;
         case AST_STRING_LITERAL:
             std::cout << " (\""
                       << std::string((char*)node->token.string_value.data,

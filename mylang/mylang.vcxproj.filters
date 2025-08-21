@@ -44,9 +44,6 @@
     <ClCompile Include="..\parser.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\token.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="..\tools.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>

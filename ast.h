@@ -19,6 +19,7 @@ enum ASTNodeType {
     AST_BINARY_EXPR,       // `a + b`, `x == y`
     AST_UNARY_EXPR,        // `-x`, `!flag`
     AST_NUMBER_LITERAL,    // `123`
+    AST_FLOAT_LITERAL,
     AST_STRING_LITERAL,    //  `"hello"`
     AST_BOOLEAN_LITERAL,   //  `true`, `false`
     AST_IDENTIFIER,        //  `myVar`
@@ -27,7 +28,7 @@ enum ASTNodeType {
     AST_MEMBER_ACCESS,     //  struct access  `obj.member`
     AST_ARRAY_ACCESS,      // `arr[index]`
 
-    AST_PARENTHESIZED_EXPR, // ( a + b ) would be added as a parent node ( not sure if its a good idea to add a propiertary node since parenthesis does not actually hold that much of a value)
+    AST_PARENTHESIZED_EXPR, // ( a + b ) would be added as a parent node ( not sure if its a good idea to add a propiertary node since parenthesis does not actually hold that much of a value because we already create proper AST)
 
     // Statements
     AST_IF_STMT,
@@ -54,6 +55,7 @@ inline std::string astNodeTypeToString(ASTNodeType type) {
         case AST_BINARY_EXPR: return "BinaryExpr";
         case AST_UNARY_EXPR: return "UnaryExpr";
         case AST_NUMBER_LITERAL: return "Number";
+        case AST_FLOAT_LITERAL: return "Float";
         case AST_STRING_LITERAL: return "String";
         case AST_BOOLEAN_LITERAL: return "BoolLiter";
         case AST_IDENTIFIER:  return "Identifier";
@@ -63,7 +65,7 @@ inline std::string astNodeTypeToString(ASTNodeType type) {
         case AST_ARRAY_ACCESS: return "ArrAccess";
 
         case AST_PARENTHESIZED_EXPR: return "ParenthesizedExpr";
-        
+
         case AST_IF_STMT:     return "IfStmt";
         case AST_ELSE_CLAUSE: return "ElseClause";
         case AST_BLOCK_STMT: return "BlockStmt";

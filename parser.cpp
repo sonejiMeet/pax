@@ -23,6 +23,7 @@ void Parser::advance() {
 
 // Reports parsing errors and terminates execution.
 void Parser::parseError(const std::string& message) {
+    // Token prevToken =
     std::cerr << "Parsing Error: " <<  "Line[" << current.row << ":" << current.col << "] "  << message
               << " at token '" << current.value << "' (Type: "
               << tokenTypeToString(current.type) << ")" << std::endl;
@@ -33,6 +34,7 @@ void Parser::parseError(const std::string& message) {
 void Parser::expect(TokenType expectedType, const std::string& errorMessage)
 {
     if (current.type != expectedType) {
+        // fix semicolon checker, current token is wrong.
         parseError(errorMessage);
     }
     advance();
@@ -45,7 +47,12 @@ ASTNode* Parser::parseFactor()
         ASTNode* node = new ASTNode(AST_NUMBER_LITERAL, current);
         advance();
         return node;
-    } else if (current.type == TOK_IDENTIFIER){
+    } else if (current.type == TOK_FLOAT) {
+        ASTNode* node = new ASTNode(AST_FLOAT_LITERAL, current);
+        advance();
+        std::cout << "inside  (current.type == TOK_FLOAT) \n";
+        return node;
+    }else if (current.type == TOK_IDENTIFIER){
         ASTNode* node = new ASTNode(AST_IDENTIFIER, current); // Use AST_IDENTIFIER for expression identifiers
         advance();
         return node;
@@ -57,8 +64,12 @@ ASTNode* Parser::parseFactor()
         ASTNode* paren_node = new ASTNode(AST_PARENTHESIZED_EXPR); // No associated token needed, it's structural
         paren_node->children.push_back(expr); // The expression is its child
         return paren_node;
-        // return expr;
+    } else if (current.type == TOK_STRING ){
+        ASTNode* node = new ASTNode(AST_STRING_LITERAL, current);
+        advance();
+        return node;
     }
+
     parseError("Expected a number, identifier, or '(' for expression factor.");
     return nullptr; // Unreachable if parseError throws
 }
@@ -158,6 +169,52 @@ ASTNode* Parser::parseVarDeclaration()
     return varDeclNode;
 }
 
+ASTNode* Parser::parseIfStatement(){
+
+    Token ifToken = current;
+    advance();
+    expect(TOK_LPAREN, "Expected '(' before if statement.");
+    ASTNode* condition = parseExpression();
+    expect(TOK_RPAREN, "Expected ')' after if statement.");
+
+    ASTNode* thenBranch = parseStatement();
+
+    ASTNode* ifStatementNode = new ASTNode(AST_IF_STMT, ifToken);
+    ifStatementNode->children.push_back(condition);
+    ifStatementNode->children.push_back(thenBranch);
+
+
+    return ifStatementNode;
+
+}
+
+// Parses a block of statements enclosed in curly braces: '{ StatementList }'
+ASTNode* Parser::parseBlockStatement() {
+    logDebug("Entering parseBlockStatement(). Current token", &current);
+    expect(TOK_LCURLY_PAREN, "Expected '{' to start a block statement.");
+
+    ASTNode* blockNode = new ASTNode(AST_BLOCK_STMT);
+    ASTNode* statementList = new ASTNode(AST_STATEMENT_LIST); // Block contains a list of statements
+
+    // Parse statements until a closing curly brace or EOF
+    while (current.type != TOK_RCURLY_PAREN && current.type != TOK_END_OF_FILE) {
+        ASTNode* statement = parseStatement(); // Recursively parse statements within the block
+        if (statement) {
+            statementList->children.push_back(statement);
+        } else {
+            // Error or unexpected token within the block
+            parseError("Failed to parse statement within block.");
+            break;
+        }
+    }
+    expect(TOK_RCURLY_PAREN, "Expected '}' to close a block statement.");
+    logDebug("Successfully parsed block statement. Current token after '}'", &current);
+
+    blockNode->children.push_back(statementList);
+    return blockNode;
+}
+
+
 void Parser::logDebug(const std::string& message, const Token* token = nullptr) const
 {
     std::cout << "DEBUG: " << message;
@@ -202,6 +259,10 @@ ASTNode* Parser::parseStatement()
         // Add similar debug prints to other cases as they get implemented
         case TOK_NUMBER:
         case TOK_STRING:
+        case TOK_IF:
+            return parseIfStatement();
+        case TOK_LCURLY_PAREN:
+            return parseBlockStatement();
         case TOK_LPAREN: {
             ASTNode* expr = parseExpression();
             expect(TOK_SEMICOLON, "Expected ';' after expression statement.");

@@ -26,6 +26,8 @@ private:
     ASTNode* parseExpression();
     ASTNode* parseTypeSpecifier();
     ASTNode* parseVarDeclaration();
+    ASTNode* parseIfStatement();
+    ASTNode* parseBlockStatement();
     ASTNode* parseStatement();
 
 
