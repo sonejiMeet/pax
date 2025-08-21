@@ -3,6 +3,7 @@
 #include <string>
 
 enum TokenType {
+    TOK_ERROR,
 
     TOK_PRINT,
 
@@ -52,14 +53,13 @@ enum TokenType {
 
     TOK_END_OF_FILE,
 
-    TOK_UNKNOWN,
-    TOK_PEEK
+    TOK_UNKNOWN  // TODO: we should just exit lexing here with error saying Unkown token or smt
 };
 
 const char* tokenTypeToString(TokenType type);
 
 struct Token {
-    TokenType type;
+    TokenType type = TOK_ERROR;
 
     union {
         const char* value;

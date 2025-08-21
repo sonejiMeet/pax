@@ -2,9 +2,10 @@
 #include "token.h"
 #include <iostream>
 #include <vector>
-//CAC6B3FF
 
+//CAC6B3FF
 // F6F42EFF
+
 Parser::Parser(Lexer* l) : lexer(l) {
     current = lexer->nextToken();
 
@@ -52,7 +53,11 @@ ASTNode* Parser::parseFactor()
         expect(TOK_LPAREN, "Expected '(' for parenthesized expression.");
         ASTNode* expr = parseExpression();
         expect(TOK_RPAREN, "Expected ')' after expression in parentheses.");
-        return expr;
+        // Create a new AST node to explicitly represent the parentheses
+        ASTNode* paren_node = new ASTNode(AST_PARENTHESIZED_EXPR); // No associated token needed, it's structural
+        paren_node->children.push_back(expr); // The expression is its child
+        return paren_node;
+        // return expr;
     }
     parseError("Expected a number, identifier, or '(' for expression factor.");
     return nullptr; // Unreachable if parseError throws
@@ -166,19 +171,15 @@ void Parser::logDebug(const std::string& message, const Token* token = nullptr) 
 
 ASTNode* Parser::parseStatement()
 {
-    std::cout << "\n--- DEBUG: Entering parseStatement() ---" << std::endl; // Keep this one for high-level entry
-    logDebug("Current token at start of parseStatement", &current);
 
     switch (current.type) {
         case TOK_IDENTIFIER: {
-            logDebug("current.type is TOK_IDENTIFIER.");
             Token next = lexer->peekNextToken();
-            logDebug("Peeked token (next)", &next);
 
             if (next.type == TOK_COLON) {
-                logDebug("Next token is TOK_COLON. Calling parseVarDeclaration().");
                 return parseVarDeclaration();
             }
+
             // Fall-through if not a typed variable declaration
             logDebug("Identifier not followed by colon. Assuming expression statement.");
             ASTNode* expr = parseExpression();
@@ -189,7 +190,6 @@ ASTNode* Parser::parseStatement()
             return exprStatementNode;
         }
         case TOK_PRINT: {
-            logDebug("current.type is TOK_PRINT. Calling print statement logic.");
             Token printToken = current;
             advance();
             ASTNode* expr = parseExpression();
@@ -201,14 +201,9 @@ ASTNode* Parser::parseStatement()
         }
         // Add similar debug prints to other cases as they get implemented
         case TOK_NUMBER:
-            // Token intToken = current;
-            // advance();
-            // ASTNode* expr
         case TOK_STRING:
         case TOK_LPAREN: {
-            logDebug("current.type is an expression start. Calling parseExpression().");
             ASTNode* expr = parseExpression();
-            logDebug("parseExpression completed. Current token before semicolon check", &current);
             expect(TOK_SEMICOLON, "Expected ';' after expression statement.");
             ASTNode* exprStatementNode = new ASTNode(AST_EXPR_STMT);
             exprStatementNode->children.push_back(expr);
