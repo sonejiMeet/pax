@@ -1,9 +1,6 @@
 #include "lexer.h"
 
-#include <vector> // temp
-#include <chrono>
-
-
+#define MAX_NUM_STR_LEN 64
 
 Token Lexer::makeToken(TokenType type, const char* value, int row, int col) {
     Token t;
@@ -32,11 +29,11 @@ Token Lexer::makeIntToken(TokenType type, unsigned long long val, int row, int c
     return t;
 }
 
-Token Lexer::makeFloatToken(TokenType type, double val, int row, int col)
+Token Lexer::makeFloatToken(TokenType type, float val, int row, int col)
 {
     Token t;
     t.type = type;
-    t.float64_value = val;
+    t.float32_value = val;
     t.row = row;
     t.col = col;
     return t;
@@ -44,8 +41,8 @@ Token Lexer::makeFloatToken(TokenType type, double val, int row, int col)
 
 Token Lexer::stringToken(int row, int col)
 {
-    const char* startPtr = Source + Pos; // start after quote
-    while (Pos < size && Source[Pos] != '"') {
+    const char* startPtr = Source + Pos+1; // start after quote
+    while (Pos < size && Source[Pos+1] != '"') {
         get_and_advance();
     }
 
@@ -54,9 +51,9 @@ Token Lexer::stringToken(int row, int col)
         return makeToken(TOK_UNKNOWN, "", row, col);
     }
 
-    size_t len = (Source + Pos) - startPtr;
+    size_t len = (Source + Pos+1) - startPtr;
     get_and_advance();
-
+    get_and_advance();
     // make a copy of the string content
     unsigned char* str = (unsigned char*)malloc(len);
     memcpy(str, startPtr, len);
@@ -72,12 +69,92 @@ Token Lexer::stringToken(int row, int col)
 
 Token Lexer::numberToken(char first, int row, int col)
 {
-    unsigned long long val = first - '0'; // convert char to int
-    while (Pos < size && isdigit(Source[Pos])) {
-        val = val * 10 + (get_and_advance() - '0');
+    static char num_str_buffer[MAX_NUM_STR_LEN];
+
+    // unsigned long long val = first - '0'; // convert char to int
+    // while (Pos < size && isdigit(Source[Pos])) {
+    //     val = val * 10 + (get_and_advance() - '0');
+    // }
+    // return makeIntToken(TOK_NUMBER, val, row, col);
+
+    int buffer_idx = 0;
+
+    if (buffer_idx < MAX_NUM_STR_LEN - 1) {
+        num_str_buffer[buffer_idx++] = first;
+    } else {
+        fprintf(stderr, "Lexer Error: Number literal too long at line %d, col %d\n", row, col);
+        return makeToken(TOK_UNKNOWN, "", row, col);
     }
+
+    // Parse the integer part of the number
+    while (Pos < size && isNumeric(Source[Pos])) {
+        if (buffer_idx < MAX_NUM_STR_LEN - 1) {
+            num_str_buffer[buffer_idx++] = get_and_advance();
+        } else {
+            fprintf(stderr, "Lexer Error: Number literal too long at line %d, col %d\n", row, col);
+            while (Pos < size && isNumeric(Source[Pos])) get_and_advance();
+            return makeToken(TOK_UNKNOWN, "", row, col);
+        }
+    }
+
+    // Check for a decimal point to determine if it's a float
+    if (Pos < size && Source[Pos] == '.') {
+        if (buffer_idx < MAX_NUM_STR_LEN - 1) {
+            num_str_buffer[buffer_idx++] = get_and_advance(); // Consume the '.'
+        } else {
+            fprintf(stderr, "Lexer Error: Number literal too long (decimal part) at line %d, col %d\n", row, col);
+            return makeToken(TOK_UNKNOWN, "", row, col);
+        }
+
+        // Parse the fractional part
+        bool has_fractional_digits = false;
+        while (Pos < size && isNumeric(Source[Pos])) {
+            if (buffer_idx < MAX_NUM_STR_LEN - 1) {
+                num_str_buffer[buffer_idx++] = get_and_advance();
+                has_fractional_digits = true;
+            } else {
+                fprintf(stderr, "Lexer Error: Number literal too long (fractional part) at line %d, col %d\n", row, col);
+                while (Pos < size && isNumeric(Source[Pos])) get_and_advance();
+                return makeToken(TOK_UNKNOWN, "", row, col);
+            }
+        }
+
+        if (!has_fractional_digits && num_str_buffer[buffer_idx - 1] == '.') {
+            fprintf(stderr, "Lexer Error: Malformed float literal (missing fractional digits) at line %d, col %d\n", row, col);
+            return makeToken(TOK_UNKNOWN, "", row, col);
+        }
+
+        num_str_buffer[buffer_idx] = '\0'; // Null-terminate the buffer
+
+        // Convert to float using strtof
+        char* end_ptr;
+        float val = strtof(num_str_buffer, &end_ptr); // Use strtof for float conversion
+
+        if (*end_ptr != '\0') {
+            fprintf(stderr, "Lexer Error: Invalid float literal conversion at line %d, col %d\n", row, col);
+            return makeToken(TOK_UNKNOWN, num_str_buffer, row, col);
+        }
+
+        return makeFloatToken(TOK_FLOAT, val, row, col); // Pass float value
+    }
+
+    // If no decimal point, it's an integer
+    num_str_buffer[buffer_idx] = '\0';
+
+    char* end_ptr;
+    unsigned long long val = strtoull(num_str_buffer, &end_ptr, 10);
+
+    if (*end_ptr != '\0') {
+        fprintf(stderr, "Lexer Error: Invalid integer literal conversion at line %d, col %d\n", row, col);
+        return makeToken(TOK_UNKNOWN, num_str_buffer, row, col);
+    }
+
     return makeIntToken(TOK_NUMBER, val, row, col);
 }
+
+// Token Lexer::floatToken(char first, int row, int col)
+// {
+// }
 
 Token Lexer::identifierToken(char first, int row, int col)
 {
@@ -97,6 +174,7 @@ Token Lexer::identifierToken(char first, int row, int col)
 
     if (strcmp(ident, "printf") == 0) type = TOK_PRINT;
     else if (strcmp(ident, "if") == 0) type = TOK_IF;
+    else if (strcmp(ident, "else") == 0) type = TOK_ELSE;
     else if (strcmp(ident, "struct") == 0) type = TOK_STRUCT;
     else if (strcmp(ident, "int") == 0) type = TOK_TYPE_INT;
     else if (strcmp(ident, "float") == 0) type = TOK_TYPE_FLOAT;
