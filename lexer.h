@@ -19,8 +19,6 @@ struct Lexer
 
     }
 
-
-
     inline char get_and_advance() {
         char c = Source[Pos];
         ++Pos;

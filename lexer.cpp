@@ -93,7 +93,7 @@ Token Lexer::identifierToken(char first, int row, int col)
 
     TokenType type = TOK_IDENTIFIER;
 
-    printf("ident: %s\n", ident);
+    // printf("ident: %s\n", ident);
 
     if (strcmp(ident, "printf") == 0) type = TOK_PRINT;
     else if (strcmp(ident, "if") == 0) type = TOK_IF;
@@ -113,10 +113,7 @@ Token Lexer::identifierToken(char first, int row, int col)
 
 Token Lexer::nextToken()
 {
-    /*if(has_peeked) {
-        has_peeked = false;
-        return peeked_token;
-    }*/
+
     skipUnwantedChar();
 
     if (Pos >= size) {
@@ -166,7 +163,7 @@ Token Lexer::nextToken()
         case '/':
             if (match_and_advance('/')) return makeToken(TOK_COMMENT, "//", sRow, sCol);
             if(match_and_advance('*')) return makeToken(TOK_L_MULTILINE_COMMENT, "/*", sRow, sCol);
-
+            return makeToken(TOK_SLASH, "/", sRow, sCol);
             break;
 
 

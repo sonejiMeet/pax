@@ -27,6 +27,8 @@ enum ASTNodeType {
     AST_MEMBER_ACCESS,     //  struct access  `obj.member`
     AST_ARRAY_ACCESS,      // `arr[index]`
 
+    AST_PARENTHESIZED_EXPR, // ( a + b ) would be added as a parent node ( not sure if its a good idea to add a propiertary node since parenthesis does not actually hold that much of a value)
+
     // Statements
     AST_IF_STMT,
     AST_ELSE_CLAUSE,
@@ -60,6 +62,8 @@ inline std::string astNodeTypeToString(ASTNodeType type) {
         case AST_MEMBER_ACCESS: return "MemberAccess";
         case AST_ARRAY_ACCESS: return "ArrAccess";
 
+        case AST_PARENTHESIZED_EXPR: return "ParenthesizedExpr";
+        
         case AST_IF_STMT:     return "IfStmt";
         case AST_ELSE_CLAUSE: return "ElseClause";
         case AST_BLOCK_STMT: return "BlockStmt";
