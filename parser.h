@@ -11,13 +11,11 @@ struct Parser {
 
     Parser(Lexer* l);
 
-    // Token peekNextToken();
     void parseError(const std::string& message);
     void expect(TokenType expectedType, const std::string& errorMessage);
     void logDebug(const std::string& message, const Token* token) const;
     void advance();
 
-    // ASTNode* parseExpression();
     ASTNode* parseProgram();
 
 private:

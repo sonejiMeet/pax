@@ -10,9 +10,10 @@ Token Lexer::makeToken(TokenType type, const char* value, int row, int col) {
         || type == TOK_TYPE_BOOL ) {
 
         t.value = _strdup(value);
-
+        t.owns_value = true;
     } else {
         t.value = value;
+        t.owns_value = false;
     }
     t.row = row;
     t.col = col;
@@ -72,12 +73,6 @@ Token Lexer::numberToken(char first, int row, int col)
 {
     static char num_str_buffer[MAX_NUM_STR_LEN];
 
-    // unsigned long long val = first - '0'; // convert char to int
-    // while (Pos < size && isdigit(Source[Pos])) {
-    //     val = val * 10 + (get_and_advance() - '0');
-    // }
-    // return makeIntToken(TOK_NUMBER, val, row, col);
-
     int buffer_idx = 0;
 
     if (buffer_idx < MAX_NUM_STR_LEN - 1) {
@@ -98,7 +93,7 @@ Token Lexer::numberToken(char first, int row, int col)
         }
     }
 
-    // Check for a decimal point to determine if it's a float
+    // check for a decimal point (for float type)
     if (Pos < size && Source[Pos] == '.') {
         if (buffer_idx < MAX_NUM_STR_LEN - 1) {
             num_str_buffer[buffer_idx++] = get_and_advance(); // Consume the '.'
@@ -107,7 +102,7 @@ Token Lexer::numberToken(char first, int row, int col)
             return makeToken(TOK_UNKNOWN, "", row, col);
         }
 
-        // Parse the fractional part
+        // since its a float type parse  fractional part
         bool has_fractional_digits = false;
         while (Pos < size && isNumeric(Source[Pos])) {
             if (buffer_idx < MAX_NUM_STR_LEN - 1) {
@@ -122,11 +117,11 @@ Token Lexer::numberToken(char first, int row, int col)
 
         if (!has_fractional_digits && num_str_buffer[buffer_idx - 1] == '.') {
             fprintf(stderr, "Lexer Error: Malformed float literal (missing fractional digits) at line %d, col %d\n", row, col);
-            exit(1);
-            // return makeToken(TOK_UNKNOWN, "", row, col);
+            // exit(1); // lets not exit like this its bad
+            return makeToken(TOK_UNKNOWN, "", row, col);
         }
 
-        num_str_buffer[buffer_idx] = '\0'; // Null-terminate the buffer
+        num_str_buffer[buffer_idx] = '\0';
 
         // Convert to float using strtof
         char* end_ptr;

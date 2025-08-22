@@ -86,20 +86,29 @@ struct ASTNode
 
     ASTNode(ASTNodeType t, Token *tok = nullptr) : type(t), token(tok) {}
 
-    // ASTNode(ASTNodeType t) : type(t), token(nullptr) // we have to initialize token to defualt
-    //                                             // otherwise segfault !!!
-    //  {}
-
 
     ~ASTNode() {
         for (ASTNode* child : children) {
             delete child;
         }
         children.clear();
-        free(token); // if dynamically allocated
+
+        if (token) {
+            if (token->type == TOK_STRING && token->string_value.data) {
+                delete[] token->string_value.data;
+                token->string_value.data = nullptr;
+            } else if (token->owns_value) {
+                free((void*)token->value);
+                token->value = nullptr;
+            }
+
+            delete token;
+            token = nullptr;
+        }
     }
 
     std::string getTypeString() const {
         return astNodeTypeToString(type);
     }
 };
+

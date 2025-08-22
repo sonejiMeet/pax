@@ -3,6 +3,9 @@
 #include <crtdbg.h>
 
 
+
+#include "dbgnew.h"
+
 #include "token.h"
 #include "parser.h"
 #include "ast_printer.h"
@@ -12,7 +15,7 @@ inline void printLex(FileBuffer buf);
 inline void printParsing(FileBuffer buf);
 
 int main(int argc, char **args) {
-    _CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
+
     if (argc < 2) {
         fprintf(stderr, "Usage: %s <file>\n", args[0]);
         return 1;
@@ -33,6 +36,7 @@ int main(int argc, char **args) {
     printf("DONE. exiting..\n\n");
 
     free(buf.data);
+
     _CrtDumpMemoryLeaks();
     return 0;
 }
@@ -81,6 +85,38 @@ inline void printLex(FileBuffer buf){
 
 }
 
+void freeAST(ASTNode* node) {
+    if (!node) return;
+
+    // 1. Free children recursively
+    for (ASTNode* child : node->children) {
+        freeAST(child);
+    }
+
+    // 2. Free Token memory if allocated dynamically
+    if (node->token) {
+        Token* tok = node->token;
+
+        if (tok->type == TOK_STRING && tok->string_value.data) {
+            delete[] tok->string_value.data;  // free string buffer
+            tok->string_value.data = nullptr;
+        }
+
+        if ((tok->type == TOK_IDENTIFIER || tok->type == TOK_PRINT ||
+             tok->type == TOK_IF || tok->type == TOK_TYPE_INT ||
+             tok->type == TOK_TYPE_FLOAT || tok->type == TOK_TYPE_STRING ||
+             tok->type == TOK_TYPE_BOOL) &&
+            tok->value) {
+            delete[] tok->value;               // free identifier string
+            tok->value = nullptr;
+        }
+
+        delete tok;  // delete Token object itself
+    }
+
+    // 3. Delete the ASTNode
+    delete node;
+}
 
 
 inline void printParsing(FileBuffer buf){
@@ -93,5 +129,5 @@ inline void printParsing(FileBuffer buf){
     printAST(ast);
 
     delete ast;
-
+    // freeAST(ast);
 }

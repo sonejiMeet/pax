@@ -127,6 +127,7 @@ struct Token {
     int row;
     int col;
 
+    bool owns_value = false;
 };
 
 
