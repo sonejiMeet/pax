@@ -10,7 +10,7 @@ Parser::Parser(Lexer* l) : lexer(l) {
     current = lexer->nextToken();
 
     // (TEMP) for debugging
-    tempTokens.push_back(current);
+    // tempTokens.push_back(current);
 }
 
 void Parser::advance() {
@@ -18,7 +18,7 @@ void Parser::advance() {
     current = lexer->nextToken();
 
     // (TEMP) for debugging
-    tempTokens.push_back(current);
+    // tempTokens.push_back(current);
 }
 
 // Reports parsing errors and terminates execution.
@@ -27,7 +27,7 @@ void Parser::parseError(const std::string& message) {
     std::cerr << "Parsing Error: " <<  "Line[" << current.row << ":" << current.col << "] "  << message
               << " at token '" << current.value << "' (Type: "
               << tokenTypeToString(current.type) << ")" << std::endl;
-    throw std::runtime_error("Parsing failed due to syntax error.");
+    // throw std::runtime_error("Parsing failed due to syntax error.");
 }
 
 // Consumes an expected token, or reports an error if mismatch.
@@ -50,7 +50,6 @@ ASTNode* Parser::parseFactor()
     } else if (current.type == TOK_FLOAT) {
         ASTNode* node = new ASTNode(AST_FLOAT_LITERAL, current);
         advance();
-        std::cout << "inside  (current.type == TOK_FLOAT) \n";
         return node;
     }else if (current.type == TOK_IDENTIFIER){
         ASTNode* node = new ASTNode(AST_IDENTIFIER, current); // Use AST_IDENTIFIER for expression identifiers

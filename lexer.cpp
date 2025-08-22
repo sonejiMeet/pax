@@ -9,8 +9,8 @@ Token Lexer::makeToken(TokenType type, const char* value, int row, int col) {
         || type == TOK_TYPE_INT || type == TOK_TYPE_FLOAT || type == TOK_TYPE_STRING
         || type == TOK_TYPE_BOOL ) {
 
-        char* copy = _strdup(value);
-        t.value = copy;
+        t.value = _strdup(value);
+
     } else {
         t.value = value;
     }
@@ -54,7 +54,7 @@ Token Lexer::stringToken(int row, int col)
     size_t len = (Source + Pos+1) - startPtr;
     get_and_advance();
     get_and_advance();
-    // make a copy of the string content
+
     unsigned char* str = (unsigned char*)malloc(len);
     memcpy(str, startPtr, len);
 
@@ -64,6 +64,8 @@ Token Lexer::stringToken(int row, int col)
     t.string_value.count = len;
     t.row = row;
     t.col = col;
+
+    // free(str);
     return t;
 }
 
@@ -121,7 +123,8 @@ Token Lexer::numberToken(char first, int row, int col)
 
         if (!has_fractional_digits && num_str_buffer[buffer_idx - 1] == '.') {
             fprintf(stderr, "Lexer Error: Malformed float literal (missing fractional digits) at line %d, col %d\n", row, col);
-            return makeToken(TOK_UNKNOWN, "", row, col);
+            exit(1);
+            // return makeToken(TOK_UNKNOWN, "", row, col);
         }
 
         num_str_buffer[buffer_idx] = '\0'; // Null-terminate the buffer
@@ -170,7 +173,7 @@ Token Lexer::identifierToken(char first, int row, int col)
 
     TokenType type = TOK_IDENTIFIER;
 
-    // printf("ident: %s\n", ident);
+    printf("ident: %s\n", ident);
 
     if (strcmp(ident, "printf") == 0) type = TOK_PRINT;
     else if (strcmp(ident, "if") == 0) type = TOK_IF;
@@ -184,7 +187,6 @@ Token Lexer::identifierToken(char first, int row, int col)
     Token t = makeToken(type, ident, row, col);
 
     free(ident);
-
     return t;
 }
 
@@ -196,7 +198,6 @@ Token Lexer::nextToken()
 
     if (Pos >= size) {
         return makeToken(TOK_END_OF_FILE, "EOF", Row, Col);
-
     }
     int sRow = Row;
     int sCol = Col;
