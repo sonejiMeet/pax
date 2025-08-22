@@ -27,7 +27,8 @@ void Parser::parseError(const std::string& message) {
     std::cerr << "Parsing Error: " <<  "Line[" << current.row << ":" << current.col << "] "  << message
               << " at token '" << current.value << "' (Type: "
               << tokenTypeToString(current.type) << ")" << std::endl;
-    // throw std::runtime_error("Parsing failed due to syntax error.");
+
+    exit(1);
 }
 
 // Consumes an expected token, or reports an error if mismatch.
