@@ -149,10 +149,6 @@ Token Lexer::numberToken(char first, int row, int col)
     return makeIntToken(TOK_NUMBER, val, row, col);
 }
 
-// Token Lexer::floatToken(char first, int row, int col)
-// {
-// }
-
 Token Lexer::identifierToken(char first, int row, int col)
 {
     const char* startPtr = Source + Pos - 1;
@@ -167,7 +163,7 @@ Token Lexer::identifierToken(char first, int row, int col)
 
     TokenType type = TOK_IDENTIFIER;
 
-    printf("ident: %s\n", ident);
+    // printf("ident: %s\n", ident);
 
     if (strcmp(ident, "printf") == 0) type = TOK_PRINT;
     else if (strcmp(ident, "if") == 0) type = TOK_IF;
@@ -198,7 +194,7 @@ Token Lexer::nextToken()
 
     char c = get_and_advance();
 
-    // the String[Pos] pointer at this point is no longer on the same character as c above but the next character. This makes it simpler
+    // the String[Pos] pointer at this point is no longer on the same character as c above but the next character. its like consuming and moving forward
 
     switch (c) {
         case '(': return makeToken(TOK_LPAREN, "(", sRow, sCol);
@@ -246,7 +242,9 @@ Token Lexer::nextToken()
     if (isAlpha(c)) return identifierToken(c, sRow, sCol);
 
     // nothing matches
-    return makeToken(TOK_UNKNOWN, "", sRow, sCol);
+    // char buf[2] = { c, '\0' };
+    // printf("buf: '%s'\n", buf);
+    return makeToken(TOK_ERROR, "", sRow, sCol);
 
 }
 
