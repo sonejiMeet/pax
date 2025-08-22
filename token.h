@@ -77,7 +77,7 @@ inline const char* tokenTypeToString(TokenType type) {
         case TOK_NUMBER: return "TOK_NUMBER";
         case TOK_FLOAT: return "TOK_FLOAT";
         case TOK_STRING: return "TOK_STRING";
-        
+
         case TOK_LPAREN: return "TOK_LPAREN";
         case TOK_RPAREN: return "TOK_RPAREN";
         case TOK_LCURLY_PAREN: return "TOK_LCURLY_PAREN";
@@ -126,5 +126,6 @@ struct Token {
 
     int row;
     int col;
+
 };
 

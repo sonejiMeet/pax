@@ -9,5 +9,5 @@ s : string = "something";
 
 if(a == b) {
 
-    x : float = 1.232;
+    x : float = 232323.3;
 }
