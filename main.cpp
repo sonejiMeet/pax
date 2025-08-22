@@ -1,14 +1,18 @@
+#define _CRTDBG_MAP_ALLOC
+#include <cstdlib>
+#include <crtdbg.h>
+
+
 #include "token.h"
 #include "parser.h"
 #include "ast_printer.h"
 #include <chrono>
 
-#include <crtdbg.h>  // for detecting mem leaks
-
 inline void printLex(FileBuffer buf);
 inline void printParsing(FileBuffer buf);
 
 int main(int argc, char **args) {
+    _CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
     if (argc < 2) {
         fprintf(stderr, "Usage: %s <file>\n", args[0]);
         return 1;
@@ -19,52 +23,19 @@ int main(int argc, char **args) {
     FileBuffer buf = read_entire_file(args[1]);
     if (!buf.data) return 1;
 
-    printLex(buf);
-    // printParsing(buf);
+    // printLex(buf);
+    printParsing(buf);
 
     auto end = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> elapsed = end - start;
 
     printf("\nTime: %.6f seconds\n", elapsed.count());
     printf("DONE. exiting..\n\n");
-    free(buf.data);
 
+    free(buf.data);
     _CrtDumpMemoryLeaks();
     return 0;
 }
-void freeToken(Token& t) {
-    switch (t.type) {
-        case TOK_IDENTIFIER:
-        case TOK_PRINT:
-        case TOK_IF:
-        case TOK_ELSE:
-        case TOK_STRUCT:
-        case TOK_TYPE_INT:
-        case TOK_TYPE_FLOAT:
-        case TOK_TYPE_STRING:
-        case TOK_TYPE_BOOL:
-        case TOK_UNKNOWN:
-            if (t.value) {
-                free((void*)t.value);
-                t.value = nullptr;
-            }
-            break;
-
-        case TOK_STRING:
-            if (t.string_value.data) {
-                free(t.string_value.data);
-                t.string_value.data = nullptr;
-                t.string_value.count = 0;
-            }
-            break;
-
-        default:
-            // numbers and operators have nothing to free
-            break;
-    }
-}
-
-
 
 inline void printLex(FileBuffer buf){
 
@@ -110,6 +81,8 @@ inline void printLex(FileBuffer buf){
 
 }
 
+
+
 inline void printParsing(FileBuffer buf){
 
     Lexer lexer((const char*)buf.data, buf.size);
@@ -118,5 +91,7 @@ inline void printParsing(FileBuffer buf){
 
     ASTNode* ast = parser.parseProgram();
     printAST(ast);
+
+    delete ast;
 
 }

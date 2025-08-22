@@ -81,18 +81,22 @@ inline std::string astNodeTypeToString(ASTNodeType type) {
 struct ASTNode
 {
     ASTNodeType type;
-    Token token;
-    std::vector<ASTNode*> children;
+    Token *token;
+    std::vector<ASTNode *> children;
 
-    ASTNode(ASTNodeType t, const Token& tok) : type(t), token(tok) {}
+    ASTNode(ASTNodeType t, Token *tok = nullptr) : type(t), token(tok) {}
 
-    ASTNode(ASTNodeType t) : type(t), token({}) // we have to initialize token to defualt
-                                                // otherwise segfault !!!
-     {}
+    // ASTNode(ASTNodeType t) : type(t), token(nullptr) // we have to initialize token to defualt
+    //                                             // otherwise segfault !!!
+    //  {}
 
 
     ~ASTNode() {
-        for (auto* child : children) delete child;
+        for (ASTNode* child : children) {
+            delete child;
+        }
+        children.clear();
+        free(token); // if dynamically allocated
     }
 
     std::string getTypeString() const {
