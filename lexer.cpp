@@ -65,7 +65,6 @@ Token Lexer::stringToken(int row, int col)
     t.row = row;
     t.col = col;
 
-    // free(str);
     return t;
 }
 

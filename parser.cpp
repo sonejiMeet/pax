@@ -44,15 +44,15 @@ void Parser::expect(TokenType expectedType, const std::string& errorMessage)
 ASTNode* Parser::parseFactor()
 {
     if (current.type == TOK_NUMBER){
-        ASTNode* node = new ASTNode(AST_NUMBER_LITERAL, current);
+        ASTNode* node = new ASTNode(AST_NUMBER_LITERAL, new Token(current));
         advance();
         return node;
     } else if (current.type == TOK_FLOAT) {
-        ASTNode* node = new ASTNode(AST_FLOAT_LITERAL, current);
+        ASTNode* node = new ASTNode(AST_FLOAT_LITERAL, new Token(current));
         advance();
         return node;
     }else if (current.type == TOK_IDENTIFIER){
-        ASTNode* node = new ASTNode(AST_IDENTIFIER, current); // Use AST_IDENTIFIER for expression identifiers
+        ASTNode* node = new ASTNode(AST_IDENTIFIER, new Token(current)); // Use AST_IDENTIFIER for expression identifiers
         advance();
         return node;
     } else if (current.type == TOK_LPAREN){
@@ -64,7 +64,7 @@ ASTNode* Parser::parseFactor()
         paren_node->children.push_back(expr); // The expression is its child
         return paren_node;
     } else if (current.type == TOK_STRING ){
-        ASTNode* node = new ASTNode(AST_STRING_LITERAL, current);
+        ASTNode* node = new ASTNode(AST_STRING_LITERAL, new Token(current));
         advance();
         return node;
     }
@@ -83,7 +83,7 @@ ASTNode* Parser::parseTerm()
         advance();
         ASTNode* right = parseFactor();
 
-        ASTNode* node = new ASTNode(AST_BINARY_EXPR, op);
+        ASTNode* node = new ASTNode(AST_BINARY_EXPR, new Token(op));
         node->children.push_back(left);
         node->children.push_back(right);
 
@@ -106,7 +106,7 @@ ASTNode* Parser::parseExpression()
         advance();
         ASTNode* right = parseTerm();
 
-        ASTNode* node = new ASTNode(AST_BINARY_EXPR, op);
+        ASTNode* node = new ASTNode(AST_BINARY_EXPR, new Token(op));
         node->children.push_back(left);
         node->children.push_back(right);
 
@@ -126,7 +126,7 @@ ASTNode* Parser::parseTypeSpecifier()
     advance(); // Consume the type keyword
 
     // Create an AST_TYPE_SPECIFIER node, associating it with the type token
-    return new ASTNode(AST_TYPE_SPECIFIER, typeToken);
+    return new ASTNode(AST_TYPE_SPECIFIER, new Token(typeToken));
 }
 
 // Parses a variable declaration statement (e.g., `identifier = expression;`).
@@ -158,7 +158,7 @@ ASTNode* Parser::parseVarDeclaration()
 
     expect(TOK_SEMICOLON, "Expected ';' after variable declaration.");
 
-    ASTNode* varDeclNode = new ASTNode(AST_VAR_DECL, varNameToken); // Using AST_VAR_DECL
+    ASTNode* varDeclNode = new ASTNode(AST_VAR_DECL, new Token(varNameToken)); // Using AST_VAR_DECL
     varDeclNode->children.push_back(typeSpecifierNode);
 
     if (initializerExpr) {
@@ -178,7 +178,7 @@ ASTNode* Parser::parseIfStatement(){
 
     ASTNode* thenBranch = parseStatement();
 
-    ASTNode* ifStatementNode = new ASTNode(AST_IF_STMT, ifToken);
+    ASTNode* ifStatementNode = new ASTNode(AST_IF_STMT, new Token(ifToken));
     ifStatementNode->children.push_back(condition);
     ifStatementNode->children.push_back(thenBranch);
 
@@ -251,8 +251,9 @@ ASTNode* Parser::parseStatement()
             ASTNode* expr = parseExpression();
             expect(TOK_SEMICOLON, "Expected ';' after print statement.");
 
-            ASTNode* printStatementNode = new ASTNode(AST_PRINT_STMT, printToken);
+            ASTNode* printStatementNode = new ASTNode(AST_PRINT_STMT, new Token(printToken));
             printStatementNode->children.push_back(expr);
+
             return printStatementNode;
         }
         // Add similar debug prints to other cases as they get implemented

@@ -11,3 +11,5 @@ if(a == b) {
 
     x : float = 232323.3;
 }
+
+printf();

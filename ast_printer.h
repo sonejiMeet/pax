@@ -17,30 +17,28 @@ inline void printAST(const ASTNode* node, std::string indent = "", bool isLast =
             std::cout << "|-- ";  // not last
     }
 
-    // Print node type
     std::cout << astNodeTypeToString(node->type);
 
-    // Print extra info only if relevant
     switch (node->type) {
         case AST_IDENTIFIER:
-            std::cout << " (" << node->token.value << ")";
+            std::cout << " (" << node->token->value << ")";
             break;
         case AST_NUMBER_LITERAL:
-            std::cout << " (" << node->token.int_value << ")";
+            std::cout << " (" << node->token->int_value << ")";
             break;
         case AST_FLOAT_LITERAL:
-            std::cout << " (" << node->token.float32_value << ")";
+            std::cout << " (" << node->token->float32_value << ")";
             break;
         case AST_STRING_LITERAL:
             std::cout << " (\""
-                      << std::string((char*)node->token.string_value.data,
-                                     node->token.string_value.count)
+                      << std::string((char*)node->token->string_value.data,
+                                     node->token->string_value.count)
                       << "\")";
             break;
 
         default:
-            if (node->token.value) {
-                std::cout << " (\"" << node->token.value << "\")";
+            if (node->token) { // checking for nullptr
+                std::cout << " (\"" << node->token->value << "\")";
             }
             break;
     }
