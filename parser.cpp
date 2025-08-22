@@ -235,7 +235,6 @@ ASTNode* Parser::parseStatement()
             if (next.type == TOK_COLON) {
                 return parseVarDeclaration();
             }
-
             // Fall-through if not a typed variable declaration
             logDebug("Identifier not followed by colon. Assuming expression statement.");
             ASTNode* expr = parseExpression();
@@ -277,30 +276,25 @@ ASTNode* Parser::parseStatement()
     }
 }
 
-// Parses the entire program, which is a list of statements.
-// This is the top-level parsing function you'd call from main.
+
 ASTNode* Parser::parseProgram()
 {
-    // Create the root node for the entire program
     ASTNode* programNode = new ASTNode(AST_PROGRAM);
 
-    // Create a node to hold all statements within the program
     ASTNode* statementList = new ASTNode(AST_STATEMENT_LIST);
 
-    // Continuously parse statements until the end of the input file is reached.
-    while (current.type != TOK_END_OF_FILE) {
-        ASTNode* statement = parseStatement(); // Parse a single statement
-        if (statement) {
-            // Add the parsed statement as a child to the statement list
+    while (current.type != TOK_END_OF_FILE)
+    {
+        ASTNode* statement = parseStatement();
+        if (statement){
             statementList->children.push_back(statement);
         } else {
-            // This 'else' block should ideally not be reached if parseError throws an exception.
-            // It acts as a safeguard.
             parseError("Failed to parse a statement within the program.");
-            break; // Exit loop on unrecoverable error
+            break;
         }
     }
-    // Add the list of statements as a child of the program node
     programNode->children.push_back(statementList);
-    return programNode; // Return the root of the AST
+    return programNode;
 }
+
+
