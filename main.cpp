@@ -13,6 +13,8 @@ inline void printParsing(FileBuffer buf);
 
 int main(int argc, char **args) {
 
+    _CrtSetDbgFlag ( _CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF ); // to avoid when there are
+
     if (argc < 2) {
         fprintf(stderr, "Usage: %s <file>\n", args[0]);
         return 1;
@@ -34,7 +36,8 @@ int main(int argc, char **args) {
 
     free(buf.data);
 
-    _CrtDumpMemoryLeaks();
+    _CrtSetReportMode(_CRT_WARN, _CRTDBG_MODE_DEBUG);
+    // _CrtDumpMemoryLeaks();
     return 0;
 }
 
@@ -53,7 +56,7 @@ inline void printLex(FileBuffer buf){
                 printf("Value: \"%llu\"\n", tok.int_value);
                 break;
             case TOK_FLOAT:
-                printf("Value: \"%.5f\"\n", tok.float32_value);
+                printf("Value: \"%f\"\n", tok.float32_value);
                 break;
 
                 // printf("Value: \"%c\"\n",(char)tok.value);

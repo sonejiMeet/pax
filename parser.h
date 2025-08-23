@@ -3,13 +3,13 @@
 #include "ast.h"
 
 struct Parser {
-    Lexer* lexer;
+    Lexer *lexer;
     Token current;
 
     // (TEMP) for debugging
     std::vector<Token> tempTokens;
 
-    Parser(Lexer* l);
+    Parser(Lexer *l);
 
     void parseError(const std::string& message);
     void expect(TokenType expectedType, const std::string& errorMessage);
