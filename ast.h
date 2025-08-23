@@ -95,7 +95,7 @@ struct ASTNode
 
         if (token) {
             if (token->type == TOK_STRING && token->string_value.data) {
-                delete[] token->string_value.data;
+                free((void*)token->string_value.data);
                 token->string_value.data = nullptr;
             } else if (token->owns_value) {
                 free((void*)token->value);

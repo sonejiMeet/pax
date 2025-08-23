@@ -5,6 +5,13 @@
 
 //CAC6B3FF
 // F6F42EFF
+#ifdef _DEBUG
+    #define DBG_NEW new ( _NORMAL_BLOCK , __FILE__ , __LINE__ )
+    // Replace _NORMAL_BLOCK with _CLIENT_BLOCK if you want the
+    // allocations to be of _CLIENT_BLOCK type
+#else
+    #define DBG_NEW new
+#endif
 
 Parser::Parser(Lexer* l) : lexer(l) {
     current = lexer->nextToken();
@@ -45,27 +52,27 @@ void Parser::expect(TokenType expectedType, const std::string& errorMessage)
 ASTNode* Parser::parseFactor()
 {
     if (current.type == TOK_NUMBER){
-        ASTNode* node = new ASTNode(AST_NUMBER_LITERAL, new Token(current));
+        ASTNode* node = DBG_NEW ASTNode(AST_NUMBER_LITERAL, DBG_NEW Token(current));
         advance();
         return node;
     } else if (current.type == TOK_FLOAT) {
-        ASTNode* node = new ASTNode(AST_FLOAT_LITERAL, new Token(current));
+        ASTNode* node = DBG_NEW ASTNode(AST_FLOAT_LITERAL, DBG_NEW Token(current));
         advance();
         return node;
     }else if (current.type == TOK_IDENTIFIER){
-        ASTNode* node = new ASTNode(AST_IDENTIFIER, new Token(current)); // Use AST_IDENTIFIER for expression identifiers
+        ASTNode* node = DBG_NEW ASTNode(AST_IDENTIFIER, DBG_NEW Token(current)); // Use AST_IDENTIFIER for expression identifiers
         advance();
         return node;
     } else if (current.type == TOK_LPAREN){
         expect(TOK_LPAREN, "Expected '(' for parenthesized expression.");
         ASTNode* expr = parseExpression();
         expect(TOK_RPAREN, "Expected ')' after expression in parentheses.");
-        // Create a new AST node to explicitly represent the parentheses
-        ASTNode* paren_node = new ASTNode(AST_PARENTHESIZED_EXPR); // No associated token needed, it's structural
+        // Create a DBG_NEW AST node to explicitly represent the parentheses
+        ASTNode* paren_node = DBG_NEW ASTNode(AST_PARENTHESIZED_EXPR); // No associated token needed, it's structural
         paren_node->children.push_back(expr); // The expression is its child
         return paren_node;
     } else if (current.type == TOK_STRING ){
-        ASTNode* node = new ASTNode(AST_STRING_LITERAL, new Token(current));
+        ASTNode* node = DBG_NEW ASTNode(AST_STRING_LITERAL, DBG_NEW Token(current));
         advance();
         return node;
     }
@@ -84,7 +91,7 @@ ASTNode* Parser::parseTerm()
         advance();
         ASTNode* right = parseFactor();
 
-        ASTNode* node = new ASTNode(AST_BINARY_EXPR, new Token(op));
+        ASTNode* node = DBG_NEW ASTNode(AST_BINARY_EXPR, DBG_NEW Token(op));
         node->children.push_back(left);
         node->children.push_back(right);
 
@@ -107,7 +114,7 @@ ASTNode* Parser::parseExpression()
         advance();
         ASTNode* right = parseTerm();
 
-        ASTNode* node = new ASTNode(AST_BINARY_EXPR, new Token(op));
+        ASTNode* node = DBG_NEW ASTNode(AST_BINARY_EXPR, DBG_NEW Token(op));
         node->children.push_back(left);
         node->children.push_back(right);
 
@@ -127,7 +134,7 @@ ASTNode* Parser::parseTypeSpecifier()
     advance(); // Consume the type keyword
 
     // Create an AST_TYPE_SPECIFIER node, associating it with the type token
-    return new ASTNode(AST_TYPE_SPECIFIER, new Token(typeToken));
+    return DBG_NEW ASTNode(AST_TYPE_SPECIFIER, DBG_NEW Token(typeToken));
 }
 
 // Parses a variable declaration statement (e.g., `identifier = expression;`).
@@ -159,7 +166,7 @@ ASTNode* Parser::parseVarDeclaration()
 
     expect(TOK_SEMICOLON, "Expected ';' after variable declaration.");
 
-    ASTNode* varDeclNode = new ASTNode(AST_VAR_DECL, new Token(varNameToken)); // Using AST_VAR_DECL
+    ASTNode* varDeclNode = DBG_NEW ASTNode(AST_VAR_DECL, DBG_NEW Token(varNameToken)); // Using AST_VAR_DECL
     varDeclNode->children.push_back(typeSpecifierNode);
 
     if (initializerExpr) {
@@ -179,7 +186,7 @@ ASTNode* Parser::parseIfStatement(){
 
     ASTNode* thenBranch = parseStatement();
 
-    ASTNode* ifStatementNode = new ASTNode(AST_IF_STMT, new Token(ifToken));
+    ASTNode* ifStatementNode = DBG_NEW ASTNode(AST_IF_STMT, DBG_NEW Token(ifToken));
     ifStatementNode->children.push_back(condition);
     ifStatementNode->children.push_back(thenBranch);
 
@@ -190,11 +197,11 @@ ASTNode* Parser::parseIfStatement(){
 
 // Parses a block of statements enclosed in curly braces: '{ StatementList }'
 ASTNode* Parser::parseBlockStatement() {
-    logDebug("Entering parseBlockStatement(). Current token", &current);
+    // logDebug("Entering parseBlockStatement(). Current token", &current);
     expect(TOK_LCURLY_PAREN, "Expected '{' to start a block statement.");
 
-    ASTNode* blockNode = new ASTNode(AST_BLOCK_STMT);
-    ASTNode* statementList = new ASTNode(AST_STATEMENT_LIST); // Block contains a list of statements
+    ASTNode* blockNode = DBG_NEW ASTNode(AST_BLOCK_STMT);
+    ASTNode* statementList = DBG_NEW ASTNode(AST_STATEMENT_LIST); // Block contains a list of statements
 
     // Parse statements until a closing curly brace or EOF
     while (current.type != TOK_RCURLY_PAREN && current.type != TOK_END_OF_FILE) {
@@ -208,7 +215,7 @@ ASTNode* Parser::parseBlockStatement() {
         }
     }
     expect(TOK_RCURLY_PAREN, "Expected '}' to close a block statement.");
-    logDebug("Successfully parsed block statement. Current token after '}'", &current);
+    // logDebug("Successfully parsed block statement. Current token after '}'", &current);
 
     blockNode->children.push_back(statementList);
     return blockNode;
@@ -237,11 +244,11 @@ ASTNode* Parser::parseStatement()
                 return parseVarDeclaration();
             }
             // Fall-through if not a typed variable declaration
-            logDebug("Identifier not followed by colon. Assuming expression statement.");
+            // logDebug("Identifier not followed by colon. Assuming expression statement.");
             ASTNode* expr = parseExpression();
-            logDebug("parseExpression completed. Current token before semicolon check", &current);
+            // logDebug("parseExpression completed. Current token before semicolon check", &current);
             expect(TOK_SEMICOLON, "Expected ';' after expression statement.");
-            ASTNode* exprStatementNode = new ASTNode(AST_EXPR_STMT);
+            ASTNode* exprStatementNode = DBG_NEW ASTNode(AST_EXPR_STMT);
             exprStatementNode->children.push_back(expr);
             return exprStatementNode;
         }
@@ -251,7 +258,7 @@ ASTNode* Parser::parseStatement()
             ASTNode* expr = parseExpression();
             expect(TOK_SEMICOLON, "Expected ';' after print statement.");
 
-            ASTNode* printStatementNode = new ASTNode(AST_PRINT_STMT, new Token(printToken));
+            ASTNode* printStatementNode = DBG_NEW ASTNode(AST_PRINT_STMT, DBG_NEW Token(printToken));
             printStatementNode->children.push_back(expr);
 
             return printStatementNode;
@@ -266,12 +273,12 @@ ASTNode* Parser::parseStatement()
         case TOK_LPAREN: {
             ASTNode* expr = parseExpression();
             expect(TOK_SEMICOLON, "Expected ';' after expression statement.");
-            ASTNode* exprStatementNode = new ASTNode(AST_EXPR_STMT);
+            ASTNode* exprStatementNode = DBG_NEW ASTNode(AST_EXPR_STMT);
             exprStatementNode->children.push_back(expr);
             return exprStatementNode;
         }
         default:
-            logDebug("Unexpected token at start of statement in default case", &current);
+            // logDebug("Unexpected token at start of statement in default case", &current);
             parseError("Unexpected token at start of statement: " );
             return nullptr;
     }
@@ -280,9 +287,9 @@ ASTNode* Parser::parseStatement()
 
 ASTNode* Parser::parseProgram()
 {
-    ASTNode* programNode = new ASTNode(AST_PROGRAM);
+    ASTNode* programNode = DBG_NEW ASTNode(AST_PROGRAM);
 
-    ASTNode* statementList = new ASTNode(AST_STATEMENT_LIST);
+    ASTNode* statementList = DBG_NEW ASTNode(AST_STATEMENT_LIST);
 
     while (current.type != TOK_END_OF_FILE)
     {

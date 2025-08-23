@@ -7,11 +7,9 @@ num : int = a + 5;
 
 s : string = "something";
 
+
 if(a == b) {
 
-    x : float = 232323.3;
+    x : float = 23234.34;
 }
 
-printf();
-
-@
