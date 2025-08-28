@@ -93,9 +93,8 @@ inline void printParsing(FileBuffer buf){
 
     Parser parser(&lexer);
 
-    ASTNode* ast = parser.parseProgram();
-    printAST(ast);
-
+    Ast_Block* ast = parser.parseProgram();
+    printAst(ast);
     delete ast;
 
 }

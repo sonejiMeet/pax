@@ -1,0 +1,132 @@
+Program
+    `-- StatementList
+        |-- VarDecl ("a")
+        |   |-- TypeSpecifier ("int")
+        |   `-- BinaryExpr ("/")
+        |       |-- ParenthesizedExpr
+        |       |   `-- BinaryExpr ("+")
+        |       |       |-- BinaryExpr ("+")
+        |       |       |   |-- Number (1)
+        |       |       |   `-- BinaryExpr ("*")
+        |       |       |       |-- BinaryExpr ("*")
+        |       |       |       |   |-- Number (2)
+        |       |       |       |   `-- Number (3)
+        |       |       |       `-- Number (4)
+        |       |       `-- Number (5)
+        |       `-- Number (2)
+        |-- VarDecl ("b")
+        |   |-- TypeSpecifier ("int")
+        |   `-- BinaryExpr ("*")
+        |       |-- ParenthesizedExpr
+        |       |   `-- BinaryExpr ("+")
+        |       |       |-- Number (4)
+        |       |       `-- Number (5)
+        |       `-- Number (2)
+        |-- VarDecl ("c")
+        |   |-- TypeSpecifier ("int")
+        |   `-- BinaryExpr ("+")
+        |       |-- BinaryExpr ("*")
+        |       |   |-- Number (5)
+        |       |   `-- Number (2)
+        |       `-- Number (4)
+        |-- VarDecl ("d")
+        |   |-- TypeSpecifier ("int")
+        |   `-- BinaryExpr ("/")
+        |       |-- BinaryExpr ("*")
+        |       |   |-- Number (5)
+        |       |   `-- Number (2)
+        |       `-- Number (4)
+        |-- VarDecl ("e")
+        |   |-- TypeSpecifier ("int")
+        |   `-- BinaryExpr ("*")
+        |       |-- BinaryExpr ("/")
+        |       |   |-- Number (2)
+        |       |   `-- Number (4)
+        |       `-- Number (5)
+        |-- VarDecl ("num")
+        |   |-- TypeSpecifier ("int")
+        |   `-- BinaryExpr ("+")
+        |       |-- Identifier (a)
+        |       `-- Number (5)
+        |-- VarDecl ("s")
+        |   |-- TypeSpecifier ("string")
+        |   `-- String ("something")
+        `-- IfStmt ("if")
+            |-- BinaryExpr ("==")
+            |   |-- Identifier (a)
+            |   `-- Identifier (b)
+            `-- BlockStmt
+                `-- StatementList
+                    `-- VarDecl ("x")
+                        |-- TypeSpecifier ("float")
+                        `-- Float (23234.3)
+
+
+
+
+
+
+
+
+    Block {
+      Declaration: a : int
+        Initializer:
+          Binary Expression: /
+            Binary Expression: +
+              Binary Expression: +
+                Literal: 1
+                Binary Expression: *
+                  Binary Expression: *
+                    Literal: 2
+                    Literal: 3
+                  Literal: 4
+              Literal: 5
+            Literal: 2
+      Declaration: b : int
+        Initializer:
+          Binary Expression: *
+            Binary Expression: +
+              Literal: 4
+              Literal: 5
+            Literal: 2
+      Declaration: c : int
+        Initializer:
+          Binary Expression: +
+            Binary Expression: *
+              Literal: 5
+              Literal: 2
+            Literal: 4
+      Declaration: d : int
+        Initializer:
+          Binary Expression: /
+            Binary Expression: *
+              Literal: 5
+              Literal: 2
+            Literal: 4
+      Declaration: e : int
+        Initializer:
+          Binary Expression: *
+            Binary Expression: /
+              Literal: 2
+              Literal: 4
+            Literal: 5
+      Declaration: num : int
+        Initializer:
+          Binary Expression: +
+            Identifier: a
+            Literal: 5
+      Declaration: s : string
+        Initializer:
+          Literal: "something"
+      If Statement
+        Condition:
+          Binary Expression: ==
+            Identifier: a
+            Identifier: b
+        Then:
+          Block {
+            Declaration: x : float
+              Initializer:
+                Literal: 23234.3
+          }
+    }

@@ -1,0 +1,1 @@
+cl /Zi /w /EHsc /nologo main.cpp lexer.cpp parser.cpp token.cpp tools.cpp /link
