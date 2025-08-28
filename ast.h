@@ -2,113 +2,190 @@
 #include <string>
 #include <vector>
 
-// Forward declare Token (from lexer)
 struct Token;
 
-enum ASTNodeType {
-    AST_PROGRAM,           //  root of the AST
-    AST_STATEMENT_LIST,    // A container for a sequence of statements
+enum Ast_Type {
+    AST_UNKNOWN,
+    AST_BLOCK,
+    AST_IDENT,
+    AST_STATEMENT,
+    AST_EXPRESSION,
+    AST_BINARY,
+    AST_IF,
+    AST_WHILE,
+    AST_LITERAL,
+    AST_DECLARATION,
+    AST_PROCEDURE_CALL_EXPRESSION,
+    AST_COMMA_SEPARATED_ARGS,
 
-    AST_VAR_DECL,   // int x = 10;
-    AST_FUNCTION_DECL,     //  function declarations
-    AST_STRUCT_DECL,       //  struct type declarations
-
-    AST_TYPE_SPECIFIER,
-
-    // Expressions
-    AST_BINARY_EXPR,       // `a + b`, `x == y`
-    AST_UNARY_EXPR,        // `-x`, `!flag`
-    AST_NUMBER_LITERAL,    // `123`
-    AST_FLOAT_LITERAL,
-    AST_STRING_LITERAL,    //  `"hello"`
-    AST_BOOLEAN_LITERAL,   //  `true`, `false`
-    AST_IDENTIFIER,        //  `myVar`
-    AST_ASSIGNMENT,        //  `x = value`
-    AST_CALL_EXPR,         //  function or method calls `print("hi")`
-    AST_MEMBER_ACCESS,     //  struct access  `obj.member`
-    AST_ARRAY_ACCESS,      // `arr[index]`
-
-    AST_PARENTHESIZED_EXPR, // ( a + b ) would be added as a parent node ( not sure if its a good idea to add a propiertary node since parenthesis does not actually hold that much of a value because we already create proper AST)
-
-    // Statements
-    AST_IF_STMT,
-    AST_ELSE_CLAUSE,
-    AST_BLOCK_STMT,   //  block of code in curly braces {  }
-    AST_RETURN_STMT,  //  return statement in a function
-    AST_EXPR_STMT,    // Node for an expression treated as a standalone statement (e.g., `x + 5;`)
-    AST_PRINT_STMT,   // print keyword
-
-
-    AST_UNKNOWN
 };
 
-inline std::string astNodeTypeToString(ASTNodeType type) {
+inline std::string astTypeToString(Ast_Type type) {
     switch (type) {
-        case AST_PROGRAM:     return "Program";
-        case AST_STATEMENT_LIST: return "StatementList";
-        case AST_VAR_DECL: return "VarDecl";
-        case AST_FUNCTION_DECL: return "FuncDecl";
-        case AST_STRUCT_DECL:  return "StructDef";
-
-        case AST_TYPE_SPECIFIER: return "TypeSpecifier";
-
-        case AST_BINARY_EXPR: return "BinaryExpr";
-        case AST_UNARY_EXPR: return "UnaryExpr";
-        case AST_NUMBER_LITERAL: return "Number";
-        case AST_FLOAT_LITERAL: return "Float";
-        case AST_STRING_LITERAL: return "String";
-        case AST_BOOLEAN_LITERAL: return "BoolLiter";
-        case AST_IDENTIFIER:  return "Identifier";
-        case AST_ASSIGNMENT: return "Assign";
-        case AST_CALL_EXPR: return "CallExpr";
-        case AST_MEMBER_ACCESS: return "MemberAccess";
-        case AST_ARRAY_ACCESS: return "ArrAccess";
-
-        case AST_PARENTHESIZED_EXPR: return "ParenthesizedExpr";
-
-        case AST_IF_STMT:     return "IfStmt";
-        case AST_ELSE_CLAUSE: return "ElseClause";
-        case AST_BLOCK_STMT: return "BlockStmt";
-        case AST_RETURN_STMT: return "ReturnStmt";
-        case AST_EXPR_STMT: return "ExprStmt";
-        case AST_PRINT_STMT:  return "PrintStmt";
-
-        case AST_UNKNOWN:     return "Unknown";
-        default:              return "??";
+        case AST_BLOCK:          return "Block";
+        case AST_IDENT:          return "Identifier";
+        case AST_STATEMENT:      return "Statement";
+        case AST_EXPRESSION:     return "Expression";
+        case AST_BINARY:         return "BinaryExpr";
+        case AST_IF:             return "IfStmt";
+        case AST_WHILE:             return "WhileStmt";
+        case AST_LITERAL:        return "Literal";
+        case AST_DECLARATION:    return "Declaration";
+        case AST_PROCEDURE_CALL_EXPRESSION:    return "ProcCallExpr";
+        case AST_COMMA_SEPARATED_ARGS: return "CommaSeparatedArg";
+        default:                 return "Unknown";
     }
 }
 
-struct ASTNode
-{
-    ASTNodeType type;
-    Token *token;
-    std::vector<ASTNode *> children;
+struct Ast {
+    Ast_Type type = AST_UNKNOWN;
+    int line_number = 0;
+    int character_number = 0;
 
-    ASTNode(ASTNodeType t, Token *tok = nullptr) : type(t), token(tok) {}
-
-
-    ~ASTNode() {
-        for (ASTNode* child : children) {
-            delete child;
-        }
-        children.clear();
-
-        if (token) {
-            if (token->type == TOK_STRING && token->string_value.data) {
-                free((void*)token->string_value.data);
-                token->string_value.data = nullptr;
-            } else if (token->owns_value) {
-                free((void*)token->value);
-                token->value = nullptr;
-            }
-
-            delete token;
-            token = nullptr;
-        }
-    }
+    virtual ~Ast() = default;
 
     std::string getTypeString() const {
-        return astNodeTypeToString(type);
+        return astTypeToString(type);
     }
 };
 
+// ==================================================
+// Statements & Expressions
+// ==================================================
+struct Ast_Statement : public Ast {
+    Ast_Statement() { type = AST_STATEMENT; }
+    struct Ast_Type_Definition *type_definition = nullptr;
+    struct Ast_Expression *expression = nullptr;
+    struct Ast_Block *block = nullptr;
+};
+
+struct Ast_Expression : public Ast {
+    Ast_Expression() { type = AST_EXPRESSION; }
+};
+
+struct Ast_Comma_Separated_Args : public Ast_Expression {
+    Ast_Comma_Separated_Args() { type = AST_COMMA_SEPARATED_ARGS; }
+    std::vector<Ast_Expression *> arguments;
+};
+// ==================================================
+// Literals & Identifiers
+// ==================================================
+
+enum Value_Type {
+    LITERAL_UNINITIALIZED,
+    LITERAL_NUMBER,
+    LITERAL_STRING,
+    LITERAL_FLOAT,
+};
+
+struct Ast_Literal : public Ast_Expression {
+    Ast_Literal() { type = AST_LITERAL; }
+
+    Value_Type value_type = LITERAL_UNINITIALIZED;
+    std::string string_value;
+    double float_value = 0;
+    int64_t integer_value = 0;
+};
+
+struct Ast_Ident : public Ast_Expression {
+    Ast_Ident() { type = AST_IDENT; }
+    std::string name;
+};
+
+struct Ast_Procedure_Call_Expression : public Ast_Expression {
+    Ast_Procedure_Call_Expression () { type = AST_PROCEDURE_CALL_EXPRESSION; }
+
+    Ast_Ident *function = nullptr;
+    Ast_Comma_Separated_Args *arguments = nullptr;
+};
+// ==================================================
+// Binary Expressions
+// ==================================================
+enum Binary_Op {
+    BINOP_UNKNOWN,
+    BINOP_ADD,
+    BINOP_SUB,
+    BINOP_MUL,
+    BINOP_DIV,
+    BINOP_EQ,
+    BINOP_NEQ,
+    // add more operators as needed
+};
+
+struct Ast_Binary : public Ast_Expression {
+    Ast_Binary() { type = AST_BINARY; }
+    Binary_Op op = BINOP_UNKNOWN;
+    Ast_Expression *lhs = nullptr;
+    Ast_Expression *rhs = nullptr;
+};
+
+// ==================================================
+// Blocks & Control Flow
+// ==================================================
+struct Ast_Block : public Ast {
+    Ast_Block() { type = AST_BLOCK; }
+    std::vector<Ast_Statement *> statements;
+};
+
+struct Ast_If : public Ast_Statement {
+    Ast_If() { type = AST_IF; }
+    Ast_Expression *condition = nullptr;
+    Ast_Block *then_block = nullptr;
+    Ast_Block *else_block = nullptr; // optional
+};
+
+struct Ast_While : public Ast_Expression {
+    Ast_While() { type = AST_WHILE; };
+    Ast_Expression *condition = nullptr;
+    Ast_Block *block = nullptr;
+};
+
+// ==================================================
+// Declarations
+// ==================================================
+enum Ast_Builtin_Type {
+    TYPE_UNKNOWN,
+    TYPE_INT,
+    TYPE_FLOAT,
+    TYPE_BOOL,
+    TYPE_STRING,
+    TYPE_VOID,
+};
+
+struct Ast_Type_Definition {
+    Ast_Builtin_Type builtin_type = TYPE_UNKNOWN;
+    std::string name; // for user-defined types
+    Ast_Type_Definition *element_type = nullptr; // for arrays
+    bool is_array = false;
+
+    static Ast_Type_Definition make_builtin(Ast_Builtin_Type t) {
+        Ast_Type_Definition def;
+        def.builtin_type = t;
+        return def;
+    }
+
+    static Ast_Type_Definition make_user_type(const std::string &n) {
+        Ast_Type_Definition def;
+        def.name = n;
+        return def;
+    }
+
+    std::string to_string() const {
+        if (!name.empty()) return name;
+        switch (builtin_type) {
+            case TYPE_INT:    return "int";
+            case TYPE_FLOAT:  return "float";
+            case TYPE_BOOL:   return "bool";
+            case TYPE_STRING: return "string";
+            case TYPE_VOID:   return "void";
+            default:          return "unknown";
+        }
+    }
+};
+
+struct Ast_Declaration : public Ast_Statement {
+    Ast_Declaration() { type = AST_DECLARATION; }
+    Ast_Type_Definition *declared_type = nullptr;
+    Ast_Ident *identifier = nullptr;
+    Ast_Expression *initializer = nullptr; // optional
+};

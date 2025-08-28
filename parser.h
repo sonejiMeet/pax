@@ -6,27 +6,25 @@ struct Parser {
     Lexer *lexer;
     Token current;
 
-    // (TEMP) for debugging
-    std::vector<Token> tempTokens;
-
     Parser(Lexer *l);
 
-    void parseError(const std::string& message);
-    void expect(TokenType expectedType, const std::string& errorMessage);
-    void logDebug(const std::string& message, const Token* token) const;
+    void parseError(const std::string &message);
+    void expect(TokenType expectedType, const std::string &errorMessage);
+    void logDebug(const std::string &message, const Token *token) const;
     void advance();
 
-    ASTNode* parseProgram();
+    Ast_Block *parseProgram();
 
 private:
-    ASTNode* parseFactor();
-    ASTNode* parseTerm();
-    ASTNode* parseExpression();
-    ASTNode* parseTypeSpecifier();
-    ASTNode* parseVarDeclaration();
-    ASTNode* parseIfStatement();
-    ASTNode* parseBlockStatement();
-    ASTNode* parseStatement();
+    Ast_Expression *parseFactor();
+    Ast_Expression *parseTerm();
+    Ast_Expression *parseExpression();
+    Ast_Type_Definition *parseTypeSpecifier();
+    Ast_Declaration *parseVarDeclaration();
+    Ast_If *parseIfStatement();
+    Ast_Block *parseBlockStatement();
+    Ast_Procedure_Call_Expression *parseCall();
+    Ast_Statement *parseStatement();
 
 
 };

@@ -4,6 +4,16 @@
         to be FIXed
 
 
+ast_printer for printf does not work
+inside struct Ast, we are not setting line_number, also should add filename member
+find an alternative to std::vector for Ast nodes
+get rid of std::string usage cause fuck c++ in the assshole
+
+when string literal removed it throws weird parsing error. ex.
+s : string = "something; <----notice string literal missing
+Parsing Error[18:9] Expected ';' after variable declaration. at token 'asda' (Type: TOK_IDENTIFIER)
+
+
 
 
 DONE: floats are not lexed correctly there is unknown token for decimal
