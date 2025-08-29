@@ -40,6 +40,11 @@ Token Lexer::makeFloatToken(TokenType type, float val, int row, int col)
     return t;
 }
 
+
+inline void Lexer::lexerError(const std::string& message, int row, int col) {
+    printf("Lexer Error [%d:%d] %s\n", row, col, message.c_str());
+}
+
 Token Lexer::stringToken(int row, int col)
 {
     const char* startPtr = Source + Pos+1; // start after quote
@@ -48,7 +53,7 @@ Token Lexer::stringToken(int row, int col)
     }
 
     if (Pos >= size) {
-        fprintf(stderr, "Unterminated string literal\n");
+        lexerError("Lexer Error: Unterminated string literal", row, col);
         return makeToken(TOK_UNKNOWN, "", row, col);
     }
 
@@ -78,7 +83,7 @@ Token Lexer::numberToken(char first, int row, int col)
     if (buffer_idx < MAX_NUM_STR_LEN - 1) {
         num_str_buffer[buffer_idx++] = first;
     } else {
-        fprintf(stderr, "Lexer Error: Number literal too long at line %d, col %d\n", row, col);
+        lexerError("Lexer Error: Number literal too long", row, col);
         return makeToken(TOK_UNKNOWN, "", row, col);
     }
 
@@ -87,7 +92,7 @@ Token Lexer::numberToken(char first, int row, int col)
         if (buffer_idx < MAX_NUM_STR_LEN - 1) {
             num_str_buffer[buffer_idx++] = get_and_advance();
         } else {
-            fprintf(stderr, "Lexer Error: Number literal too long at line %d, col %d\n", row, col);
+            lexerError("Lexer Error: Number literal too long", row, col);
             while (Pos < size && isNumeric(Source[Pos])) get_and_advance();
             return makeToken(TOK_UNKNOWN, "", row, col);
         }
@@ -98,7 +103,7 @@ Token Lexer::numberToken(char first, int row, int col)
         if (buffer_idx < MAX_NUM_STR_LEN - 1) {
             num_str_buffer[buffer_idx++] = get_and_advance(); // Consume the '.'
         } else {
-            fprintf(stderr, "Lexer Error: Number literal too long (decimal part) at line %d, col %d\n", row, col);
+            lexerError("Lexer Error: Number literal too long (decimal part)", row, col);
             return makeToken(TOK_UNKNOWN, "", row, col);
         }
 
@@ -109,14 +114,14 @@ Token Lexer::numberToken(char first, int row, int col)
                 num_str_buffer[buffer_idx++] = get_and_advance();
                 has_fractional_digits = true;
             } else {
-                fprintf(stderr, "Lexer Error: Number literal too long (fractional part) at line %d, col %d\n", row, col);
+                lexerError("Lexer Error: Number literal too long (fractional part)", row, col);
                 while (Pos < size && isNumeric(Source[Pos])) get_and_advance();
                 return makeToken(TOK_UNKNOWN, "", row, col);
             }
         }
 
         if (!has_fractional_digits && num_str_buffer[buffer_idx - 1] == '.') {
-            fprintf(stderr, "Lexer Error: Malformed float literal (missing fractional digits) at line %d, col %d\n", row, col);
+            lexerError("Lexer Error: Malformed float literal (missing fractional digits)", row, col);
             // exit(1); // lets not exit like this its bad
             return makeToken(TOK_UNKNOWN, "", row, col);
         }
@@ -128,7 +133,7 @@ Token Lexer::numberToken(char first, int row, int col)
         float val = strtof(num_str_buffer, &end_ptr); // Use strtof for float conversion
 
         if (*end_ptr != '\0') {
-            fprintf(stderr, "Lexer Error: Invalid float literal conversion at line %d, col %d\n", row, col);
+            lexerError("Lexer Error: Invalid float literal conversion", row, col);
             return makeToken(TOK_UNKNOWN, num_str_buffer, row, col);
         }
 
@@ -142,7 +147,7 @@ Token Lexer::numberToken(char first, int row, int col)
     unsigned long long val = strtoull(num_str_buffer, &end_ptr, 10);
 
     if (*end_ptr != '\0') {
-        fprintf(stderr, "Lexer Error: Invalid integer literal conversion at line %d, col %d\n", row, col);
+        lexerError("Lexer Error: Invalid integer literal conversion", row, col);
         return makeToken(TOK_UNKNOWN, num_str_buffer, row, col);
     }
 

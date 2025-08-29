@@ -18,7 +18,6 @@ struct Lexer
     {
 
     }
-
     inline char get_and_advance() {
         char c = Source[Pos];
         ++Pos;
@@ -59,6 +58,8 @@ struct Lexer
     Token makeToken(TokenType type, const char* value, int row, int col);
     Token makeIntToken(TokenType type, unsigned long long val, int row, int col);
     Token makeFloatToken(TokenType type, float val, int row, int col);
+
+    inline void lexerError(const std::string& message, int row, int col);
 
     Token stringToken(int row, int col);
     Token numberToken(char first, int row, int col);

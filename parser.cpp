@@ -209,16 +209,17 @@ Ast_If* Parser::parseIfStatement(){
     ifNode->condition = condition;
     ifNode->then_block = thenBlock;
 
-
     return ifNode;
 
 }
 
 // Parses a block of statements enclosed in curly braces: '{ StatementList }'
-Ast_Block* Parser::parseBlockStatement() {
+Ast_Block* Parser::parseBlockStatement(bool scoped_block) {
     expect(TOK_LCURLY_PAREN, "Expected '{' to start a block statement.");
 
     Ast_Block* block = DBG_NEW Ast_Block();
+
+    block->is_scoped_block = scoped_block;
 
     // Parse statements until a closing curly brace or EOF
     while (current.type != TOK_RCURLY_PAREN && current.type != TOK_END_OF_FILE) {
@@ -244,17 +245,22 @@ Ast_Procedure_Call_Expression* Parser::parseCall()
 
     Ast_Comma_Separated_Args* argsNode = DBG_NEW Ast_Comma_Separated_Args();
 
-    while (current.type != TOK_RPAREN)
+    if(current.type != TOK_RPAREN)
     {
-        Ast_Expression* arg = parseExpression();
-        argsNode->arguments.push_back(arg);
+        while(true){
+            Ast_Expression* arg = parseExpression();
+            argsNode->arguments.push_back(arg);
 
-        if (current.type == TOK_COMMA)
-            advance();
-        else if (current.type != TOK_RPAREN)
-            parseError("Expected ',' or ')' in function call arguments.");
+            if (current.type == TOK_COMMA) {
+                advance();
+                if(current.type == TOK_RPAREN) {
+                    parseError("Expected expression after ',' in function call arguments.");
+                }
+            } else {
+                break; //  must be ')'
+            }
+        }
     }
-
     expect(TOK_RPAREN, "Expected ')' after function call arguments");
 
     callExpr->arguments = argsNode;
@@ -289,8 +295,13 @@ Ast_Statement* Parser::parseStatement()
         }
         case TOK_IF:
             return parseIfStatement();
-        // case TOK_LCURLY_PAREN:
-        //     return parseBlockStatement();
+        case TOK_LCURLY_PAREN: {
+            bool is_scoped_block = true;
+            Ast_Block *scopedBlock = parseBlockStatement(is_scoped_block);
+            Ast_Statement *stmt = DBG_NEW Ast_Statement();
+            stmt->block = scopedBlock;
+            return stmt;
+        }
         case TOK_NUMBER:
         case TOK_STRING:
         case TOK_FLOAT: {
