@@ -1,5 +1,2 @@
-﻿  main.cpp
-  parser.cpp
-  Generating Code...
-C:\mylang\parser.cpp(318,1): warning C4715: 'Parser::parseCall': not all control paths return a value
+﻿  code_manager.cpp
   mylang.vcxproj -> C:\mylang\mylang\x64\Debug\mylang.exe

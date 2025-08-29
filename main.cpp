@@ -6,6 +6,9 @@
 #include "token.h"
 #include "parser.h"
 #include "ast_printer.h"
+
+#include "code_manager.h"
+
 #include <chrono>
 
 inline void printLex(FileBuffer buf);
@@ -95,6 +98,23 @@ inline void printParsing(FileBuffer buf){
 
     Ast_Block* ast = parser.parseProgram();
     printAst(ast);
+
+    // CodeManager cm;
+    // cm.analyzeBlock(ast);
+    CodeManager cm;
+    cm.init();
+
+    // 1) resolve identifiers and populate symbol table/scopes
+    cm.resolve_idents(ast);
+
+    // 2) run type inference / checking
+    cm.infer_types_block(ast);
+
+    // 3) check errors
+    if (cm.has_errors()) {
+        cm.print_errors();
+        // return 1;
+    }
     delete ast;
 
 }

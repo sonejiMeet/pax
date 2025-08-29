@@ -49,9 +49,7 @@ struct Ast {
     }
 };
 
-// ==================================================
 // Statements & Expressions
-// ==================================================
 struct Ast_Statement : public Ast {
     Ast_Statement() { type = AST_STATEMENT; }
     struct Ast_Type_Definition *type_definition = nullptr;
@@ -67,10 +65,8 @@ struct Ast_Comma_Separated_Args : public Ast_Expression {
     Ast_Comma_Separated_Args() { type = AST_COMMA_SEPARATED_ARGS; }
     std::vector<Ast_Expression *> arguments;
 };
-// ==================================================
-// Literals & Identifiers
-// ==================================================
 
+// Literals & Identifiers
 enum Value_Type {
     LITERAL_UNINITIALIZED,
     LITERAL_NUMBER,
@@ -98,9 +94,8 @@ struct Ast_Procedure_Call_Expression : public Ast_Expression {
     Ast_Ident *function = nullptr;
     Ast_Comma_Separated_Args *arguments = nullptr;
 };
-// ==================================================
+
 // Binary Expressions
-// ==================================================
 enum Binary_Op {
     BINOP_UNKNOWN,
     BINOP_ADD,
@@ -109,7 +104,7 @@ enum Binary_Op {
     BINOP_DIV,
     BINOP_EQ,
     BINOP_NEQ,
-    // add more operators as needed
+    // more....
 };
 
 struct Ast_Binary : public Ast_Expression {
@@ -119,19 +114,23 @@ struct Ast_Binary : public Ast_Expression {
     Ast_Expression *rhs = nullptr;
 };
 
-// ==================================================
 // Blocks & Control Flow
-// ==================================================
 struct Ast_Block : public Ast {
     Ast_Block() { type = AST_BLOCK; }
     std::vector<Ast_Statement *> statements;
+
+    // std::vector<Ast_Declaration *> members; // declarations in this scope
+    // std::vector<Ast_Block *> child_scopes;
+
+    bool is_scoped_block = false;
 };
 
 struct Ast_If : public Ast_Statement {
     Ast_If() { type = AST_IF; }
     Ast_Expression *condition = nullptr;
     Ast_Block *then_block = nullptr;
-    Ast_Block *else_block = nullptr; // optional
+    // Ast_If *else_if = nullptr; // not done yet
+    Ast_Block *else_block = nullptr; // not done yet
 };
 
 struct Ast_While : public Ast_Expression {
@@ -140,9 +139,8 @@ struct Ast_While : public Ast_Expression {
     Ast_Block *block = nullptr;
 };
 
-// ==================================================
+
 // Declarations
-// ==================================================
 enum Ast_Builtin_Type {
     TYPE_UNKNOWN,
     TYPE_INT,

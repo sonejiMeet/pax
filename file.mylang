@@ -5,7 +5,8 @@ c : int = 5 * 2 + 4;
 d : int = 5 * 2 / 4;
 e : int = 2 / 4 * 5;
 
-num : int = a + 5;
+h : int = 1;
+num : int = h + 5;
 
 s : string = "something";
 
@@ -15,4 +16,8 @@ if(a == b) {
     x : float = 23234.34;
 }
 
-printf("asda",a);
+{
+    printf("asda",a);
+
+
+}

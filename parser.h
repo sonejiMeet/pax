@@ -22,7 +22,7 @@ private:
     Ast_Type_Definition *parseTypeSpecifier();
     Ast_Declaration *parseVarDeclaration();
     Ast_If *parseIfStatement();
-    Ast_Block *parseBlockStatement();
+    Ast_Block *parseBlockStatement(bool scoped_block = false);
     Ast_Procedure_Call_Expression *parseCall();
     Ast_Statement *parseStatement();
 
