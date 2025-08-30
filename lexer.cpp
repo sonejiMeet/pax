@@ -42,7 +42,8 @@ Token Lexer::makeFloatToken(TokenType type, float val, int row, int col)
 
 
 inline void Lexer::lexerError(const std::string& message, int row, int col) {
-    printf("Lexer Error [%d:%d] %s\n", row, col, message.c_str());
+    printf("\nLexer Error [%d:%d] %s", row, col, message.c_str());
+    exit(1);
 }
 
 Token Lexer::stringToken(int row, int col)
@@ -208,14 +209,15 @@ Token Lexer::nextToken()
         case '}': return makeToken(TOK_RCURLY_PAREN, "}", sRow, sCol);
         case '[': return makeToken(TOK_LBRACKET, "[", sRow, sCol);
         case ']': return makeToken(TOK_RBRACKET, "]", sRow, sCol);
-        case ':': return makeToken(TOK_COLON, ":", sRow, sCol);
+        case ':':
+            return makeToken(TOK_COLON, ":", sRow, sCol);
         case ';': return makeToken(TOK_SEMICOLON, ";", sRow, sCol);
         case ',': return makeToken(TOK_COMMA, ",", sRow, sCol);
-        case '\'':return makeToken(TOK_BACKTICK, "'", sRow, sCol);
+        case '\'':return makeToken(TOK_SINGLEQOUTE, "'", sRow, sCol);
         case '+': return makeToken(TOK_PLUS, "+", sRow, sCol);
         case '-': return makeToken(TOK_MINUS, "-", sRow, sCol);
         case '*':
-            if(match_and_advance('/')) return makeToken(TOK_R_MULTILINE_COMMENT, "*/", sRow, sCol);
+            // if(match_and_advance('/')) return makeToken(TOK_R_MULTILINE_COMMENT, "*/", sRow, sCol);
             return makeToken(TOK_STAR, "*", sRow, sCol);
 
         case '=':
@@ -232,23 +234,32 @@ Token Lexer::nextToken()
             return makeToken(TOK_GREATER, ">", sRow, sCol);
         case '"':
             if(check_prev_char('\'') && match_and_advance('\''))
-                return makeToken(TOK_QUOTATION, "\"", sRow, sCol);
+                return makeToken(TOK_DOUBLEQUOTE, "\"", sRow, sCol);
             return stringToken(Row, Col);
         case '/':
-            if (match_and_advance('/')) return makeToken(TOK_COMMENT, "//", sRow, sCol);
-            if(match_and_advance('*')) return makeToken(TOK_L_MULTILINE_COMMENT, "/*", sRow, sCol);
+
+            // if (match_and_advance('/')) {
+
+            //     while(Pos < size && Source[Pos] != '\n') get_and_advance();
+            //     return makeToken(TOK_COMMENT, "//", sRow, sCol);
+            // }
+            // if(match_and_advance('*')) {
+            //      while (Pos < size) {
+            //         if (Source[Pos] == '*' && Pos + 1 < size && Source[Pos + 1] == '/') {
+            //             get_and_advance();
+            //             break;
+            //         }
+            //     }
+            //     return makeToken(TOK_L_MULTILINE_COMMENT, "/*", sRow, sCol);
+            // }
             return makeToken(TOK_SLASH, "/", sRow, sCol);
             break;
-
-
     }
 
     if (isNumeric(c)) return numberToken(c, sRow, sCol);
     if (isAlpha(c)) return identifierToken(c, sRow, sCol);
 
     // nothing matches
-    // char buf[2] = { c, '\0' };
-    // printf("buf: '%s'\n", buf);
     return makeToken(TOK_ERROR, "", sRow, sCol);
 
 }

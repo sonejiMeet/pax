@@ -145,7 +145,9 @@ struct Ast_If;
 struct CM_Symbol {
     std::string name;
     Ast_Declaration* decl = nullptr;
+    Ast_Type_Definition* type = nullptr; // explicit or inferred type
     bool initialized = false;
+    bool inferred = false;
 };
 
 // One scope is a vector of symbols
@@ -154,13 +156,13 @@ using CM_Scope = std::vector<CM_Symbol>;
 // Code manager (procedural style, but grouped in a struct)
 struct CodeManager {
     std::vector<CM_Scope> scopes;
-    std::vector<std::string> errors;
-
+    // std::vector<std::string> errors;
+    int count_errors = 0;
     // lifecycle
     void init();              // push global scope
-    bool has_errors() const;
-    void print_errors() const;
-
+    // bool has_errors() const;
+    // void print_errors() const;
+    int get_count_errors();
     // scope management
     void push_scope();
     void pop_scope();
@@ -181,8 +183,7 @@ struct CodeManager {
     void infer_types_block(Ast_Block* block);
 
     // helpers
-    void report_error(const std::string& msg, int line = -1, int col = -1);
-
+    void report_error(int line, int col, const char* fmt, ...);
     bool check_that_types_match(Ast_Type_Definition* wanted, Ast_Type_Definition* have);
     bool is_integer_type(Ast_Type_Definition* type);
 };

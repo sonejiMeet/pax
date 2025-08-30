@@ -59,6 +59,7 @@ struct Ast_Statement : public Ast {
 
 struct Ast_Expression : public Ast {
     Ast_Expression() { type = AST_EXPRESSION; }
+    Ast_Type_Definition *inferred_type = nullptr;
 };
 
 struct Ast_Comma_Separated_Args : public Ast_Expression {
@@ -186,4 +187,5 @@ struct Ast_Declaration : public Ast_Statement {
     Ast_Type_Definition *declared_type = nullptr;
     Ast_Ident *identifier = nullptr;
     Ast_Expression *initializer = nullptr; // optional
+    bool inferred = false;
 };

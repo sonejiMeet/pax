@@ -9,6 +9,8 @@
 
 #include "code_manager.h"
 
+#include "c_converter.h"
+
 #include <chrono>
 
 inline void printLex(FileBuffer buf);
@@ -99,8 +101,7 @@ inline void printParsing(FileBuffer buf){
     Ast_Block* ast = parser.parseProgram();
     printAst(ast);
 
-    // CodeManager cm;
-    // cm.analyzeBlock(ast);
+
     CodeManager cm;
     cm.init();
 
@@ -110,11 +111,13 @@ inline void printParsing(FileBuffer buf){
     // 2) run type inference / checking
     cm.infer_types_block(ast);
 
-    // 3) check errors
-    if (cm.has_errors()) {
-        cm.print_errors();
-        // return 1;
+    if (cm.get_count_errors() != 0) {
+        return;
     }
+
+    generate_cpp_code("generated.cpp", ast);
+    std::cout << "C code generated -> generated.c" << std::endl;
+
     delete ast;
 
 }

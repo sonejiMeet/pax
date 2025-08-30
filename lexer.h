@@ -18,6 +18,8 @@ struct Lexer
     {
 
     }
+    inline void lexerError(const std::string& message, int row, int col);
+
     inline char get_and_advance() {
         char c = Source[Pos];
         ++Pos;
@@ -47,11 +49,47 @@ struct Lexer
     }
 
     inline void skipUnwantedChar() {
-        while (Pos < size) {
-            char ch = Source[Pos];
-            if (ch==' ' || ch=='\t' || ch=='\r' || ch=='\n') {
+        // while (Pos < size) {
+        //     char ch = Source[Pos];
+        //     if (ch==' ' || ch=='\t' || ch=='\r' || ch=='\n') {
+        //         get_and_advance();
+        //     } else break;
+        // }
+       while (Pos < size) {
+            char c = Source[Pos];
+
+            // Whitespace
+            if (c == ' ' || c == '\t' || c == '\r' || c == '\n') {
                 get_and_advance();
-            } else break;
+                continue;
+            }
+
+            // Single-line comment
+            if (c == '/' && Pos + 1 < size && Source[Pos + 1] == '/') {
+                Pos += 2; // skip //
+                while (Pos < size && Source[Pos] != '\n') get_and_advance();
+                continue;
+            }
+
+            // Multi-line comment
+            if (c == '/' && Pos + 1 < size && Source[Pos + 1] == '*') {
+                Pos += 2; // skip /*
+                bool closed = false;
+                while (Pos < size) {
+                    if (Source[Pos] == '*' && Pos + 1 < size && Source[Pos + 1] == '/') {
+                        Pos += 2; // skip */
+                        closed = true;
+                        break;
+                    }
+                    get_and_advance();
+                }
+                if (!closed) {
+                    lexerError("Unterminated multi-line comment", Row, Col);
+                }
+                continue;
+            }
+
+            break; // not whitespace or comment
         }
     }
 
@@ -59,7 +97,6 @@ struct Lexer
     Token makeIntToken(TokenType type, unsigned long long val, int row, int col);
     Token makeFloatToken(TokenType type, float val, int row, int col);
 
-    inline void lexerError(const std::string& message, int row, int col);
 
     Token stringToken(int row, int col);
     Token numberToken(char first, int row, int col);
