@@ -13,6 +13,7 @@
     #define DBG_NEW new
 #endif
 
+
 Parser::Parser(Lexer* l) : lexer(l) {
     current = lexer->nextToken();
 }
@@ -22,11 +23,10 @@ void Parser::advance() {
 }
 
 void Parser::parseError(const std::string& message) {
-    std::cerr << "Parsing Error" <<  "[" << current.row << ":" << current.col << "] "  << message
+    std::cerr << "\nParsing Error" <<  "[" << current.row << ":" << current.col << "] "  << message
               << " at token '" << current.value << "' (Type: "
-              << tokenTypeToString(current.type) << ")" << std::endl;
+              << tokenTypeToString(current.type) << ")";
 
-    exit(1); // this will make memory leak but who cares during production hahaha
 }
 
 void Parser::expect(TokenType expectedType, const std::string& errorMessage)
@@ -168,32 +168,43 @@ Ast_Declaration* Parser::parseVarDeclaration()
         parseError("Expected identifier for variable declaration.");
     }
     std::string varName = current.value;
-    advance();
+    advance(); // consume identifier
 
+    // Must have ':' after identifier for all declaration forms in your design
     expect(TOK_COLON, "Expected ':' after variable name for type declaration.");
 
-    Ast_Type_Definition *typeDef = parseTypeSpecifier();
-
-
+    Ast_Type_Definition *typeDef = nullptr;
     Ast_Expression *initializer = nullptr;
-    if (current.type == TOK_ASSIGN) {
-        advance();
-        initializer = parseExpression();
+    bool inferred = false;
 
+    // After consuming ':', current is the token after ':'
+    if (current.type == TOK_ASSIGN) {
+        // form:  x := expr;   (inferred declaration or later assignment)
+        inferred = true;
+        advance(); // consume '=' (the second char of ":=")
+        initializer = parseExpression();
+    } else {
+        // form: x : TYPE [ = expr ]  (explicit type)
+        typeDef = parseTypeSpecifier(); // consumes the type token
+
+        if (current.type == TOK_ASSIGN) {
+            advance(); // consume '='
+            initializer = parseExpression();
+        }
     }
 
     expect(TOK_SEMICOLON, "Expected ';' after variable declaration.");
 
     Ast_Declaration* varDecl = DBG_NEW Ast_Declaration();
-
-    varDecl->declared_type = typeDef;
+    varDecl->declared_type = typeDef;      // nullptr for inferred form
     varDecl->identifier = DBG_NEW Ast_Ident();
     varDecl->identifier->name = varName;
-    varDecl->initializer = initializer;
-
+    varDecl->initializer = initializer;    // may be nullptr
+    varDecl->inferred = inferred;          // true for "x := expr"
 
     return varDecl;
 }
+
 
 Ast_If* Parser::parseIfStatement(){
 
@@ -209,11 +220,16 @@ Ast_If* Parser::parseIfStatement(){
     ifNode->condition = condition;
     ifNode->then_block = thenBlock;
 
+    if(current.type == TOK_ELSE){
+        advance();
+        Ast_Block *elseBlock = parseBlockStatement();
+        ifNode->else_block = elseBlock;
+    }
+
     return ifNode;
 
 }
 
-// Parses a block of statements enclosed in curly braces: '{ StatementList }'
 Ast_Block* Parser::parseBlockStatement(bool scoped_block) {
     expect(TOK_LCURLY_PAREN, "Expected '{' to start a block statement.");
 
@@ -221,9 +237,8 @@ Ast_Block* Parser::parseBlockStatement(bool scoped_block) {
 
     block->is_scoped_block = scoped_block;
 
-    // Parse statements until a closing curly brace or EOF
     while (current.type != TOK_RCURLY_PAREN && current.type != TOK_END_OF_FILE) {
-        Ast_Statement* stmt = parseStatement(); // Recursively parse statements within the block
+        Ast_Statement* stmt = parseStatement(); // recursively parse statements within the block
         if (stmt) block->statements.push_back(stmt);
         else parseError("Failed to parse statement within block.");
     }
@@ -247,13 +262,16 @@ Ast_Procedure_Call_Expression* Parser::parseCall()
 
     if(current.type != TOK_RPAREN)
     {
-        while(true){
+        while(true)
+        {
             Ast_Expression* arg = parseExpression();
             argsNode->arguments.push_back(arg);
 
-            if (current.type == TOK_COMMA) {
+            if (current.type == TOK_COMMA)
+            {
                 advance();
-                if(current.type == TOK_RPAREN) {
+                if(current.type == TOK_RPAREN)
+                {
                     parseError("Expected expression after ',' in function call arguments.");
                 }
             } else {
@@ -279,11 +297,11 @@ Ast_Statement* Parser::parseStatement()
                 Ast_Declaration* decl = parseVarDeclaration();
                 return static_cast<Ast_Statement *> (decl);
             }
-            Ast_Expression* expr = parseExpression();
-            expect(TOK_SEMICOLON, "Expected ';' after expression statement.");
-            Ast_Statement* stmt = DBG_NEW Ast_Statement();
-            stmt->expression = expr;
-            return stmt;
+            // Ast_Expression* expr = parseExpression();
+            // expect(TOK_SEMICOLON, "Expected ';' after expression statement.");
+            // Ast_Statement* stmt = DBG_NEW Ast_Statement();
+            // stmt->expression = expr;
+            // return stmt;
         }
         case TOK_PRINT: {
             Ast_Procedure_Call_Expression *expr = parseCall();
@@ -327,6 +345,9 @@ Ast_Block* Parser::parseProgram()
         Ast_Statement *stmt  = parseStatement();
         if (stmt){
             program->statements.push_back(stmt);
+        }
+        else {
+            exit(1); // this will make memory leak but who cares during production hahaha
         }
     }
     return program;

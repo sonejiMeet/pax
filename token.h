@@ -31,8 +31,8 @@ enum TokenType {
     TOK_COLON,
     TOK_SEMICOLON,
     TOK_COMMA,
-    TOK_BACKTICK,
-    TOK_QUOTATION,
+    TOK_SINGLEQOUTE,
+    TOK_DOUBLEQUOTE,
 
     TOK_PLUS,
     TOK_MINUS,
@@ -46,8 +46,6 @@ enum TokenType {
     TOK_GREATER,
     TOK_LESS_EQUAL,
     TOK_GREATER_EQUAL,
-
-
 
     TOK_COMMENT,
     TOK_L_MULTILINE_COMMENT, // /*
@@ -87,8 +85,8 @@ inline const char* tokenTypeToString(TokenType type) {
         case TOK_COLON: return "TOK_COLON";
         case TOK_SEMICOLON: return "TOK_SEMICOLON";
         case TOK_COMMA: return "TOK_COMMA";
-        case TOK_BACKTICK: return "TOK_BACKTICK";
-        case TOK_QUOTATION: return "TOK_QUOTATION";
+        case TOK_SINGLEQOUTE: return "TOK_SINGLEQOUTE";
+        case TOK_DOUBLEQUOTE: return "TOK_DOUBLEQUOTE";
         case TOK_PLUS: return "TOK_PLUS";
         case TOK_MINUS: return "TOK_MINUS";
         case TOK_STAR: return "TOK_STAR";

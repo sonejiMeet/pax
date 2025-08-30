@@ -1,37 +1,47 @@
 #include "code_manager.h"
 #include <iostream>
 #include <sstream>
-
+#include <cstdarg>
 // -------------------------------------------------
 // Initialization / errors
 // -------------------------------------------------
 void CodeManager::init() {
     scopes.clear();
     scopes.emplace_back(); // global scope
-    errors.clear();
+    // errors.clear();
 }
 
-bool CodeManager::has_errors() const {
-    return !errors.empty();
-}
+// bool CodeManager::has_errors() const {
+//     return !errors.empty();
+// }
 
-void CodeManager::print_errors() const {
-    for (auto const &e : errors) {
-        std::cerr << e << std::endl;
-    }
-}
+// void CodeManager::print_errors() const {
+//     for (auto const &e : errors) {
+//         std::cerr << e << std::endl;
+//     }
+// }
 
+int CodeManager::get_count_errors(){
+    return count_errors;
+}
 // -------------------------------------------------
 // Utility: report error (collect only)
 // -------------------------------------------------
-void CodeManager::report_error(const std::string& msg, int line, int col) {
-    std::ostringstream ss;
+void CodeManager::report_error(int line, int col, const char* fmt, ...) {
+    constexpr size_t BUFFER_SIZE = 512;
+    char buffer[BUFFER_SIZE];
+
+    va_list args;
+    va_start(args, fmt);
+    vsnprintf(buffer, BUFFER_SIZE, fmt, args);
+    va_end(args);
+
+    count_errors += 1;
     if (line >= 0 && col >= 0) {
-        ss << "Semantic error (" << line << ":" << col << "): " << msg;
+        fprintf(stderr, "Semantic error (%d:%d): %s\n", line, col, buffer);
     } else {
-        ss << "Semantic error: " << msg;
+        fprintf(stderr, "Semantic error: %s\n", buffer);
     }
-    errors.push_back(ss.str());
 }
 
 // -------------------------------------------------
@@ -46,25 +56,27 @@ void CodeManager::pop_scope() {
 }
 
 bool CodeManager::declare_variable(Ast_Declaration* decl) {
-    if (!decl || !decl->identifier) return false;
-    const std::string name = decl->identifier->name;
-    CM_Scope &cur = scopes.back();
+    CM_Scope &scope = scopes.back();
 
-    // check redeclare in current scope
-    for (auto &sym : cur) {
-        if (sym.name == name) {
-            report_error("Redeclaration of variable '" + name + "'", decl->line_number, decl->character_number);
-            return false;
+    for (auto &sym : scope) {
+        if (sym.name == decl->identifier->name) {
+            if (!decl->initializer)
+                report_error(decl->line_number, decl->character_number, "Variable '%s' already declared", decl->identifier->name);
+                return false;
         }
     }
 
-    CM_Symbol s;
-    s.name = name;
-    s.decl = decl;
-    s.initialized = (decl->initializer != nullptr);
-    cur.push_back(s);
+    CM_Symbol sym;
+    sym.name = decl->identifier->name;
+    sym.decl = decl;
+    sym.type = decl->declared_type;
+    sym.initialized = (decl->initializer != nullptr);
+    sym.inferred = decl->inferred;
+
+    scope.push_back(sym);
     return true;
 }
+
 
 CM_Symbol* CodeManager::lookup_symbol(const std::string& name) {
     for (int i = (int)scopes.size() - 1; i >= 0; --i) {
@@ -149,7 +161,7 @@ void CodeManager::resolve_idents_in_expr(Ast_Expression* expr) {
             if (!s) {
                 // if it's a function name (like printf) we might not require declaration -> but
                 // for identifiers used as variables, require declaration.
-                report_error("Use of undeclared identifier '" + id->name + "'", id->line_number, id->character_number);
+                report_error(id->line_number, id->character_number, "Use of undeclared identifier '%s'", id->name);
             }
             break;
         }
@@ -160,8 +172,42 @@ void CodeManager::resolve_idents_in_expr(Ast_Expression* expr) {
 
         case AST_BINARY: {
             Ast_Binary* b = static_cast<Ast_Binary*>(expr);
-            if (b->lhs) resolve_idents_in_expr(b->lhs);
-            if (b->rhs) resolve_idents_in_expr(b->rhs);
+
+            // Special handling if this is an assignment (=)
+            if (b->op == BINOP_EQ) {
+                // LHS must be an identifier
+                Ast_Ident* lhs_ident = dynamic_cast<Ast_Ident*>(b->lhs);
+                if (!lhs_ident) {
+                    report_error(b->line_number, b->character_number, "Left-hand side of assignment must be an identifier");
+                } else {
+                    CM_Symbol* sym = lookup_symbol(lhs_ident->name);
+                    if (!sym) {
+                        report_error(lhs_ident->line_number, lhs_ident->character_number, "Assignment to undeclared variable '%s'", lhs_ident->name);
+                    } else {
+                        // Mark as initialized
+                        sym->initialized = true;
+
+                        // If no explicit type yet, infer from RHS
+                        if (!sym->type) {
+                            sym->type = infer_types_expr(&b->rhs);
+                            sym->inferred = true;
+                        } else {
+                            // Otherwise, type check RHS
+                            Ast_Type_Definition* rhsType = infer_types_expr(&b->rhs);
+                            if (!check_that_types_match(sym->type, rhsType)) {
+                                report_error(lhs_ident->line_number, lhs_ident->character_number, "Type mismatch in assignment to '%s'", lhs_ident->name);
+                            }
+                        }
+                    }
+                }
+
+                // Always analyze RHS expression
+                if (b->rhs) resolve_idents_in_expr(b->rhs);
+            } else {
+                // Normal binary op: just resolve both sides
+                if (b->lhs) resolve_idents_in_expr(b->lhs);
+                if (b->rhs) resolve_idents_in_expr(b->rhs);
+            }
             break;
         }
 
@@ -176,7 +222,7 @@ void CodeManager::resolve_idents_in_expr(Ast_Expression* expr) {
                     // allow builtin printf without declaration: special-case
                     if (fn->name != "printf") {
                         if (!lookup_symbol(fn->name)) {
-                            report_error("Call to undeclared function '" + fn->name + "'", fn->line_number, fn->character_number);
+                            report_error(fn->line_number, fn->character_number, "Call to undeclared function '%s'", fn->name);
                         }
                     }
                 }
@@ -265,7 +311,7 @@ Ast_Type_Definition* CodeManager::infer_types_expr(Ast_Expression** expr_ptr) {
                         return make_builtin_type(TYPE_INT);
                     }
                     // type mismatch
-                    report_error("Type error in binary arithmetic: operand types incompatible", b->line_number, b->character_number);
+                    report_error(b->line_number, b->character_number, "Type error in binary arithmetic: operand types incompatible");
                     return nullptr;
                 }
 
@@ -276,7 +322,7 @@ Ast_Type_Definition* CodeManager::infer_types_expr(Ast_Expression** expr_ptr) {
                 }
 
                 default:
-                    report_error("Unknown binary operator in type inference", b->line_number, b->character_number);
+                    report_error(b->line_number, b->character_number, "Unknown binary operator in type inference");
                     return nullptr;
             }
         }
@@ -308,20 +354,28 @@ Ast_Type_Definition* CodeManager::infer_types_expr(Ast_Expression** expr_ptr) {
 // Declaration-level inference
 void CodeManager::infer_types_decl(Ast_Declaration* decl) {
     if (!decl) return;
-    // if declared_type is present, check initializer type matches
+
     if (decl->initializer) {
         Ast_Expression* init_expr = decl->initializer;
         Ast_Type_Definition* init_type = infer_types_expr(&init_expr);
-        if (decl->declared_type) {
+
+        if (decl->inferred) {
+            // := → type inference
+            decl->declared_type = init_type;
+        } else if (decl->declared_type) {
+            // explicit type → check compatibility
             if (!check_that_types_match(decl->declared_type, init_type)) {
-                report_error("Type mismatch in initializer for '" + decl->identifier->name + "'", decl->line_number, decl->character_number);
+                report_error(decl->line_number, decl->character_number, "Type mismatch in initializer for '%s'",  decl->identifier->name);
             }
-        } else {
-            // if no declared type, we could set declared_type = init_type (type inference for var)
-            // (here we leave as-is)
         }
+    } else {
+        if (decl->inferred && !decl->declared_type) {
+            report_error(decl->line_number, decl->character_number, "Cannot infer type without initializer for '%s'", decl->identifier->name);
+        }
+        // case: `x : int;` is valid → no initializer
     }
 }
+
 
 // Block-level inference (recurses into statements)
 void CodeManager::infer_types_block(Ast_Block* block) {
@@ -373,7 +427,9 @@ bool CodeManager::check_that_types_match(Ast_Type_Definition* wanted, Ast_Type_D
     if (!wanted || !have) return false;
     // if both are builtin, compare builtin_type
     if (wanted->builtin_type != TYPE_UNKNOWN && have->builtin_type != TYPE_UNKNOWN) {
-        return wanted->builtin_type == have->builtin_type;
+        if(wanted->builtin_type == have->builtin_type) return true;
+        if(wanted->builtin_type == TYPE_FLOAT && have->builtin_type == TYPE_INT) return true;
+        // return wanted->builtin_type == have->builtin_type;
     }
     // if wanted is named type, compare name
     if (!wanted->name.empty() && !have->name.empty()) {
