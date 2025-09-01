@@ -36,6 +36,9 @@
     <ClInclude Include="..\code_manager.h">
       <Filter>Source Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\c_converter.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\lexer.cpp">
@@ -54,6 +57,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\code_manager.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\c_converter.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

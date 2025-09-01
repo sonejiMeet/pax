@@ -11,6 +11,7 @@ enum TokenType {
     TOK_ELSE,
     TOK_IDENTIFIER, // variable
     TOK_STRUCT,
+    TOK_MAIN_ENTRY_POINT,
 
     TOK_NUMBER,
     TOK_FLOAT,
@@ -29,6 +30,7 @@ enum TokenType {
     TOK_RBRACKET,
 
     TOK_COLON,
+    TOK_DOUBLECOLON,
     TOK_SEMICOLON,
     TOK_COMMA,
     TOK_SINGLEQOUTE,
@@ -51,6 +53,9 @@ enum TokenType {
     TOK_L_MULTILINE_COMMENT, // /*
     TOK_R_MULTILINE_COMMENT, // */
 
+    TOK_KEYWORD_TRUE,
+    TOK_KEYWORD_FALSE,
+
     TOK_END_OF_FILE,
 
     TOK_UNKNOWN  // TODO: we should just exit lexing here with error saying Unkown token or smt
@@ -66,6 +71,7 @@ inline const char* tokenTypeToString(TokenType type) {
         case TOK_ELSE: return "TOK_ELSE";
         case TOK_IDENTIFIER: return "TOK_IDENTIFIER";
         case TOK_STRUCT: return "TOK_STRUCT";
+        case TOK_MAIN_ENTRY_POINT: return "TOK_MAIN_ENTRY_POINT";
 
         case TOK_TYPE_INT: return "TOK_TYPE_INT";
         case TOK_TYPE_FLOAT: return "TOK_TYPE_FLOAT,";
@@ -83,6 +89,7 @@ inline const char* tokenTypeToString(TokenType type) {
         case TOK_LBRACKET: return "TOK_LBRACKET";
         case TOK_RBRACKET: return "TOK_RBRACKET";
         case TOK_COLON: return "TOK_COLON";
+        case TOK_DOUBLECOLON: return "TOK_DOUBLECOLON";
         case TOK_SEMICOLON: return "TOK_SEMICOLON";
         case TOK_COMMA: return "TOK_COMMA";
         case TOK_SINGLEQOUTE: return "TOK_SINGLEQOUTE";
@@ -101,6 +108,8 @@ inline const char* tokenTypeToString(TokenType type) {
         case TOK_COMMENT: return "TOK_COMMENT";
         case TOK_L_MULTILINE_COMMENT: return "TOK_L_MULTILINE_COMMENT";
         case TOK_R_MULTILINE_COMMENT: return "TOK_R_MULTILINE_COMMENT";
+        case TOK_KEYWORD_TRUE: return "TOK_KEYWORD_TRUE";
+        case TOK_KEYWORD_FALSE: return "TOK_KEYWORD_FALSE";
         case TOK_END_OF_FILE: return "TOK_END_OF_FILE";
         case TOK_UNKNOWN: return "TOK_UNKNOWN";
         default: return "UNKNOWN_TOKEN";

@@ -4,6 +4,25 @@
 
 struct Token;
 
+struct Ast;
+struct Ast_Statement;
+struct Ast_Expression;
+struct Ast_Comma_Separated_Args;
+struct Ast_Function;
+
+struct Ast_Literal;
+struct Ast_Ident;
+struct Ast_Procedure_Call_Expression;
+struct Ast_Binary;
+struct Ast_Block;
+
+struct Ast_If;
+struct Ast_While;
+
+struct Ast_Type_Definition;
+struct Ast_Declaration;
+
+
 enum Ast_Type {
     AST_UNKNOWN,
     AST_BLOCK,
@@ -67,12 +86,21 @@ struct Ast_Comma_Separated_Args : public Ast_Expression {
     std::vector<Ast_Expression *> arguments;
 };
 
+struct Ast_Function : public Ast_Statement {
+    std::string name;          // e.g., "main"
+    std::vector<Ast_Declaration*> params;
+    Ast_Block* body = nullptr;
+    bool is_entry_point = false; // true for 'main'
+};
+
 // Literals & Identifiers
 enum Value_Type {
     LITERAL_UNINITIALIZED,
     LITERAL_NUMBER,
     LITERAL_STRING,
     LITERAL_FLOAT,
+    LITERAL_TRUE,
+    LITERAL_FALSE,
 };
 
 struct Ast_Literal : public Ast_Expression {
@@ -105,6 +133,7 @@ enum Binary_Op {
     BINOP_DIV,
     BINOP_EQ,
     BINOP_NEQ,
+    BINOP_ASSIGN,
     // more....
 };
 
@@ -120,10 +149,11 @@ struct Ast_Block : public Ast {
     Ast_Block() { type = AST_BLOCK; }
     std::vector<Ast_Statement *> statements;
 
-    // std::vector<Ast_Declaration *> members; // declarations in this scope
-    // std::vector<Ast_Block *> child_scopes;
+    std::vector<Ast_Declaration *> members; // declarations in this scope
+    std::vector<Ast_Block *> child_scopes;
 
     bool is_scoped_block = false;
+    bool is_entry_point = false;
 };
 
 struct Ast_If : public Ast_Statement {
@@ -131,10 +161,10 @@ struct Ast_If : public Ast_Statement {
     Ast_Expression *condition = nullptr;
     Ast_Block *then_block = nullptr;
     // Ast_If *else_if = nullptr; // not done yet
-    Ast_Block *else_block = nullptr; // not done yet
+    Ast_Block *else_block = nullptr;
 };
 
-struct Ast_While : public Ast_Expression {
+struct Ast_While : public Ast_Expression {  // not done yet
     Ast_While() { type = AST_WHILE; };
     Ast_Expression *condition = nullptr;
     Ast_Block *block = nullptr;
@@ -154,20 +184,21 @@ enum Ast_Builtin_Type {
 struct Ast_Type_Definition {
     Ast_Builtin_Type builtin_type = TYPE_UNKNOWN;
     std::string name; // for user-defined types
+
     Ast_Type_Definition *element_type = nullptr; // for arrays
     bool is_array = false;
 
-    static Ast_Type_Definition make_builtin(Ast_Builtin_Type t) {
-        Ast_Type_Definition def;
-        def.builtin_type = t;
-        return def;
-    }
+    // static Ast_Type_Definition make_builtin(Ast_Builtin_Type t) {
+    //     Ast_Type_Definition def;
+    //     def.builtin_type = t;
+    //     return def;
+    // }
 
-    static Ast_Type_Definition make_user_type(const std::string &n) {
-        Ast_Type_Definition def;
-        def.name = n;
-        return def;
-    }
+    // static Ast_Type_Definition make_user_type(const std::string &n) {
+    //     Ast_Type_Definition def;
+    //     def.name = n;
+    //     return def;
+    // }
 
     std::string to_string() const {
         if (!name.empty()) return name;
@@ -187,5 +218,4 @@ struct Ast_Declaration : public Ast_Statement {
     Ast_Type_Definition *declared_type = nullptr;
     Ast_Ident *identifier = nullptr;
     Ast_Expression *initializer = nullptr; // optional
-    bool inferred = false;
 };

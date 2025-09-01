@@ -49,12 +49,7 @@ struct Lexer
     }
 
     inline void skipUnwantedChar() {
-        // while (Pos < size) {
-        //     char ch = Source[Pos];
-        //     if (ch==' ' || ch=='\t' || ch=='\r' || ch=='\n') {
-        //         get_and_advance();
-        //     } else break;
-        // }
+
        while (Pos < size) {
             char c = Source[Pos];
 
@@ -76,6 +71,11 @@ struct Lexer
                 Pos += 2; // skip /*
                 bool closed = false;
                 while (Pos < size) {
+                    if (Source[Pos] == '/' && Pos + 1 < size && Source[Pos + 1] == '/') {  // in case multiline comment is not commented out by a single line comment, if it is skip the line
+                        Pos += 2; // skip //
+                        while (Pos < size && Source[Pos] != '\n') get_and_advance();
+                        continue;
+                    }
                     if (Source[Pos] == '*' && Pos + 1 < size && Source[Pos + 1] == '/') {
                         Pos += 2; // skip */
                         closed = true;
@@ -103,7 +103,7 @@ struct Lexer
     Token identifierToken(char first, int row, int col);
 
     Token nextToken();
-    Token peekNextToken();
+    Token peekNextToken(int lookahead = 1);
 
 };
 

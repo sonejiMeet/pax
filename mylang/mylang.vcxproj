@@ -126,6 +126,7 @@
     <ClInclude Include="..\ast.h" />
     <ClInclude Include="..\ast_printer.h" />
     <ClInclude Include="..\code_manager.h" />
+    <ClInclude Include="..\c_converter.h" />
     <ClInclude Include="..\lexer.h" />
     <ClInclude Include="..\parser.h" />
     <ClInclude Include="..\token.h" />
@@ -133,6 +134,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\code_manager.cpp" />
+    <ClCompile Include="..\c_converter.cpp" />
     <ClCompile Include="..\lexer.cpp" />
     <ClCompile Include="..\main.cpp" />
     <ClCompile Include="..\parser.cpp" />

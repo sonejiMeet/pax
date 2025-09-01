@@ -49,7 +49,7 @@ void printAst(const Ast* node, int indent) {
         case AST_BLOCK:          printBlock(static_cast<const Ast_Block*>(node), indent); break;
         case AST_IF:             printIf(static_cast<const Ast_If*>(node), indent); break;
         case AST_DECLARATION:    printDeclaration(static_cast<const Ast_Declaration*>(node), indent); break;
-        
+
         default:
             printIndent(indent);
             std::cout << "Unknown AST Node" << std::endl;
@@ -138,6 +138,7 @@ void printBinary(const Ast_Binary* bin, int indent) {
         case BINOP_DIV:  std::cout << "/"; break;
         case BINOP_EQ:   std::cout << "=="; break;
         case BINOP_NEQ:  std::cout << "!="; break;
+        case BINOP_ASSIGN: std::cout << "="; break;
         default:         std::cout << "(unknown)"; break;
     }
     std::cout << std::endl;

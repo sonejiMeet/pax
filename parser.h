@@ -5,14 +5,18 @@
 struct Parser {
     Lexer *lexer;
     Token current;
+    Token previous;
 
     Parser(Lexer *l);
 
     void parseError(const std::string &message);
+    void reportError(const std::string &message);
     void expect(TokenType expectedType, const std::string &errorMessage);
+
     void logDebug(const std::string &message, const Token *token) const;
     void advance();
 
+    void synchronize();
     Ast_Block *parseProgram();
 
 private:
@@ -24,6 +28,8 @@ private:
     Ast_If *parseIfStatement();
     Ast_Block *parseBlockStatement(bool scoped_block = false);
     Ast_Procedure_Call_Expression *parseCall();
+
+
     Ast_Statement *parseStatement();
 
 

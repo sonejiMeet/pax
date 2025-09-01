@@ -20,6 +20,16 @@ void emitExpression(FILE* out, Ast_Expression* expr, int indent) {
                 case LITERAL_NUMBER: fprintf(out, "%lld", lit->integer_value); break;
                 case LITERAL_FLOAT:  fprintf(out, "%f", lit->float_value); break;
                 case LITERAL_STRING: fprintf(out, "\"%s\"", lit->string_value.c_str()); break;
+                case LITERAL_TRUE: {
+                    char *s = "true";
+                    fprintf(out, "%s",s);
+                    break;
+                }
+                case LITERAL_FALSE: {
+                    char *s = "false";
+                    fprintf(out, "%s",s);
+                    break;
+                }
                 default: fprintf(out, "/* unknown literal */"); break;
             }
             break;
@@ -42,6 +52,7 @@ void emitExpression(FILE* out, Ast_Expression* expr, int indent) {
                 case BINOP_DIV: fprintf(out, " / "); break;
                 case BINOP_EQ:  fprintf(out, " == "); break;
                 case BINOP_NEQ: fprintf(out, " != "); break;
+                case BINOP_ASSIGN: fprintf(out, " = "); break;
                 default: fprintf(out, " ? "); break;
             }
             emitExpression(out, bin->rhs, indent);
@@ -87,11 +98,24 @@ void emitStatement(FILE* out, Ast_Statement* stmt, int indent) {
         }
 
         case AST_STATEMENT: {
-            indentLine(out, indent);
-            emitExpression(out, stmt->expression, indent);
-            fprintf(out, ";\n");
+            if (stmt->expression) {
+                indentLine(out, indent);
+                emitExpression(out, stmt->expression, indent);
+
+                fprintf(out, ";\n");
+            }
+            else if (stmt->block) {
+                indentLine(out, indent);
+                // Scoped block inside statement
+                emitBlock(out, stmt->block, indent);
+            }
+            else {
+                indentLine(out, indent);
+                fprintf(out, "; // empty statement\n");
+            }
             break;
         }
+
 
         case AST_IF: {
             auto* ifstmt = static_cast<Ast_If*>(stmt);
@@ -100,7 +124,7 @@ void emitStatement(FILE* out, Ast_Statement* stmt, int indent) {
             emitExpression(out, ifstmt->condition, indent);
             fprintf(out, ") ");
             emitBlock(out, ifstmt->then_block, indent);
-            
+
             if (ifstmt->else_block) {
                 indentLine(out, indent);
                 fprintf(out, "else ");
@@ -127,23 +151,73 @@ void emitBlock(FILE* out, Ast_Block* block, int indent) {
     fprintf(out, "}\n");
 }
 
+// void generate_cpp_code(const char* filename, Ast_Block* program) {
+//     FILE* out = NULL;
+//     fopen_s(&out, filename, "w");
+//     if (!out) {
+//         fprintf(stderr, "Failed to open file: %s\n", filename);
+//         return;
+//     }
+
+//     fprintf(out, "/* GENERATED FILE */\n\n");
+
+//     fprintf(out, "#include <stdlib.h>\n");
+//     fprintf(out, "#include <stdio.h>\n\n");
+
+//     fprintf(out, "void _generated_main() ");
+//     emitBlock(out, program, 0);
+//     fprintf(out, "\n\n");
+//     fprintf(out, "int main() {\n");
+//     fprintf(out, "    _generated_main();\n");
+//     fprintf(out, "    return 0;\n");
+//     fprintf(out, "}\n");
+
+//     fclose(out);
+// }
 
 void generate_cpp_code(const char* filename, Ast_Block* program) {
-    FILE* out = fopen(filename, "w");
+    FILE* out = nullptr;
+    fopen_s(&out, filename, "w");
     if (!out) {
         fprintf(stderr, "Failed to open file: %s\n", filename);
         return;
     }
 
     fprintf(out, "/* GENERATED FILE */\n\n");
-
     fprintf(out, "#include <stdlib.h>\n");
     fprintf(out, "#include <stdio.h>\n\n");
 
-    fprintf(out, "void _generated_main() ");
-    emitBlock(out, program, 0);
-    fprintf(out, "\n\n");
-    fprintf(out, "int main() {\n");
+    // 1️⃣ Emit top-level globals
+    for (auto* stmt : program->statements) {
+        if (!stmt) continue;
+
+        // global variable declarations
+        if (stmt->type == AST_DECLARATION) {
+            emitStatement(out, stmt, 0);
+        }
+    }
+
+    // 2️⃣ Find the entry point block (main)
+    Ast_Block* mainBlock = nullptr;
+    for (auto* stmt : program->statements) {
+        if (stmt && stmt->block && stmt->block->is_entry_point) {
+            mainBlock = stmt->block;
+            break;
+        }
+    }
+
+    if (!mainBlock) {
+        fprintf(stderr, "No main block found in AST\n");
+        fclose(out);
+        return;
+    }
+
+    // 3️⃣ Emit the entry point function
+    fprintf(out, "\nvoid _generated_main() ");
+    emitBlock(out, mainBlock, 0);
+
+    // 4️⃣ Emit standard C main
+    fprintf(out, "\nint main() {\n");
     fprintf(out, "    _generated_main();\n");
     fprintf(out, "    return 0;\n");
     fprintf(out, "}\n");
