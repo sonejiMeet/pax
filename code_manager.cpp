@@ -71,7 +71,6 @@ bool CodeManager::declare_variable(Ast_Declaration* decl) {
     sym.decl = decl;
     sym.type = decl->declared_type;
     sym.initialized = (decl->initializer != nullptr);
-    sym.inferred = decl->inferred;
 
     scope.push_back(sym);
     return true;
@@ -159,9 +158,12 @@ void CodeManager::resolve_idents_in_expr(Ast_Expression* expr) {
             Ast_Ident* id = static_cast<Ast_Ident*>(expr);
             CM_Symbol* s = lookup_symbol(id->name);
             if (!s) {
-                // if it's a function name (like printf) we might not require declaration -> but
-                // for identifiers used as variables, require declaration.
-                report_error(id->line_number, id->character_number, "Use of undeclared identifier '%s'", id->name);
+                report_error(
+                    id->line_number,
+                    id->character_number,
+                    "Use of undeclared identifier '%s'",
+                    id->name
+                );
             }
             break;
         }
@@ -173,30 +175,40 @@ void CodeManager::resolve_idents_in_expr(Ast_Expression* expr) {
         case AST_BINARY: {
             Ast_Binary* b = static_cast<Ast_Binary*>(expr);
 
-            // Special handling if this is an assignment (=)
-            if (b->op == BINOP_EQ) {
+            if (b->op == BINOP_ASSIGN) { // assignment
                 // LHS must be an identifier
                 Ast_Ident* lhs_ident = dynamic_cast<Ast_Ident*>(b->lhs);
                 if (!lhs_ident) {
-                    report_error(b->line_number, b->character_number, "Left-hand side of assignment must be an identifier");
+                    report_error(
+                        b->line_number,
+                        b->character_number,
+                        "Left-hand side of assignment must be an identifier"
+                    );
                 } else {
                     CM_Symbol* sym = lookup_symbol(lhs_ident->name);
                     if (!sym) {
-                        report_error(lhs_ident->line_number, lhs_ident->character_number, "Assignment to undeclared variable '%s'", lhs_ident->name);
+                        report_error(
+                            lhs_ident->line_number,
+                            lhs_ident->character_number,
+                            "Assignment to undeclared variable '%s'",
+                            lhs_ident->name
+                        );
                     } else {
-                        // Mark as initialized
+                        // Mark initialized
                         sym->initialized = true;
 
-                        // If no explicit type yet, infer from RHS
+                        // Type inference / checking
+                        Ast_Type_Definition* rhsType = infer_types_expr(&b->rhs);
                         if (!sym->type) {
-                            sym->type = infer_types_expr(&b->rhs);
-                            sym->inferred = true;
-                        } else {
-                            // Otherwise, type check RHS
-                            Ast_Type_Definition* rhsType = infer_types_expr(&b->rhs);
-                            if (!check_that_types_match(sym->type, rhsType)) {
-                                report_error(lhs_ident->line_number, lhs_ident->character_number, "Type mismatch in assignment to '%s'", lhs_ident->name);
-                            }
+                            // no explicit type, adopt RHS type
+                            sym->type = rhsType;
+                        } else if (!check_that_types_match(sym->type, rhsType)) {
+                            report_error(
+                                lhs_ident->line_number,
+                                lhs_ident->character_number,
+                                "Type mismatch in assignment to '%s'",
+                                lhs_ident->name
+                            );
                         }
                     }
                 }
@@ -204,7 +216,7 @@ void CodeManager::resolve_idents_in_expr(Ast_Expression* expr) {
                 // Always analyze RHS expression
                 if (b->rhs) resolve_idents_in_expr(b->rhs);
             } else {
-                // Normal binary op: just resolve both sides
+                // Other binary ops: resolve both sides normally
                 if (b->lhs) resolve_idents_in_expr(b->lhs);
                 if (b->rhs) resolve_idents_in_expr(b->rhs);
             }
@@ -212,40 +224,46 @@ void CodeManager::resolve_idents_in_expr(Ast_Expression* expr) {
         }
 
         case AST_PROCEDURE_CALL_EXPRESSION: {
-            Ast_Procedure_Call_Expression* call = static_cast<Ast_Procedure_Call_Expression*>(expr);
-            // function identifier: if it's an identifier node, we may or may not require it to be declared.
-            // For now do not treat builtins as errors; only check if function ident is not a variable use.
-            if (call->function) {
-                // If function is an identifier expression (Ast_Ident), we try to resolve but do not error if builtin
-                if (call->function->type == AST_IDENT) {
-                    Ast_Ident* fn = call->function;
-                    // allow builtin printf without declaration: special-case
-                    if (fn->name != "printf") {
-                        if (!lookup_symbol(fn->name)) {
-                            report_error(fn->line_number, fn->character_number, "Call to undeclared function '%s'", fn->name);
-                        }
+            Ast_Procedure_Call_Expression* call =
+                static_cast<Ast_Procedure_Call_Expression*>(expr);
+
+            if (call->function && call->function->type == AST_IDENT) {
+                Ast_Ident* fn = static_cast<Ast_Ident*>(call->function);
+                if (fn->name != "printf") { // allow builtins
+                    if (!lookup_symbol(fn->name)) {
+                        report_error(
+                            fn->line_number,
+                            fn->character_number,
+                            "Call to undeclared function '%s'",
+                            fn->name
+                        );
                     }
                 }
             }
+
             if (call->arguments) {
-                for (auto* a : call->arguments->arguments) resolve_idents_in_expr(a);
+                for (auto* a : call->arguments->arguments) {
+                    resolve_idents_in_expr(a);
+                }
             }
             break;
         }
 
-        case AST_COMMA_SEPARATED_ARGS:
-            // if an expression node of this type appears standalone (rare), resolve its children
-            {
-                Ast_Comma_Separated_Args* args = static_cast<Ast_Comma_Separated_Args*>(expr);
-                for (auto* a : args->arguments) resolve_idents_in_expr(a);
+        case AST_COMMA_SEPARATED_ARGS: {
+            Ast_Comma_Separated_Args* args =
+                static_cast<Ast_Comma_Separated_Args*>(expr);
+            for (auto* a : args->arguments) {
+                resolve_idents_in_expr(a);
             }
             break;
+        }
 
         default:
-            // If there are additional expression kinds, handle them here
+            // TODO: handle more expression kinds when added
             break;
     }
 }
+
 
 // -------------------------------------------------
 // Type inference & checking
@@ -267,15 +285,17 @@ Ast_Type_Definition* CodeManager::infer_types_expr(Ast_Expression** expr_ptr) {
     switch (expr->type) {
         case AST_LITERAL: {
             Ast_Literal* lit = static_cast<Ast_Literal*>(expr);
-            if (lit->value_type == LITERAL_NUMBER) {
-                return make_builtin_type(TYPE_INT);
-            } else if (lit->value_type == LITERAL_FLOAT) {
-                return make_builtin_type(TYPE_FLOAT);
-            } else if (lit->value_type == LITERAL_STRING) {
-                return make_builtin_type(TYPE_STRING);
-            } else {
-                return nullptr;
+            switch(lit->value_type){
+                case LITERAL_NUMBER: return make_builtin_type(TYPE_INT); break;
+                case LITERAL_FLOAT: return make_builtin_type(TYPE_FLOAT); break;
+                case LITERAL_STRING: return make_builtin_type(TYPE_STRING); break;
+                case LITERAL_TRUE:
+                case LITERAL_FALSE: return make_builtin_type(TYPE_BOOL); break;
+                default:
+                    return nullptr;
+
             }
+            break;
         }
 
         case AST_IDENT: {
@@ -320,7 +340,39 @@ Ast_Type_Definition* CodeManager::infer_types_expr(Ast_Expression** expr_ptr) {
                     // comparisons produce boolean
                     return make_builtin_type(TYPE_BOOL);
                 }
+                case BINOP_ASSIGN: {
+                // assignment expression has the type of the LHS
+                    Ast_Ident* lhs_ident = dynamic_cast<Ast_Ident*>(b->lhs);
+                    Ast_Type_Definition* rhsType = infer_types_expr(&b->rhs);
 
+                    if (!lhs_ident) {
+                        report_error(b->line_number, b->character_number,
+                                     "Left-hand side of assignment must be an identifier");
+                        return nullptr;
+                    }
+
+                    CM_Symbol* sym = lookup_symbol(lhs_ident->name);
+                    if (!sym) {
+                        report_error(lhs_ident->line_number, lhs_ident->character_number,
+                                     "Assignment to undeclared variable '%s'",
+                                     lhs_ident->name.c_str());
+                        return nullptr;
+                    }
+
+                    if (!sym->type) {
+                        // Infer type from RHS
+                        sym->type = rhsType;
+                    } else if (!check_that_types_match(sym->type, rhsType)) {
+                        report_error(lhs_ident->line_number, lhs_ident->character_number,
+                                     "Type mismatch in assignment to '%s'",
+                                     lhs_ident->name.c_str());
+                    }
+
+                    sym->initialized = true;
+
+                    // The result type of an assignment expression is the type of the variable
+                    return sym->type;
+                }
                 default:
                     report_error(b->line_number, b->character_number, "Unknown binary operator in type inference");
                     return nullptr;
@@ -351,7 +403,7 @@ Ast_Type_Definition* CodeManager::infer_types_expr(Ast_Expression** expr_ptr) {
     }
 }
 
-// Declaration-level inference
+// Declaration-level type inference and checking
 void CodeManager::infer_types_decl(Ast_Declaration* decl) {
     if (!decl) return;
 
@@ -359,22 +411,36 @@ void CodeManager::infer_types_decl(Ast_Declaration* decl) {
         Ast_Expression* init_expr = decl->initializer;
         Ast_Type_Definition* init_type = infer_types_expr(&init_expr);
 
-        if (decl->inferred) {
-            // := → type inference
-            decl->declared_type = init_type;
-        } else if (decl->declared_type) {
-            // explicit type → check compatibility
+        init_expr->inferred_type = init_type;
+
+        if (decl->declared_type) {
+            // Explicit type → check compatibility
             if (!check_that_types_match(decl->declared_type, init_type)) {
-                report_error(decl->line_number, decl->character_number, "Type mismatch in initializer for '%s'",  decl->identifier->name);
+                report_error(
+                    decl->line_number,
+                    decl->character_number,
+                    "Type mismatch in initializer for '%s'",
+                    decl->identifier->name
+                );
             }
+        } else {
+            // No declared type → adopt initializer type
+            decl->declared_type = init_type;
         }
     } else {
-        if (decl->inferred && !decl->declared_type) {
-            report_error(decl->line_number, decl->character_number, "Cannot infer type without initializer for '%s'", decl->identifier->name);
+        if (!decl->declared_type) {
+            // No type and no initializer → invalid
+            report_error(
+                decl->line_number,
+                decl->character_number,
+                "Cannot declare variable '%s' without type or initializer",
+                decl->identifier->name
+            );
         }
-        // case: `x : int;` is valid → no initializer
+        // Case: x : int; → valid, just no initializer
     }
 }
+
 
 
 // Block-level inference (recurses into statements)

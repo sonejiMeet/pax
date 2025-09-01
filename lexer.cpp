@@ -7,7 +7,7 @@ Token Lexer::makeToken(TokenType type, const char* value, int row, int col) {
     t.type = type;
     if (type == TOK_IDENTIFIER || type == TOK_PRINT || type == TOK_IF || type == TOK_STRUCT
         || type == TOK_TYPE_INT || type == TOK_TYPE_FLOAT || type == TOK_TYPE_STRING
-        || type == TOK_TYPE_BOOL ) {
+        || type == TOK_TYPE_BOOL || type == TOK_KEYWORD_TRUE || type == TOK_KEYWORD_FALSE) {
 
         t.value = _strdup(value);
         t.owns_value = true;
@@ -175,10 +175,13 @@ Token Lexer::identifierToken(char first, int row, int col)
     else if (strcmp(ident, "if") == 0) type = TOK_IF;
     else if (strcmp(ident, "else") == 0) type = TOK_ELSE;
     else if (strcmp(ident, "struct") == 0) type = TOK_STRUCT;
+    else if (strcmp(ident, "main") == 0) type = TOK_MAIN_ENTRY_POINT;
     else if (strcmp(ident, "int") == 0) type = TOK_TYPE_INT;
     else if (strcmp(ident, "float") == 0) type = TOK_TYPE_FLOAT;
     else if (strcmp(ident, "string") == 0) type = TOK_TYPE_STRING;
     else if (strcmp(ident, "bool") == 0) type = TOK_TYPE_BOOL;
+    else if (strcmp(ident, "true") == 0) type = TOK_KEYWORD_TRUE;
+    else if (strcmp(ident, "false") == 0) type = TOK_KEYWORD_FALSE;
 
     Token t = makeToken(type, ident, row, col);
 
@@ -210,6 +213,7 @@ Token Lexer::nextToken()
         case '[': return makeToken(TOK_LBRACKET, "[", sRow, sCol);
         case ']': return makeToken(TOK_RBRACKET, "]", sRow, sCol);
         case ':':
+            if (match_and_advance(':')) return makeToken(TOK_DOUBLECOLON, "::", sRow, sCol);
             return makeToken(TOK_COLON, ":", sRow, sCol);
         case ';': return makeToken(TOK_SEMICOLON, ";", sRow, sCol);
         case ',': return makeToken(TOK_COMMA, ",", sRow, sCol);
@@ -264,15 +268,17 @@ Token Lexer::nextToken()
 
 }
 
-Token Lexer::peekNextToken()
+Token Lexer::peekNextToken(int lookahead)
 {
-    if(has_peeked) return peeked_token;
+    // if(has_peeked) return peeked_token;
 
     size_t origPos = Pos;
     int origRow = Row;
     int origCol = Col;
 
-    peeked_token = nextToken();
+    for(int i=0; i<lookahead; i++){
+        peeked_token = nextToken();
+    }
     has_peeked = true;
 
     Pos = origPos;

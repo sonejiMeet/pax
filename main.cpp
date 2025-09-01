@@ -53,7 +53,6 @@ inline void printLex(FileBuffer buf){
 
     while (true) {
         Token tok = lexer.nextToken();
-
         printf("[%d:%d]\tToken: %s\t ", tok.row, tok.col, tokenTypeToString(tok.type));
 
         switch (tok.type) {
@@ -99,7 +98,7 @@ inline void printParsing(FileBuffer buf){
     Parser parser(&lexer);
 
     Ast_Block* ast = parser.parseProgram();
-    printAst(ast);
+    // printAst(ast);
 
 
     CodeManager cm;
@@ -116,7 +115,7 @@ inline void printParsing(FileBuffer buf){
     }
 
     generate_cpp_code("generated.cpp", ast);
-    std::cout << "C code generated -> generated.c" << std::endl;
+    printf("\n\nC code generated -> generated.c\n");
 
     delete ast;
 

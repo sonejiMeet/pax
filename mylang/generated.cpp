@@ -10,11 +10,8 @@ int d = ((5 * 2) / 4);
 float e = ((2 / 4) * 5);
 int h = 1;
 int num = (2 * (5 - h));
-bool boolean = true;
-int something = 0;
 
 void _generated_main() {
-    int v = 4;
     if ((a != b)) {
         float x = 2334.340088;
         printf("x's value = %\n", x);

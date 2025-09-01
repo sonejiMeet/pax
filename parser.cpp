@@ -13,28 +13,53 @@
     #define DBG_NEW new
 #endif
 
+bool exitSuccess = true;
 
 Parser::Parser(Lexer* l) : lexer(l) {
     current = lexer->nextToken();
 }
 
 void Parser::advance() {
+    previous = current;
     current = lexer->nextToken();
 }
 
 void Parser::parseError(const std::string& message) {
-    std::cerr << "\nParsing Error" <<  "[" << current.row << ":" << current.col << "] "  << message
+    std::cerr << "\n" << __FILE__ << ": Parsing Error" <<  "[" << current.row << ":" << current.col << "] "  << message
               << " at token '" << current.value << "' (Type: "
               << tokenTypeToString(current.type) << ")";
 
+}
+
+void Parser::reportError(const std::string& message) {
+    std::cerr << "\n" << __FILE__ << ": Parsing Error" <<  "[" << current.row << ":" << current.col << "] "  << message;
 }
 
 void Parser::expect(TokenType expectedType, const std::string& errorMessage)
 {
     if (current.type != expectedType) {
         parseError(errorMessage);
+        exitSuccess = false;
+        synchronize();
+        return;
     }
     advance();
+}
+
+void Parser::synchronize() {
+    // Skip tokens until we reach a "safe" point to restart parsing
+    while (current.type != TOK_END_OF_FILE) {
+        if (previous.type == TOK_SEMICOLON) return;  // after a full statement
+        switch (current.type) {
+            case TOK_IF:
+            case TOK_PRINT:
+            case TOK_IDENTIFIER:
+            case TOK_MAIN_ENTRY_POINT:
+            case TOK_LCURLY_PAREN:
+                return;  // looks like the start of a new statement
+        }
+        advance();
+    }
 }
 
 // in an expression
@@ -66,6 +91,14 @@ Ast_Expression* Parser::parseFactor()
             reinterpret_cast<const char*>(current.string_value.data),
             static_cast<size_t>(current.string_value.count)
         );
+        advance();
+        return node;
+    }
+    else if (current.type == TOK_KEYWORD_TRUE || current.type == TOK_KEYWORD_FALSE){
+        Ast_Literal *node = DBG_NEW Ast_Literal();
+        if(current.type == TOK_KEYWORD_TRUE)
+            node->value_type = LITERAL_TRUE;
+        else node->value_type = LITERAL_FALSE;
         advance();
         return node;
     }
@@ -154,6 +187,7 @@ Ast_Type_Definition* Parser::parseTypeSpecifier()
         typeDef->builtin_type = TYPE_STRING;
     else if(current.type == TOK_TYPE_BOOL)
         typeDef->builtin_type = TYPE_BOOL;
+        // need to add more specific types sizes like signed/unsigned 8,16,32,64 bits, f32, f64,
     else
         parseError("Expected a type keyword (e.g., 'int', 'float', 'string', 'bool').");
 
@@ -164,9 +198,6 @@ Ast_Type_Definition* Parser::parseTypeSpecifier()
 //  statement "identifier = expression;"
 Ast_Declaration* Parser::parseVarDeclaration()
 {
-    if (current.type != TOK_IDENTIFIER) {
-        parseError("Expected identifier for variable declaration.");
-    }
     std::string varName = current.value;
     advance(); // consume identifier
 
@@ -174,22 +205,21 @@ Ast_Declaration* Parser::parseVarDeclaration()
     expect(TOK_COLON, "Expected ':' after variable name for type declaration.");
 
     Ast_Type_Definition *typeDef = nullptr;
+
     Ast_Expression *initializer = nullptr;
-    bool inferred = false;
 
     // After consuming ':', current is the token after ':'
     if (current.type == TOK_ASSIGN) {
         // form:  x := expr;   (inferred declaration or later assignment)
-        inferred = true;
         advance(); // consume '=' (the second char of ":=")
         initializer = parseExpression();
     } else {
-        // form: x : TYPE [ = expr ]  (explicit type)
-        typeDef = parseTypeSpecifier(); // consumes the type token
-
-        if (current.type == TOK_ASSIGN) {
-            advance(); // consume '='
-            initializer = parseExpression();
+        if(current.type != TOK_SEMICOLON) {
+            typeDef = parseTypeSpecifier();
+            if(current.type == TOK_ASSIGN){
+                advance();
+                initializer = parseExpression();
+            }
         }
     }
 
@@ -200,7 +230,6 @@ Ast_Declaration* Parser::parseVarDeclaration()
     varDecl->identifier = DBG_NEW Ast_Ident();
     varDecl->identifier->name = varName;
     varDecl->initializer = initializer;    // may be nullptr
-    varDecl->inferred = inferred;          // true for "x := expr"
 
     return varDecl;
 }
@@ -240,7 +269,12 @@ Ast_Block* Parser::parseBlockStatement(bool scoped_block) {
     while (current.type != TOK_RCURLY_PAREN && current.type != TOK_END_OF_FILE) {
         Ast_Statement* stmt = parseStatement(); // recursively parse statements within the block
         if (stmt) block->statements.push_back(stmt);
-        else parseError("Failed to parse statement within block.");
+        else {
+            parseError("Failed to parse statement within block.");
+            exitSuccess = false;
+            synchronize();
+            break;
+        }
     }
     expect(TOK_RCURLY_PAREN, "Expected '}' to close a block statement.");
 
@@ -267,13 +301,20 @@ Ast_Procedure_Call_Expression* Parser::parseCall()
             Ast_Expression* arg = parseExpression();
             argsNode->arguments.push_back(arg);
 
+            if (current.type != TOK_RPAREN && current.type != TOK_COMMA){
+                parseError("Expected ',' in function call arguments.");
+            }
             if (current.type == TOK_COMMA)
             {
                 advance();
                 if(current.type == TOK_RPAREN)
                 {
-                    parseError("Expected expression after ',' in function call arguments.");
+                    parseError("Expected argument after ',' in function call");
+                    exitSuccess = false;
+                    synchronize();
+                    break;
                 }
+
             } else {
                 break; //  must be ')'
             }
@@ -293,18 +334,53 @@ Ast_Statement* Parser::parseStatement()
         case TOK_IDENTIFIER: {
             Token next = lexer->peekNextToken();
 
-            if (next.type == TOK_COLON) {
+            if (next.type == TOK_DOUBLECOLON){
+                Token lookahead = lexer->peekNextToken(2);
+                if(lookahead.type == TOK_STRUCT){
+
+                    // parse struct
+                }
+                else {
+                    // parse function def
+                }
+            }
+            else if (next.type == TOK_COLON) {
                 Ast_Declaration* decl = parseVarDeclaration();
                 return static_cast<Ast_Statement *> (decl);
+            } else if (next.type == TOK_ASSIGN) {
+                // assignment
+                std::string varName = current.value;
+                advance(); // consume identifier
+
+                advance(); // consume '='
+                Ast_Expression* rhs = parseExpression();
+
+                Ast_Ident* lhs = DBG_NEW Ast_Ident();
+                lhs->name = varName;
+
+                Ast_Binary* assignExpr = DBG_NEW Ast_Binary();
+                assignExpr->op = BINOP_ASSIGN;
+                assignExpr->lhs = lhs;
+                assignExpr->rhs = rhs;
+
+                expect(TOK_SEMICOLON, "Expected ';' after assignment.");
+
+                Ast_Statement* stmt = DBG_NEW Ast_Statement();
+                stmt->expression = assignExpr;
+                return stmt;
             }
-            // Ast_Expression* expr = parseExpression();
-            // expect(TOK_SEMICOLON, "Expected ';' after expression statement.");
-            // Ast_Statement* stmt = DBG_NEW Ast_Statement();
-            // stmt->expression = expr;
-            // return stmt;
+            else {
+                // plain expression statement
+                Ast_Expression* expr = parseExpression();
+                expect(TOK_SEMICOLON, "Expected ';' after expression statement.");
+                Ast_Statement* stmt = DBG_NEW Ast_Statement();
+                stmt->expression = expr;
+                return stmt;
+            }
         }
         case TOK_PRINT: {
             Ast_Procedure_Call_Expression *expr = parseCall();
+
             expect(TOK_SEMICOLON, "Expected ';' after printf call.");
 
             Ast_Statement *stmt = DBG_NEW Ast_Statement();
@@ -313,6 +389,13 @@ Ast_Statement* Parser::parseStatement()
         }
         case TOK_IF:
             return parseIfStatement();
+        case TOK_ELSE: {
+            reportError("Got 'else' without an 'if' statement.");
+            exitSuccess = false;
+            advance();
+            break;
+        }
+
         case TOK_LCURLY_PAREN: {
             bool is_scoped_block = true;
             Ast_Block *scopedBlock = parseBlockStatement(is_scoped_block);
@@ -320,6 +403,7 @@ Ast_Statement* Parser::parseStatement()
             stmt->block = scopedBlock;
             return stmt;
         }
+
         case TOK_NUMBER:
         case TOK_STRING:
         case TOK_FLOAT: {
@@ -331,6 +415,7 @@ Ast_Statement* Parser::parseStatement()
         }
         default:
             parseError("Unexpected token at start of statement: " );
+            synchronize();
             return nullptr;
     }
 }
@@ -338,19 +423,62 @@ Ast_Statement* Parser::parseStatement()
 
 Ast_Block* Parser::parseProgram()
 {
-    Ast_Block * program = DBG_NEW Ast_Block();
+    Ast_Block* program = DBG_NEW Ast_Block();
+
+    bool mainFound = false;
 
     while (current.type != TOK_END_OF_FILE)
     {
-        Ast_Statement *stmt  = parseStatement();
-        if (stmt){
+        if (current.type == TOK_MAIN_ENTRY_POINT) {
+            if (mainFound) {
+                parseError("Multiple 'main' functions not allowed.");
+                exitSuccess = false;
+                advance();
+            }
+            mainFound = true;
+
+            advance();
+
+            expect(TOK_DOUBLECOLON, "Expected '::' after main entry point."); // fix when not expected
+            expect(TOK_LPAREN, "Expected '(' after main entry point.");
+            expect(TOK_RPAREN, "Expected ')' after main entry point.");
+
+            Ast_Block* mainBlock = parseBlockStatement();
+            mainBlock->is_entry_point = true;  // simple flag
+
+            Ast_Statement* stmt = DBG_NEW Ast_Statement();
+            stmt->block = mainBlock;
             program->statements.push_back(stmt);
         }
-        else {
-            exit(1); // this will make memory leak but who cares during production hahaha
+        else if (current.type == TOK_IDENTIFIER) {
+            Token next = lexer->peekNextToken();
+            if (next.type == TOK_COLON) {
+                Ast_Declaration* decl = parseVarDeclaration();
+                program->statements.push_back(static_cast<Ast_Statement*>(decl));
+            }
+            else {
+                parseError("Top-level executable statements not allowed. Only declarations and main.");
+                exitSuccess = false;
+                synchronize();
+                break;
+            }
         }
+        else {
+            parseError("Unexpected token at top-level. Only declarations and main function allowed.");
+            exitSuccess = false;
+            synchronize();
+            break;
+        }
+    }
+
+
+    if (!mainFound && exitSuccess)
+        parseError("No 'main' function found. An entry point is required.");
+
+    if(!exitSuccess){
+        printf("\n\nCompilation failed. There were errors.\n\n");
+        exit(1);
     }
     return program;
 }
-
 
