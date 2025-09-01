@@ -115,7 +115,7 @@ inline void printParsing(FileBuffer buf){
     }
 
     generate_cpp_code("generated.cpp", ast);
-    printf("\n\nC code generated -> generated.c\n");
+    printf("\n\nC code generated -> generated.cpp\n");
 
     delete ast;
 

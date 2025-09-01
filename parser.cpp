@@ -13,6 +13,13 @@
     #define DBG_NEW new
 #endif
 
+#define AST_NEW(type) ([&]() -> type* { \
+    type* node = DBG_NEW type(); \
+    node->line_number = current.row;  \
+    node->character_number = current.col; \
+    return node; \
+}())
+
 bool exitSuccess = true;
 
 Parser::Parser(Lexer* l) : lexer(l) {
@@ -68,7 +75,7 @@ Ast_Expression* Parser::parseFactor()
     if (current.type == TOK_NUMBER)
     {
 
-        Ast_Literal *node = DBG_NEW Ast_Literal();
+        Ast_Literal *node = AST_NEW(Ast_Literal);
         node->value_type = LITERAL_NUMBER;
         node->integer_value = current.int_value;
         advance();
@@ -77,7 +84,7 @@ Ast_Expression* Parser::parseFactor()
     else if (current.type == TOK_FLOAT)
     {
 
-        Ast_Literal *node = DBG_NEW Ast_Literal();
+        Ast_Literal *node = AST_NEW(Ast_Literal);
         node->value_type = LITERAL_FLOAT;
         node->float_value = current.float32_value;
         advance();
@@ -85,7 +92,7 @@ Ast_Expression* Parser::parseFactor()
     }
     else if (current.type == TOK_STRING )
     {
-        Ast_Literal *node = DBG_NEW Ast_Literal();
+        Ast_Literal *node = AST_NEW(Ast_Literal);
         node->value_type = LITERAL_STRING;
         node->string_value = std::string(
             reinterpret_cast<const char*>(current.string_value.data),
@@ -95,7 +102,7 @@ Ast_Expression* Parser::parseFactor()
         return node;
     }
     else if (current.type == TOK_KEYWORD_TRUE || current.type == TOK_KEYWORD_FALSE){
-        Ast_Literal *node = DBG_NEW Ast_Literal();
+        Ast_Literal *node = AST_NEW(Ast_Literal);
         if(current.type == TOK_KEYWORD_TRUE)
             node->value_type = LITERAL_TRUE;
         else node->value_type = LITERAL_FALSE;
@@ -104,7 +111,7 @@ Ast_Expression* Parser::parseFactor()
     }
     else if (current.type == TOK_IDENTIFIER)
     {
-        Ast_Ident *node = DBG_NEW Ast_Ident();
+        Ast_Ident *node = AST_NEW(Ast_Ident);
         node->name = current.value;
         advance();
         return node;
@@ -132,7 +139,7 @@ Ast_Expression* Parser::parseTerm()
 
     while (current.type == TOK_STAR || current.type == TOK_SLASH)
     {
-        Ast_Binary *node = DBG_NEW Ast_Binary();
+        Ast_Binary *node = AST_NEW(Ast_Binary);
         node->lhs = left;
 
         if(current.type == TOK_STAR) node->op = BINOP_MUL;
@@ -156,7 +163,7 @@ Ast_Expression* Parser::parseExpression()
            current.type == TOK_LESS || current.type == TOK_GREATER ||
            current.type == TOK_LESS_EQUAL || current.type == TOK_GREATER_EQUAL) {
 
-        Ast_Binary *node = DBG_NEW Ast_Binary();
+        Ast_Binary *node = AST_NEW(Ast_Binary);
         node->lhs = left;
 
         switch(current.type){
@@ -177,7 +184,7 @@ Ast_Expression* Parser::parseExpression()
 
 Ast_Type_Definition* Parser::parseTypeSpecifier()
 {
-    Ast_Type_Definition *typeDef = DBG_NEW Ast_Type_Definition();
+    Ast_Type_Definition *typeDef = AST_NEW(Ast_Type_Definition);
 
     if(current.type == TOK_TYPE_INT)
         typeDef->builtin_type = TYPE_INT;
@@ -225,9 +232,9 @@ Ast_Declaration* Parser::parseVarDeclaration()
 
     expect(TOK_SEMICOLON, "Expected ';' after variable declaration.");
 
-    Ast_Declaration* varDecl = DBG_NEW Ast_Declaration();
+    Ast_Declaration* varDecl = AST_NEW(Ast_Declaration);
     varDecl->declared_type = typeDef;      // nullptr for inferred form
-    varDecl->identifier = DBG_NEW Ast_Ident();
+    varDecl->identifier = AST_NEW(Ast_Ident);
     varDecl->identifier->name = varName;
     varDecl->initializer = initializer;    // may be nullptr
 
@@ -244,7 +251,7 @@ Ast_If* Parser::parseIfStatement(){
 
     Ast_Block *thenBlock = parseBlockStatement();
 
-    Ast_If* ifNode = DBG_NEW Ast_If();
+    Ast_If* ifNode = AST_NEW(Ast_If);
 
     ifNode->condition = condition;
     ifNode->then_block = thenBlock;
@@ -262,7 +269,7 @@ Ast_If* Parser::parseIfStatement(){
 Ast_Block* Parser::parseBlockStatement(bool scoped_block) {
     expect(TOK_LCURLY_PAREN, "Expected '{' to start a block statement.");
 
-    Ast_Block* block = DBG_NEW Ast_Block();
+    Ast_Block* block = AST_NEW(Ast_Block);
 
     block->is_scoped_block = scoped_block;
 
@@ -288,11 +295,11 @@ Ast_Procedure_Call_Expression* Parser::parseCall()
 
     expect(TOK_LPAREN, "Expected '(' after function name");
 
-    Ast_Procedure_Call_Expression* callExpr = DBG_NEW Ast_Procedure_Call_Expression();
-    callExpr->function = DBG_NEW Ast_Ident();
+    Ast_Procedure_Call_Expression* callExpr = AST_NEW(Ast_Procedure_Call_Expression);
+    callExpr->function = AST_NEW(Ast_Ident);
     callExpr->function->name = identToken.value;
 
-    Ast_Comma_Separated_Args* argsNode = DBG_NEW Ast_Comma_Separated_Args();
+    Ast_Comma_Separated_Args* argsNode = AST_NEW(Ast_Comma_Separated_Args);
 
     if(current.type != TOK_RPAREN)
     {
@@ -316,7 +323,7 @@ Ast_Procedure_Call_Expression* Parser::parseCall()
                 }
 
             } else {
-                break; //  must be ')'
+                break; // at this point is probably a ')'
             }
         }
     }
@@ -355,17 +362,17 @@ Ast_Statement* Parser::parseStatement()
                 advance(); // consume '='
                 Ast_Expression* rhs = parseExpression();
 
-                Ast_Ident* lhs = DBG_NEW Ast_Ident();
+                Ast_Ident* lhs = AST_NEW(Ast_Ident);
                 lhs->name = varName;
 
-                Ast_Binary* assignExpr = DBG_NEW Ast_Binary();
+                Ast_Binary* assignExpr = AST_NEW(Ast_Binary);
                 assignExpr->op = BINOP_ASSIGN;
                 assignExpr->lhs = lhs;
                 assignExpr->rhs = rhs;
 
                 expect(TOK_SEMICOLON, "Expected ';' after assignment.");
 
-                Ast_Statement* stmt = DBG_NEW Ast_Statement();
+                Ast_Statement* stmt = AST_NEW(Ast_Statement);
                 stmt->expression = assignExpr;
                 return stmt;
             }
@@ -373,7 +380,7 @@ Ast_Statement* Parser::parseStatement()
                 // plain expression statement
                 Ast_Expression* expr = parseExpression();
                 expect(TOK_SEMICOLON, "Expected ';' after expression statement.");
-                Ast_Statement* stmt = DBG_NEW Ast_Statement();
+                Ast_Statement* stmt = AST_NEW(Ast_Statement);
                 stmt->expression = expr;
                 return stmt;
             }
@@ -383,7 +390,7 @@ Ast_Statement* Parser::parseStatement()
 
             expect(TOK_SEMICOLON, "Expected ';' after printf call.");
 
-            Ast_Statement *stmt = DBG_NEW Ast_Statement();
+            Ast_Statement *stmt = AST_NEW(Ast_Statement);
             stmt->expression = expr;
             return stmt;
         }
@@ -399,7 +406,7 @@ Ast_Statement* Parser::parseStatement()
         case TOK_LCURLY_PAREN: {
             bool is_scoped_block = true;
             Ast_Block *scopedBlock = parseBlockStatement(is_scoped_block);
-            Ast_Statement *stmt = DBG_NEW Ast_Statement();
+            Ast_Statement *stmt = AST_NEW(Ast_Statement);
             stmt->block = scopedBlock;
             return stmt;
         }
@@ -409,7 +416,7 @@ Ast_Statement* Parser::parseStatement()
         case TOK_FLOAT: {
             Ast_Expression *expr = parseExpression();
             expect(TOK_SEMICOLON, "Expected ';' after expression statement.");
-            Ast_Statement *stmt = DBG_NEW Ast_Statement();
+            Ast_Statement *stmt = AST_NEW(Ast_Statement);
             stmt->expression = expr;
             return stmt;
         }
@@ -423,7 +430,7 @@ Ast_Statement* Parser::parseStatement()
 
 Ast_Block* Parser::parseProgram()
 {
-    Ast_Block* program = DBG_NEW Ast_Block();
+    Ast_Block* program = AST_NEW(Ast_Block);
 
     bool mainFound = false;
 
@@ -446,7 +453,7 @@ Ast_Block* Parser::parseProgram()
             Ast_Block* mainBlock = parseBlockStatement();
             mainBlock->is_entry_point = true;  // simple flag
 
-            Ast_Statement* stmt = DBG_NEW Ast_Statement();
+            Ast_Statement* stmt = AST_NEW(Ast_Statement);
             stmt->block = mainBlock;
             program->statements.push_back(stmt);
         }

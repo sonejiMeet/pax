@@ -3,18 +3,22 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-int a = ((1 + ((2 * 3) * 4)) + (5 / 2));
+int a = (((1 + ((2 * 3) * 4)) + 5) / 2);
 int b = (4 + (5 * 2));
 int c = ((5 * 2) + 4);
 int d = ((5 * 2) / 4);
 float e = ((2 / 4) * 5);
 int h = 1;
 int num = (2 * (5 - h));
+int something = 0;
+int idk = 1;
+bool boolean = true;
 
 void _generated_main() {
+    int v = 4;
     if ((a != b)) {
         float x = 2334.340088;
-        printf("x's value = %\n", x);
+        printf("x's value = %f\n", x);
     }
     else {
         printf("a == b\n");
@@ -25,12 +29,12 @@ void _generated_main() {
     printf("d=%d\n", d);
     printf("e=%f\n", e);
     printf("h=%d\n", h);
-    printf("h=%d\n", h);
-    {
-        int c = 0;
-    }
+    float scopedint = 5.900000;
+    (scopedint = (scopedint * 21));
+    printf("scopedint=%f\n", scopedint);
     {
         int g = 5;
+        (g = 3);
     }
 }
 

@@ -85,6 +85,14 @@ CM_Symbol* CodeManager::lookup_symbol(const std::string& name) {
     }
     return nullptr;
 }
+CM_Symbol* CodeManager::lookup_symbol_current_scope(const std::string& name) {
+    if (scopes.empty()) return nullptr;
+    CM_Scope& current_scope = scopes.back();
+    for (auto &sym : current_scope) {
+        if (sym.name == name) return &sym;
+    }
+    return nullptr;
+}
 
 void CodeManager::mark_initialized(const std::string& name) {
     CM_Symbol* s = lookup_symbol(name);
@@ -305,8 +313,12 @@ Ast_Type_Definition* CodeManager::infer_types_expr(Ast_Expression** expr_ptr) {
                 // already reported by resolve pass; return nullptr
                 return nullptr;
             }
-            if (s->decl && s->decl->declared_type) {
-                return s->decl->declared_type;
+            if (s->decl) {
+                if (s->decl->declared_type)
+                    return s->decl->declared_type;
+                else if (s->initialized && !s->inferred) {
+                    return infer_types_expr(&s->decl->initializer);
+                }
             }
             return nullptr;
         }
@@ -407,6 +419,13 @@ Ast_Type_Definition* CodeManager::infer_types_expr(Ast_Expression** expr_ptr) {
 void CodeManager::infer_types_decl(Ast_Declaration* decl) {
     if (!decl) return;
 
+    // check if already declared?
+    CM_Symbol* existing = lookup_symbol_current_scope(decl->identifier->name);
+    if (existing && existing->decl != decl) {
+        report_error(decl->line_number, decl->character_number, "Variable is already declared in the current scope '%s'", decl->identifier->name);
+        // return;
+    }
+
     if (decl->initializer) {
         Ast_Expression* init_expr = decl->initializer;
         Ast_Type_Definition* init_type = infer_types_expr(&init_expr);
@@ -423,9 +442,12 @@ void CodeManager::infer_types_decl(Ast_Declaration* decl) {
                     decl->identifier->name
                 );
             }
+
         } else {
             // No declared type → adopt initializer type
             decl->declared_type = init_type;
+            CM_Symbol* sym = lookup_symbol(decl->identifier->name);
+            if(sym) sym->type = init_type;
         }
     } else {
         if (!decl->declared_type) {
