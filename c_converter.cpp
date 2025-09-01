@@ -21,12 +21,12 @@ void emitExpression(FILE* out, Ast_Expression* expr, int indent) {
                 case LITERAL_FLOAT:  fprintf(out, "%f", lit->float_value); break;
                 case LITERAL_STRING: fprintf(out, "\"%s\"", lit->string_value.c_str()); break;
                 case LITERAL_TRUE: {
-                    char *s = "true";
+                    char *s = (char *)"true";
                     fprintf(out, "%s",s);
                     break;
                 }
                 case LITERAL_FALSE: {
-                    char *s = "false";
+                    char *s = (char *)"false";
                     fprintf(out, "%s",s);
                     break;
                 }

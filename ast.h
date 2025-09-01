@@ -181,7 +181,7 @@ enum Ast_Builtin_Type {
     TYPE_VOID,
 };
 
-struct Ast_Type_Definition {
+struct Ast_Type_Definition : public Ast {
     Ast_Builtin_Type builtin_type = TYPE_UNKNOWN;
     std::string name; // for user-defined types
 
