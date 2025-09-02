@@ -85,8 +85,11 @@ void emitExpression(FILE* out, Ast_Expression* expr, int indent) {
 }
 
 void emitDeclaration(FILE* out, Ast_Declaration* decl, int indent) {
-    if (!decl || !decl->declared_type) return;
-
+    if (!decl || !decl->declared_type)
+    {
+        printf("undelcared type!!! %s\n", decl->identifier->name);
+        return;
+    }
     indentLine(out, indent);
     fprintf(out, "%s %s", decl->declared_type->to_string().c_str(), decl->identifier->name.c_str());
     if (decl->initializer) {
@@ -95,6 +98,7 @@ void emitDeclaration(FILE* out, Ast_Declaration* decl, int indent) {
     }
     fprintf(out, ";\n");
 }
+
 void emitStatement(FILE* out, Ast_Statement* stmt, int indent) {
     if (!stmt) return;
 
@@ -146,6 +150,9 @@ void emitStatement(FILE* out, Ast_Statement* stmt, int indent) {
 void emitBlock(FILE* out, Ast_Block* block, int indent) {
     if (!block) return;
 
+    fprintf(out, "\n");
+
+    indentLine(out, indent);
     fprintf(out, "{\n");
 
     // right now we emit all the members local to current block to the very top.
@@ -153,6 +160,7 @@ void emitBlock(FILE* out, Ast_Block* block, int indent) {
     for (auto* decl : block->members) {
         emitDeclaration(out, decl, indent + 4);
     }
+
 
     if (!block->members.empty() && !block->statements.empty()) {
         fprintf(out, "\n");
@@ -162,6 +170,9 @@ void emitBlock(FILE* out, Ast_Block* block, int indent) {
         emitStatement(out, stmt, indent+4);
     }
 
+    for (auto *c_scope : block->child_scopes){
+        emitBlock(out, c_scope, indent+4);
+    }
     indentLine(out, indent);
     fprintf(out, "}\n");
 }

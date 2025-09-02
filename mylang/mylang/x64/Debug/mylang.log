@@ -1,4 +1,5 @@
-﻿  code_manager.cpp
-  main.cpp
+﻿  c_converter.cpp
+  code_manager.cpp
+C:\mylang\c_converter.cpp(90,16): warning C4477: 'printf' : format string '%s' requires an argument of type 'char *', but variadic argument 1 has type 'std::string'
   Generating Code...
   mylang.vcxproj -> C:\mylang\mylang\x64\Debug\mylang.exe

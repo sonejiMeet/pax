@@ -310,7 +310,7 @@ Ast_Block* Parser::parseBlockStatement(bool scoped_block) {
         }
         else if (stmt->block != nullptr) {
             block->child_scopes.push_back(stmt->block);
-            block->statements.push_back(stmt); // keep for ordering
+            // block->statements.push_back(stmt); // keep for ordering
         }
         else {
             block->statements.push_back(stmt);
