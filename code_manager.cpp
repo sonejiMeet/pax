@@ -106,19 +106,14 @@ void CodeManager::mark_initialized(const std::string& name) {
 void CodeManager::resolve_idents(Ast_Block* block) {
     if (!block) return;
 
+    for (auto* decl : block->members) {
+        if (!decl) continue;
+
+        resolve_idents_in_declaration(decl);
+        declare_variable(decl);
+    }
     for (auto* stmt : block->statements) {
         if (!stmt) continue;
-
-        // Declaration nodes are statements of type AST_DECLARATION
-        if (stmt->type == AST_DECLARATION) {
-            Ast_Declaration* decl = static_cast<Ast_Declaration*>(stmt);
-            // first resolve initializer expressions (they may refer to earlier variables)
-            resolve_idents_in_declaration(decl);
-            // then declare the variable (in current scope)
-            declare_variable(decl);
-            continue;
-        }
-
         // If statement (statement-subclass for if)
         if (stmt->type == AST_IF) {
             Ast_If* ifn = static_cast<Ast_If*>(stmt);
@@ -136,17 +131,21 @@ void CodeManager::resolve_idents(Ast_Block* block) {
                 resolve_idents(ifn->else_block);
                 pop_scope();
             }
-            continue;
+            // continue;
         }
 
         // Generic statement may hold expression or nested block
-        if (stmt->expression) {
+        else if (stmt->expression) {
             resolve_idents_in_expr(stmt->expression);
         }
-        if (stmt->block) {
-            push_scope();
+        else if (stmt->block) {
+            if(stmt->block->is_scoped_block)
+                push_scope();
+
             resolve_idents(stmt->block);
-            pop_scope();
+
+            if(stmt->block->is_scoped_block)
+                pop_scope();
         }
     }
 }
@@ -193,7 +192,7 @@ void CodeManager::resolve_idents_in_expr(Ast_Expression* expr) {
                         "Left-hand side of assignment must be an identifier"
                     );
                 } else {
-                    CM_Symbol* sym = lookup_symbol(lhs_ident->name);
+                    CM_Symbol* sym = lookup_symbol_current_scope(lhs_ident->name);
                     if (!sym) {
                         report_error(
                             lhs_ident->line_number,
@@ -206,18 +205,18 @@ void CodeManager::resolve_idents_in_expr(Ast_Expression* expr) {
                         sym->initialized = true;
 
                         // Type inference / checking
-                        Ast_Type_Definition* rhsType = infer_types_expr(&b->rhs);
-                        if (!sym->type) {
-                            // no explicit type, adopt RHS type
-                            sym->type = rhsType;
-                        } else if (!check_that_types_match(sym->type, rhsType)) {
-                            report_error(
-                                lhs_ident->line_number,
-                                lhs_ident->character_number,
-                                "Type mismatch in assignment to '%s'",
-                                lhs_ident->name
-                            );
-                        }
+                        // Ast_Type_Definition* rhsType = infer_types_expr(&b->rhs);
+                        // if (!sym->type) {
+                        //     // no explicit type, adopt RHS type
+                        //     sym->type = rhsType;
+                        // } else if (!check_that_types_match(sym->type, rhsType)) {
+                        //     report_error(
+                        //         lhs_ident->line_number,
+                        //         lhs_ident->character_number,
+                        //         "Type mismatch in assignment to '%s'",
+                        //         lhs_ident->name
+                        //     );
+                        // }
                     }
                 }
 
@@ -237,7 +236,7 @@ void CodeManager::resolve_idents_in_expr(Ast_Expression* expr) {
 
             if (call->function && call->function->type == AST_IDENT) {
                 Ast_Ident* fn = static_cast<Ast_Ident*>(call->function);
-                if (fn->name != "printf") { // allow builtins
+                if (fn->name != "printf") { // allow builtins  // this is temporary.
                     if (!lookup_symbol(fn->name)) {
                         report_error(
                             fn->line_number,
@@ -363,11 +362,11 @@ Ast_Type_Definition* CodeManager::infer_types_expr(Ast_Expression** expr_ptr) {
                         return nullptr;
                     }
 
-                    CM_Symbol* sym = lookup_symbol(lhs_ident->name);
+                    CM_Symbol* sym = lookup_symbol_current_scope(lhs_ident->name);
                     if (!sym) {
-                        report_error(lhs_ident->line_number, lhs_ident->character_number,
+                        /*report_error(lhs_ident->line_number, lhs_ident->character_number,
                                      "Assignment to undeclared variable '%s'",
-                                     lhs_ident->name.c_str());
+                                     lhs_ident->name.c_str());*/
                         return nullptr;
                     }
 
@@ -469,26 +468,32 @@ void CodeManager::infer_types_decl(Ast_Declaration* decl) {
 void CodeManager::infer_types_block(Ast_Block* block) {
     if (!block) return;
 
+    for (auto* decl : block->members) {
+        if(!decl) continue;
+        infer_types_decl(decl);
+    }
+
     for (auto* stmt : block->statements) {
         if (!stmt) continue;
 
-        if (stmt->type == AST_DECLARATION) {
-            Ast_Declaration* decl = static_cast<Ast_Declaration*>(stmt);
-            infer_types_decl(decl);
-            // declare variable in current scope (already done by resolve pass, but ensure symbol exists)
-            CM_Symbol* s = lookup_symbol(decl->identifier ? decl->identifier->name : std::string());
-            if (!s) {
-                // if declaration wasn't declared (maybe resolved incorrectly), declare it now
-                declare_variable(decl);
-            }
-        } else if (stmt->expression) {
-            Ast_Expression* expr = stmt->expression;
-            infer_types_expr(&expr);
-        } else if (stmt->block) {
-            push_scope();
-            infer_types_block(stmt->block);
-            pop_scope();
-        } else if (stmt->type == AST_IF) {
+        // if (stmt->type == AST_DECLARATION) {
+        //     Ast_Declaration* decl = static_cast<Ast_Declaration*>(stmt);
+        //     infer_types_decl(decl);
+        //     // declare variable in current scope (already done by resolve pass, but ensure symbol exists)
+        //     CM_Symbol* s = lookup_symbol(decl->identifier ? decl->identifier->name : std::string());
+        //     if (!s) {
+        //         // if declaration wasn't declared (maybe resolved incorrectly), declare it now
+        //         declare_variable(decl);
+        //     }
+        // } else if (stmt->expression) {
+        //     Ast_Expression* expr = stmt->expression;
+        //     infer_types_expr(&expr);
+        // } else if (stmt->block) {
+        //     push_scope();
+        //     infer_types_block(stmt->block);
+        //     pop_scope();
+        // }
+         if (stmt->type == AST_IF) {
             Ast_If* ifn = static_cast<Ast_If*>(stmt);
             if (ifn->condition) {
                 Ast_Expression* cond = ifn->condition;
@@ -504,7 +509,17 @@ void CodeManager::infer_types_block(Ast_Block* block) {
                 infer_types_block(ifn->else_block);
                 pop_scope();
             }
+        } else if (stmt->expression) {
+            Ast_Expression* expr = stmt->expression;
+            infer_types_expr(&expr);
+        } else if (stmt->block) {
+            if (stmt->block->is_scoped_block)
+                push_scope();
+            infer_types_block(stmt->block);
+            if (stmt->block->is_scoped_block)
+                pop_scope();
         }
+
     }
 }
 
