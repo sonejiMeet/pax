@@ -148,6 +148,13 @@ void CodeManager::resolve_idents(Ast_Block* block) {
                 pop_scope();
         }
     }
+    // 3. NEW: Recursively process all nested child scopes.
+    for (auto* child_block : block->child_scopes) {
+        // Each nested block gets its own new scope.
+        push_scope();
+        resolve_idents(child_block);
+        pop_scope();
+    }
 }
 
 void CodeManager::resolve_idents_in_declaration(Ast_Declaration* decl) {
@@ -204,7 +211,7 @@ void CodeManager::resolve_idents_in_expr(Ast_Expression* expr) {
                         // Mark initialized
                         sym->initialized = true;
 
-                        // Type inference / checking
+                        // // Type inference / checking
                         // Ast_Type_Definition* rhsType = infer_types_expr(&b->rhs);
                         // if (!sym->type) {
                         //     // no explicit type, adopt RHS type
@@ -429,6 +436,11 @@ void CodeManager::infer_types_decl(Ast_Declaration* decl) {
         Ast_Expression* init_expr = decl->initializer;
         Ast_Type_Definition* init_type = infer_types_expr(&init_expr);
 
+        if(!init_type) {
+            report_error(decl->line_number, decl->character_number, "Could not infer type for variable %s from intitializer.",decl->identifier->name);
+            return;
+        }
+
         init_expr->inferred_type = init_type;
 
         if (decl->declared_type) {
@@ -520,6 +532,12 @@ void CodeManager::infer_types_block(Ast_Block* block) {
                 pop_scope();
         }
 
+    }
+    // 3. NEW: Recursively process all nested child scopes.
+    for (auto* child_block : block->child_scopes) {
+        push_scope();
+        infer_types_block(child_block);
+        pop_scope();
     }
 }
 

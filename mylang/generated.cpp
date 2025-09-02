@@ -16,11 +16,14 @@ bool boolean = true;
 
 void _generated_main() {
     int v = 4;
+    float scopedint = 5.900000;
+    int zeroChild = 0;
+
     if ((a != b)) {
         float x = 2334.340088;
+
         printf("x's value = %f\n", x);
-        {
-            int block_inside_if = 0;
+{
         }
     }
     else {
@@ -32,15 +35,13 @@ void _generated_main() {
     printf("d=%d\n", d);
     printf("e=%f\n", e);
     printf("h=%d\n", h);
-    float scopedint = 5.900000;
     (scopedint = 21);
     printf("scopedint=%f\n", scopedint);
-    int zeroChild = 0;
-    {
-        int g = 5;
-        (g = 3);
+{
         int firstChild = 0;
-        {
+
+        (g = 3);
+{
             int secondChild = 0;
         }
     }
