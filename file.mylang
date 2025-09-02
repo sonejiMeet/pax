@@ -30,6 +30,9 @@ main :: () {
     if(a != b) {
         x : float = 2334.34;
         printf("x's value = %f\n", x);
+        {
+            block_inside_if := 0;
+        }
     }
     else {
         printf("a == b\n");
@@ -42,14 +45,18 @@ main :: () {
     printf("h=%d\n",h);
 
 
-    scopedint := 5.90;
-    scopedint = scopedint*21;
+    scopedint := 5.9;
+    scopedint = 21;
     printf("scopedint=%f\n",scopedint);
 
-
+    zeroChild: int = 0;
     {
         g := 5;
         g = 3;
+        firstChild: int = 0;
+        {
+            secondChild: int = 0;
+        }
     }
 
 }

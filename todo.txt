@@ -4,15 +4,22 @@
         to be FIXed
 
 
-ast_printer for printf does not work
-inside struct Ast, we are not setting line_number, also should add filename member
+low priority: ast_printer for printf does not work
 
-find an alternative to std::vector for Ast nodes
-get rid of std::string usage cause fuck c++ in the assshole
+low priority: inside struct Ast, should add filename member
+
+mid priority: make the c converter and compilation process automatic
+
+high priority: find an alternative to std::vector for Ast nodes
+high priority: get rid of std::string usage cause fuck c++ in the assshole
 
 when string literal removed it throws weird parsing error. ex.
 s : string = "something; <----notice string literal missing
 Parsing Error[18:9] Expected ';' after variable declaration. at token 'asda' (Type: TOK_IDENTIFIER)
+
+struct
+function defintion
+
 
 (Todo for later)
 Emit Debug Information
@@ -21,6 +28,7 @@ emit #line directives so the compiler and debugger know the real source file and
 
 
 
+DONE: inside struct Ast, we are not setting line_number
 DONE: floats are not lexed correctly there is unknown token for decimal
 
 

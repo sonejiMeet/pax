@@ -147,6 +147,8 @@ struct Ast_Binary : public Ast_Expression {
 // Blocks & Control Flow
 struct Ast_Block : public Ast {
     Ast_Block() { type = AST_BLOCK; }
+
+    Ast_Block *parent = nullptr;
     std::vector<Ast_Statement *> statements;
 
     std::vector<Ast_Declaration *> members; // declarations in this scope
@@ -187,18 +189,6 @@ struct Ast_Type_Definition : public Ast {
 
     Ast_Type_Definition *element_type = nullptr; // for arrays
     bool is_array = false;
-
-    // static Ast_Type_Definition make_builtin(Ast_Builtin_Type t) {
-    //     Ast_Type_Definition def;
-    //     def.builtin_type = t;
-    //     return def;
-    // }
-
-    // static Ast_Type_Definition make_user_type(const std::string &n) {
-    //     Ast_Type_Definition def;
-    //     def.name = n;
-    //     return def;
-    // }
 
     std::string to_string() const {
         if (!name.empty()) return name;

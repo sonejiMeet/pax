@@ -266,25 +266,58 @@ Ast_If* Parser::parseIfStatement(){
 
 }
 
+// Ast_Block* Parser::parseBlockStatement(bool scoped_block) {
+//     expect(TOK_LCURLY_PAREN, "Expected '{' to start a block statement.");
+
+//     Ast_Block* block = AST_NEW(Ast_Block);
+
+//     block->is_scoped_block = scoped_block;
+
+//     while (current.type != TOK_RCURLY_PAREN && current.type != TOK_END_OF_FILE) {
+//         Ast_Statement* stmt = parseStatement(); // recursively parse statements within the block
+//         if (stmt) block->statements.push_back(stmt);
+//         else {
+//             parseError("Failed to parse statement within block.");
+//             exitSuccess = false;
+//             synchronize();
+//             break;
+//         }
+//     }
+//     expect(TOK_RCURLY_PAREN, "Expected '}' to close a block statement.");
+
+//     return block;
+// }
+
 Ast_Block* Parser::parseBlockStatement(bool scoped_block) {
     expect(TOK_LCURLY_PAREN, "Expected '{' to start a block statement.");
 
     Ast_Block* block = AST_NEW(Ast_Block);
-
     block->is_scoped_block = scoped_block;
 
     while (current.type != TOK_RCURLY_PAREN && current.type != TOK_END_OF_FILE) {
-        Ast_Statement* stmt = parseStatement(); // recursively parse statements within the block
-        if (stmt) block->statements.push_back(stmt);
-        else {
+        Ast_Statement* stmt = parseStatement();
+
+        if (!stmt) {
             parseError("Failed to parse statement within block.");
             exitSuccess = false;
             synchronize();
             break;
         }
-    }
-    expect(TOK_RCURLY_PAREN, "Expected '}' to close a block statement.");
 
+        // --- classify statement ---
+        if (auto decl = dynamic_cast<Ast_Declaration*>(stmt)) {
+            block->members.push_back(decl);
+        }
+        else if (stmt->block != nullptr) {
+            block->child_scopes.push_back(stmt->block);
+            block->statements.push_back(stmt); // keep for ordering
+        }
+        else {
+            block->statements.push_back(stmt);
+        }
+    }
+
+    expect(TOK_RCURLY_PAREN, "Expected '}' to close a block statement.");
     return block;
 }
 
@@ -353,7 +386,8 @@ Ast_Statement* Parser::parseStatement()
             }
             else if (next.type == TOK_COLON) {
                 Ast_Declaration* decl = parseVarDeclaration();
-                return static_cast<Ast_Statement *> (decl);
+                // return static_cast<Ast_Statement *> (decl);
+                return decl;
             } else if (next.type == TOK_ASSIGN) {
                 // assignment
                 std::string varName = current.value;
@@ -461,7 +495,8 @@ Ast_Block* Parser::parseProgram()
             Token next = lexer->peekNextToken();
             if (next.type == TOK_COLON) {
                 Ast_Declaration* decl = parseVarDeclaration();
-                program->statements.push_back(static_cast<Ast_Statement*>(decl));
+                // program->statements.push_back(static_cast<Ast_Statement*>(decl));
+                program->members.push_back(decl);
             }
             else {
                 parseError("Top-level executable statements not allowed. Only declarations and main.");
