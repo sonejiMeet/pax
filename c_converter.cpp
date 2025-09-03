@@ -84,25 +84,37 @@ void emitExpression(FILE* out, Ast_Expression* expr, int indent) {
     }
 }
 
-void emitDeclaration(FILE* out, Ast_Declaration* decl, int indent) {
-    if (!decl || !decl->declared_type)
-    {
-        printf("undelcared type!!! %s\n", decl->identifier->name);
-        return;
-    }
-    indentLine(out, indent);
-    fprintf(out, "%s %s", decl->declared_type->to_string().c_str(), decl->identifier->name.c_str());
-    if (decl->initializer) {
-        fprintf(out, " = ");
-        emitExpression(out, decl->initializer, 0);
-    }
-    fprintf(out, ";\n");
-}
+// void emitDeclaration(FILE* out, Ast_Declaration* decl, int indent) {
+//     if (!decl || !decl->declared_type)
+//     {
+//         printf("undelcared type!!! %s\n", decl->identifier->name);
+//         return;
+//     }
+//     indentLine(out, indent);
+//     fprintf(out, "%s %s", decl->declared_type->to_string().c_str(), decl->identifier->name.c_str());
+//     if (decl->initializer) {
+//         fprintf(out, " = ");
+//         emitExpression(out, decl->initializer, 0);
+//     }
+//     fprintf(out, ";\n");
+// }
 
 void emitStatement(FILE* out, Ast_Statement* stmt, int indent) {
     if (!stmt) return;
 
     switch (stmt->type) {
+
+        case AST_DECLARATION: {
+            auto* decl = static_cast<Ast_Declaration*>(stmt);
+            indentLine(out, indent);
+            fprintf(out, "%s %s", decl->declared_type->to_string().c_str(), decl->identifier->name.c_str());
+            if (decl->initializer) {
+                fprintf(out, " = ");
+                emitExpression(out, decl->initializer, indent);
+            }
+            fprintf(out, ";\n");
+            break;
+        }
 
         case AST_STATEMENT: {
             if (stmt->expression) {
@@ -150,29 +162,29 @@ void emitStatement(FILE* out, Ast_Statement* stmt, int indent) {
 void emitBlock(FILE* out, Ast_Block* block, int indent) {
     if (!block) return;
 
-    fprintf(out, "\n");
+    // fprintf(out, "\n");
 
-    indentLine(out, indent);
+    // indentLine(out, indent);
     fprintf(out, "{\n");
 
     // right now we emit all the members local to current block to the very top.
     // idk how this would affect in future when we implement #line directive feature to step into our code
-    for (auto* decl : block->members) {
-        emitDeclaration(out, decl, indent + 4);
-    }
+    // for (auto* decl : block->members) {
+    //     emitDeclaration(out, decl, indent + 4);
+    // }
 
 
-    if (!block->members.empty() && !block->statements.empty()) {
-        fprintf(out, "\n");
-    }
+    // if (!block->members.empty() && !block->statements.empty()) {
+    //     fprintf(out, "\n");
+    // }
 
     for (auto* stmt : block->statements) {
         emitStatement(out, stmt, indent+4);
     }
 
-    for (auto *c_scope : block->child_scopes){
-        emitBlock(out, c_scope, indent+4);
-    }
+    // for (auto *c_scope : block->child_scopes){
+    //     emitBlock(out, c_scope, indent+4);
+    // }
     indentLine(out, indent);
     fprintf(out, "}\n");
 }
@@ -190,9 +202,17 @@ void generate_cpp_code(const char* filename, Ast_Block* program) {
     fprintf(out, "#include <stdio.h>\n\n");
 
     // 1️⃣ Emit top-level globals
-    for (auto* decl : program->members) {
-        emitDeclaration(out, decl, 0);
+    for (auto* stmt : program->statements) {
+        if (!stmt) continue;
+
+    // global variable declarations
+        if (stmt->type == AST_DECLARATION) {
+            emitStatement(out, stmt, 0);
+        }
     }
+    // for (auto* decl : program->members) {
+    //     emitDeclaration(out, decl, 0);
+    // }
 
     // 2️⃣ Find the entry point block (main)
     Ast_Block* mainBlock = nullptr;
