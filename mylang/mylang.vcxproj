@@ -21,7 +21,7 @@
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
-    <ProjectGuid>{cd3965db-32d9-4c29-b202-713c8ffcf154}</ProjectGuid>
+    <ProjectGuid>{fe376334-c362-45da-ab6e-f00d157d0bb8}</ProjectGuid>
     <RootNamespace>mylang</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
@@ -130,7 +130,6 @@
     <ClInclude Include="..\lexer.h" />
     <ClInclude Include="..\parser.h" />
     <ClInclude Include="..\token.h" />
-    <ClInclude Include="..\tools.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\code_manager.cpp" />

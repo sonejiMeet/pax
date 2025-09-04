@@ -1,33 +1,18 @@
 #include "code_manager.h"
-#include <iostream>
-#include <sstream>
-#include <cstdarg>
-// -------------------------------------------------
-// Initialization / errors
-// -------------------------------------------------
+
+#include <cstdarg> // for variadic function
+
 void CodeManager::init() {
     scopes.clear();
     scopes.emplace_back(); // global scope
-    // errors.clear();
 }
-
-// bool CodeManager::has_errors() const {
-//     return !errors.empty();
-// }
-
-// void CodeManager::print_errors() const {
-//     for (auto const &e : errors) {
-//         std::cerr << e << std::endl;
-//     }
-// }
 
 int CodeManager::get_count_errors(){
     return count_errors;
 }
-// -------------------------------------------------
-// Utility: report error (collect only)
-// -------------------------------------------------
-void CodeManager::report_error(int line, int col, const char* fmt, ...) {
+
+void CodeManager::report_error(int line, int col, const char* fmt, ...)
+{
     constexpr size_t BUFFER_SIZE = 512;
     char buffer[BUFFER_SIZE];
 
@@ -44,18 +29,18 @@ void CodeManager::report_error(int line, int col, const char* fmt, ...) {
     }
 }
 
-// -------------------------------------------------
-// Scopes & Symbols
-// -------------------------------------------------
-void CodeManager::push_scope() {
+void CodeManager::push_scope()
+{
     scopes.emplace_back();
 }
 
-void CodeManager::pop_scope() {
+void CodeManager::pop_scope()
+{
     if (!scopes.empty()) scopes.pop_back();
 }
 
-bool CodeManager::declare_variable(Ast_Declaration* decl) {
+bool CodeManager::declare_variable(Ast_Declaration* decl)
+{
     CM_Scope &scope = scopes.back();
 
     for (auto &sym : scope) {
@@ -77,7 +62,8 @@ bool CodeManager::declare_variable(Ast_Declaration* decl) {
 }
 
 
-CM_Symbol* CodeManager::lookup_symbol(const std::string& name) {
+CM_Symbol* CodeManager::lookup_symbol(const std::string& name)
+{
     for (int i = (int)scopes.size() - 1; i >= 0; --i) {
         for (auto &sym : scopes[i]) {
             if (sym.name == name) return &sym;
@@ -85,7 +71,9 @@ CM_Symbol* CodeManager::lookup_symbol(const std::string& name) {
     }
     return nullptr;
 }
-CM_Symbol* CodeManager::lookup_symbol_current_scope(const std::string& name) {
+
+CM_Symbol* CodeManager::lookup_symbol_current_scope(const std::string& name)
+{
     if (scopes.empty()) return nullptr;
     CM_Scope& current_scope = scopes.back();
     for (auto &sym : current_scope) {
@@ -94,16 +82,14 @@ CM_Symbol* CodeManager::lookup_symbol_current_scope(const std::string& name) {
     return nullptr;
 }
 
-void CodeManager::mark_initialized(const std::string& name) {
+void CodeManager::mark_initialized(const std::string& name)
+{
     CM_Symbol* s = lookup_symbol(name);
     if (s) s->initialized = true;
 }
 
-// -------------------------------------------------
-// Identifier resolution
-// Walk block -> statements -> declarations/expressions
-// -------------------------------------------------
-void CodeManager::resolve_idents(Ast_Block* block) {
+void CodeManager::resolve_idents(Ast_Block* block)
+{
     if (!block) return;
 
     // for (auto* decl : block->members) {
@@ -115,22 +101,19 @@ void CodeManager::resolve_idents(Ast_Block* block) {
     for (auto* stmt : block->statements) {
         if (!stmt) continue;
 
-        // Declaration nodes are statements of type AST_DECLARATION
         if (stmt->type == AST_DECLARATION) {
             Ast_Declaration* decl = static_cast<Ast_Declaration*>(stmt);
             // first resolve initializer expressions (they may refer to earlier variables)
             resolve_idents_in_declaration(decl);
-            // then declare the variable (in current scope)
+            // then declare the variable which are in current scope
             declare_variable(decl);
             continue;
         }
 
-        // If statement (statement-subclass for if)
         if (stmt->type == AST_IF) {
             Ast_If* ifn = static_cast<Ast_If*>(stmt);
             if (ifn->condition) resolve_idents_in_expr(ifn->condition);
 
-            // then block: create inner scope
             if (ifn->then_block) {
                 push_scope();
                 resolve_idents(ifn->then_block);
@@ -159,7 +142,6 @@ void CodeManager::resolve_idents(Ast_Block* block) {
                 pop_scope();
         }
     }
-    // // 3. NEW: Recursively process all nested child scopes.
     // for (auto* child_block : block->child_scopes) {
     //     // Each nested block gets its own new scope.
     //     push_scope();
@@ -194,14 +176,12 @@ void CodeManager::resolve_idents_in_expr(Ast_Expression* expr) {
         }
 
         case AST_LITERAL:
-            // nothing to resolve
             break;
 
         case AST_BINARY: {
             Ast_Binary* b = static_cast<Ast_Binary*>(expr);
 
-            if (b->op == BINOP_ASSIGN) { // assignment
-                // LHS must be an identifier
+            if (b->op == BINOP_ASSIGN) {
                 Ast_Ident* lhs_ident = dynamic_cast<Ast_Ident*>(b->lhs);
                 if (!lhs_ident) {
                     report_error(
@@ -254,7 +234,7 @@ void CodeManager::resolve_idents_in_expr(Ast_Expression* expr) {
 
             if (call->function && call->function->type == AST_IDENT) {
                 Ast_Ident* fn = static_cast<Ast_Ident*>(call->function);
-                if (fn->name != "printf") { // allow builtins  // this is temporary.
+                if (fn->name != "printf") { // allow builtins, this is temporary.
                     if (!lookup_symbol(fn->name)) {
                         report_error(
                             fn->line_number,
@@ -290,13 +270,6 @@ void CodeManager::resolve_idents_in_expr(Ast_Expression* expr) {
 }
 
 
-// -------------------------------------------------
-// Type inference & checking
-// Returns an Ast_Type_Definition* (may allocate temporary builtin)
-// -------------------------------------------------
-
-// Helper to create a fresh builtin type (allocated); caller doesn't have to delete in short term.
-// In a bigger system you'd have an internal type table / arena.
 static Ast_Type_Definition* make_builtin_type(Ast_Builtin_Type t) {
     Ast_Type_Definition* out = new Ast_Type_Definition();
     out->builtin_type = t;
@@ -327,8 +300,7 @@ Ast_Type_Definition* CodeManager::infer_types_expr(Ast_Expression** expr_ptr) {
             Ast_Ident* id = static_cast<Ast_Ident*>(expr);
             CM_Symbol* s = lookup_symbol(id->name);
             if (!s) {
-                // already reported by resolve pass; return nullptr
-                return nullptr;
+                return nullptr; // this will be already reported by resolve_idents_in_expr
             }
             if (s->decl) {
                 if (s->decl->declared_type)
@@ -423,16 +395,13 @@ Ast_Type_Definition* CodeManager::infer_types_expr(Ast_Expression** expr_ptr) {
         }
 
         case AST_COMMA_SEPARATED_ARGS:
-            // not a value-producing expression per se; return nullptr
             return nullptr;
 
         default:
-            // other expressions not handled yet
             return nullptr;
     }
 }
 
-// Declaration-level type inference and checking
 void CodeManager::infer_types_decl(Ast_Declaration* decl) {
     if (!decl) return;
 
@@ -455,7 +424,8 @@ void CodeManager::infer_types_decl(Ast_Declaration* decl) {
         init_expr->inferred_type = init_type;
 
         if (decl->declared_type) {
-            // Explicit type → check compatibility
+
+            // explicit type, check if they match
             if (!check_that_types_match(decl->declared_type, init_type)) {
                 report_error(
                     decl->line_number,
@@ -466,14 +436,14 @@ void CodeManager::infer_types_decl(Ast_Declaration* decl) {
             }
 
         } else {
-            // No declared type → adopt initializer type
+            // Not declared, get initializer's type
             decl->declared_type = init_type;
             CM_Symbol* sym = lookup_symbol(decl->identifier->name);
             if(sym) sym->type = init_type;
         }
     } else {
         if (!decl->declared_type) {
-            // No type and no initializer → invalid
+            // No type and no initializer  NOT NEEDED this is reported by parser so remove it
             report_error(
                 decl->line_number,
                 decl->character_number,
@@ -481,7 +451,7 @@ void CodeManager::infer_types_decl(Ast_Declaration* decl) {
                 decl->identifier->name
             );
         }
-        // Case: x : int; → valid, just no initializer
+        // then there is just declared type, nothing to do in that case
     }
 }
 
@@ -552,22 +522,14 @@ void CodeManager::infer_types_block(Ast_Block* block) {
     // }
 }
 
-// -------------------------------------------------
-// Type helpers
-// -------------------------------------------------
 bool CodeManager::check_that_types_match(Ast_Type_Definition* wanted, Ast_Type_Definition* have) {
     if (!wanted || !have) return false;
-    // if both are builtin, compare builtin_type
+
     if (wanted->builtin_type != TYPE_UNKNOWN && have->builtin_type != TYPE_UNKNOWN) {
         if(wanted->builtin_type == have->builtin_type) return true;
         if(wanted->builtin_type == TYPE_FLOAT && have->builtin_type == TYPE_INT) return true;
         // return wanted->builtin_type == have->builtin_type;
     }
-    // if wanted is named type, compare name
-    if (!wanted->name.empty() && !have->name.empty()) {
-        return wanted->name == have->name;
-    }
-    // fallback: false
     return false;
 }
 

@@ -1,5 +1,6 @@
 #include "parser.h"
 #include "token.h"
+
 #include <iostream>
 #include <vector>
 
@@ -32,14 +33,14 @@ void Parser::advance() {
 }
 
 void Parser::parseError(const std::string& message) {
-    std::cerr << "\n" << __FILE__ << ": Parsing Error" <<  "[" << current.row << ":" << current.col << "] "  << message
+    std::cout << "\n" << __FILE__ << ": Parsing Error" <<  "[" << current.row << ":" << current.col << "] "  << message
               << " at token '" << current.value << "' (Type: "
               << tokenTypeToString(current.type) << ")";
 
 }
 
 void Parser::reportError(const std::string& message) {
-    std::cerr << "\n" << __FILE__ << ": Parsing Error" <<  "[" << current.row << ":" << current.col << "] "  << message;
+    std::cout << "\n" << __FILE__ << ": Parsing Error" <<  "[" << current.row << ":" << current.col << "] "  << message;
 }
 
 void Parser::expect(TokenType expectedType, const std::string& errorMessage)

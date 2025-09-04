@@ -1,1 +1,1 @@
-cl /Zi /w /EHsc /nologo main.cpp lexer.cpp parser.cpp token.cpp tools.cpp code_manager.cpp c_converter.cpp /link
+cl /O2 /ZI /W3 /EHsc /nologo main.cpp lexer.cpp parser.cpp token.cpp tools.cpp code_manager.cpp c_converter.cpp /link
