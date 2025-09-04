@@ -1,11 +1,6 @@
 #pragma once
 #include "ast.h"
 #include <iostream>
-#include <iomanip>
-#include <string>
-#include <iostream>
-#include <string>
-#include <cstdint>
 
 // Forward declarations
 struct Ast;

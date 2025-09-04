@@ -15,19 +15,14 @@ num: int = 2 * (5 - h);
 something := true;
 
 /* multiline
+
+
   comment */
 
-// func :: () -> {
-
-// }
-
-// structName :: struct {
-
-// }
 
 main :: () {
     v : int = 4;
-    if(a != b) {
+    if (a != b) {
         x : float = 2334.34;
         printf("x's value = %f\n", x);
         {
@@ -43,7 +38,6 @@ main :: () {
     printf("d=%d\n",d);
     printf("e=%f\n",e);
     printf("h=%d\n",h);
-
 
     scopedint := 5.9;
     scopedint = 21;

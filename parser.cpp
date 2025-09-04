@@ -53,7 +53,18 @@ void Parser::expect(TokenType expectedType, const std::string& errorMessage)
     }
     advance();
 }
+void Parser::Expect(TokenType expectedType, const std::string& errorMessage)
+{
+    if (current.type != expectedType) {
 
+    std::cout << "\n" << __FILE__ << ": Parsing Error" <<  "[" << previous.row << ":" << previous.col << "] "  << errorMessage;
+
+        exitSuccess = false;
+        synchronize();
+        return;
+    }
+    advance();
+}
 void Parser::synchronize() {
     // Skip tokens until we reach a "safe" point to restart parsing
     while (current.type != TOK_END_OF_FILE) {
@@ -123,7 +134,7 @@ Ast_Expression* Parser::parseFactor()
         advance();
         Ast_Expression* expr = parseExpression();
 
-        expect(TOK_RPAREN, "Expected ')' after expression in parentheses.");
+        Expect(TOK_RPAREN, "Expected ')' after expression in parentheses.");
 
         return expr;
     }
@@ -196,8 +207,11 @@ Ast_Type_Definition* Parser::parseTypeSpecifier()
     else if(current.type == TOK_TYPE_BOOL)
         typeDef->builtin_type = TYPE_BOOL;
         // need to add more specific types sizes like signed/unsigned 8,16,32,64 bits, f32, f64,
-    else
-        parseError("Expected a type keyword (e.g., 'int', 'float', 'string', 'bool').");
+    else {
+        reportError("Expected a type keyword (e.g., 'int', 'float', 'string', 'bool').");
+        synchronize();
+        return nullptr;
+    }
 
     advance(); // and consume
     return typeDef;
@@ -206,34 +220,40 @@ Ast_Type_Definition* Parser::parseTypeSpecifier()
 //  statement "identifier = expression;"
 Ast_Declaration* Parser::parseVarDeclaration()
 {
+    Ast_Declaration* varDecl = AST_NEW(Ast_Declaration);
+
     std::string varName = current.value;
     advance(); // consume identifier
-
-    // Must have ':' after identifier for all declaration forms in your design
-    expect(TOK_COLON, "Expected ':' after variable name for type declaration.");
 
     Ast_Type_Definition *typeDef = nullptr;
 
     Ast_Expression *initializer = nullptr;
 
-    // After consuming ':', current is the token after ':'
-    if (current.type == TOK_ASSIGN) {
-        // form:  x := expr;   (inferred declaration or later assignment)
-        advance(); // consume '=' (the second char of ":=")
-        initializer = parseExpression();
-    } else {
-        if(current.type != TOK_SEMICOLON) {
-            typeDef = parseTypeSpecifier();
-            if(current.type == TOK_ASSIGN){
-                advance();
-                initializer = parseExpression();
-            }
+    if(current.type == TOK_COLON){
+        advance();
+
+        // After consuming ':', current is the token after ':'
+        if (current.type == TOK_ASSIGN) {
+            // form:  x := expr;   (inferred declaration or later assignment)
+            advance(); // consume '=' (the second char of ":=")
+            initializer = parseExpression();
+        } else if(current.type != TOK_SEMICOLON) {
+                typeDef = parseTypeSpecifier();
+
+                if(current.type == TOK_ASSIGN){
+                    advance();
+                    initializer = parseExpression();
+                }
+
+        } else {
+            parseError("Expected either ':' declaration");
         }
+
+    } else {
+        parseError("Must be a ':' after identifier in a declaration statement");
     }
+    Expect(TOK_SEMICOLON, "Expected ';' after variable declaration.");
 
-    expect(TOK_SEMICOLON, "Expected ';' after variable declaration.");
-
-    Ast_Declaration* varDecl = AST_NEW(Ast_Declaration);
     varDecl->declared_type = typeDef;      // nullptr for inferred form
     varDecl->identifier = AST_NEW(Ast_Ident);
     varDecl->identifier->name = varName;
@@ -246,9 +266,9 @@ Ast_Declaration* Parser::parseVarDeclaration()
 Ast_If* Parser::parseIfStatement(){
 
     advance();
-    expect(TOK_LPAREN, "Expected '(' before if statement.");
+    Expect(TOK_LPAREN, "Expected '(' before start of expression in if statement .");
     Ast_Expression *condition = parseExpression();
-    expect(TOK_RPAREN, "Expected ')' after if statement.");
+    Expect(TOK_RPAREN, "Expected ')' after end of expression in if statement.");
 
     Ast_Block *thenBlock = parseBlockStatement();
 
@@ -382,11 +402,12 @@ Ast_Statement* Parser::parseStatement()
                     // parse function def
                 }
             }
-            else if (next.type == TOK_COLON) {
-                Ast_Declaration* decl = parseVarDeclaration();
-                // return static_cast<Ast_Statement *> (decl);
-                return decl;
-            } else if (next.type == TOK_ASSIGN) {
+            // else if (next.type == TOK_COLON) {
+            //     Ast_Declaration* decl = parseVarDeclaration();
+            //     // return static_cast<Ast_Statement *> (decl);
+            //     return decl;
+            // }
+            else if (next.type == TOK_ASSIGN) {
                 // assignment
                 std::string varName = current.value;
                 advance(); // consume identifier
@@ -402,25 +423,28 @@ Ast_Statement* Parser::parseStatement()
                 assignExpr->lhs = lhs;
                 assignExpr->rhs = rhs;
 
-                expect(TOK_SEMICOLON, "Expected ';' after assignment.");
+                Expect(TOK_SEMICOLON, "Expected ';' after assignment.");
 
                 Ast_Statement* stmt = AST_NEW(Ast_Statement);
                 stmt->expression = assignExpr;
                 return stmt;
             }
             else {
-                // plain expression statement
-                Ast_Expression* expr = parseExpression();
-                expect(TOK_SEMICOLON, "Expected ';' after expression statement.");
-                Ast_Statement* stmt = AST_NEW(Ast_Statement);
-                stmt->expression = expr;
-                return stmt;
+                // // plain expression statement
+                // Ast_Expression* expr = parseExpression();
+                // expect(TOK_SEMICOLON, "Expected ';' after expression statement.");
+                // Ast_Statement* stmt = AST_NEW(Ast_Statement);
+                // stmt->expression = expr;
+                // return stmt;
+                Ast_Declaration* decl = parseVarDeclaration();
+                // return static_cast<Ast_Statement *> (decl);
+                return decl;
             }
         }
         case TOK_PRINT: {
             Ast_Procedure_Call_Expression *expr = parseCall();
 
-            expect(TOK_SEMICOLON, "Expected ';' after printf call.");
+            Expect(TOK_SEMICOLON, "Expected ';' after printf call.");
 
             Ast_Statement *stmt = AST_NEW(Ast_Statement);
             stmt->expression = expr;
@@ -475,6 +499,7 @@ Ast_Block* Parser::parseProgram()
                 advance();
             }
             mainFound = true;
+            Ast_Statement* stmt = AST_NEW(Ast_Statement);
 
             advance();
 
@@ -485,7 +510,6 @@ Ast_Block* Parser::parseProgram()
             Ast_Block* mainBlock = parseBlockStatement();
             mainBlock->is_entry_point = true;  // simple flag
 
-            Ast_Statement* stmt = AST_NEW(Ast_Statement);
             stmt->block = mainBlock;
             program->statements.push_back(stmt);
         }
@@ -502,6 +526,13 @@ Ast_Block* Parser::parseProgram()
                 synchronize();
                 break;
             }
+            // Ast_Statement *stmt = AST_NEW(Ast_Statement);
+            // stmt = parseStatement();
+            // if(stmt)
+            //     program->statements.push_back(stmt);
+
+            // else
+            //     parseError("Unexpected token in top level bro......");
         }
         else {
             parseError("Unexpected token at top-level. Only declarations and main function allowed.");
@@ -516,7 +547,7 @@ Ast_Block* Parser::parseProgram()
         parseError("No 'main' function found. An entry point is required.");
 
     if(!exitSuccess){
-        printf("\n\nCompilation failed. There were errors.\n\n");
+        printf("\n\nExiting... There were errors.\n\n");
         exit(1);
     }
     return program;
