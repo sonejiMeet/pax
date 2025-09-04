@@ -112,15 +112,13 @@ inline void generate_and_compile(FileBuffer buf, char *filename){
     if (cm.get_count_errors() != 0) {
         return;
     }
-    // Make a modifiable copy
+
     char baseName[256];
     strncpy_s(baseName, filename, sizeof(baseName));
-    baseName[sizeof(baseName)-1] = '\0'; // ensure null-terminated
-
-    // Find the last dot
+    baseName[sizeof(baseName)-1] = '\0';
     char* dot = strrchr(baseName, '.');
     if (dot != NULL) {
-        *dot = '\0'; // Cut off extension (turn '.' into '\0')
+        *dot = '\0';
     }
     snprintf(baseName, sizeof(baseName), "%s.cpp", baseName);
 
