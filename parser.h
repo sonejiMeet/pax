@@ -12,6 +12,7 @@ struct Parser {
     void parseError(const std::string &message);
     void reportError(const std::string &message);
     void expect(TokenType expectedType, const std::string &errorMessage);
+    void Expect(TokenType expectedType, const std::string &errorMessage);
 
     void logDebug(const std::string &message, const Token *token) const;
     void advance();

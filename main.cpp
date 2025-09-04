@@ -1,13 +1,13 @@
 #define _CRTDBG_MAP_ALLOC // for mem leaks
 
-#include <cstdlib>
-#include <crtdbg.h>
-
 #include "token.h"
 #include "parser.h"
 #include "ast_printer.h"
 #include "code_manager.h"
 #include "c_converter.h"
+
+#include <cstdlib>
+#include <crtdbg.h>
 
 #include <chrono>
 
@@ -122,13 +122,14 @@ inline void generate_and_compile(FileBuffer buf, char *filename){
     }
     snprintf(baseName, sizeof(baseName), "%s.cpp", baseName);
 
+    // generate c code
     generate_cpp_code(baseName, ast);
     printf("\nC code generated\n");
 
     // build gennerated file
     char command[256];
-    snprintf(command, sizeof(command), "cl /nologo %s", baseName);
-    system(command);
+    snprintf(command, sizeof(command), " cl /O2 /EHsc /nologo %s", baseName);
+    system(command); //
 
     delete ast;
 
