@@ -2,18 +2,20 @@
 #include <cstdio>
 #include <string>
 
-void indentLine(FILE* out, int indent) {
-    for (int i = 0; i < indent; ++i) fputc(' ', out);
-}
 
 void emitStatement(FILE* out, Ast_Statement* stmt, int indent = 0);
 void emitExpression(FILE* out, Ast_Expression* expr, int indent = 0);
-
-void emitDeclaration(FILE* out, Ast_Declaration* decl, int indent = 0);
-
+// void emitDeclaration(FILE* out, Ast_Declaration* decl, int indent = 0);
 void emitBlock(FILE* out, Ast_Block* block, int indent = 0);
 
-void emitExpression(FILE* out, Ast_Expression* expr, int indent) {
+void indentLine(FILE* out, int indent)
+{
+    for (int i = 0; i < indent; ++i)
+        fputc(' ', out);
+}
+
+void emitExpression(FILE* out, Ast_Expression* expr, int indent)
+{
     if (!expr) return;
 
     switch (expr->type) {
@@ -69,7 +71,7 @@ void emitExpression(FILE* out, Ast_Expression* expr, int indent) {
             if (call->arguments) {
                 bool first = true;
                 for (auto* arg : call->arguments->arguments) {
-                    if (!first) fprintf(out, ", ");
+                    if (!first) fprintf(out, ",");
                     emitExpression(out, arg, indent);
                     first = false;
                 }
@@ -99,7 +101,8 @@ void emitExpression(FILE* out, Ast_Expression* expr, int indent) {
 //     fprintf(out, ";\n");
 // }
 
-void emitStatement(FILE* out, Ast_Statement* stmt, int indent) {
+void emitStatement(FILE* out, Ast_Statement* stmt, int indent)
+{
     if (!stmt) return;
 
     switch (stmt->type) {
@@ -139,9 +142,9 @@ void emitStatement(FILE* out, Ast_Statement* stmt, int indent) {
         case AST_IF: {
             auto* ifstmt = static_cast<Ast_If*>(stmt);
             indentLine(out, indent);
-            fprintf(out, "if (");
+            fprintf(out, "if(");
             emitExpression(out, ifstmt->condition, indent);
-            fprintf(out, ") ");
+            fprintf(out, ")");
             emitBlock(out, ifstmt->then_block, indent);
 
             if (ifstmt->else_block) {
@@ -159,7 +162,8 @@ void emitStatement(FILE* out, Ast_Statement* stmt, int indent) {
     }
 }
 
-void emitBlock(FILE* out, Ast_Block* block, int indent) {
+void emitBlock(FILE* out, Ast_Block* block, int indent)
+{
     if (!block) return;
 
     // fprintf(out, "\n");
@@ -189,11 +193,12 @@ void emitBlock(FILE* out, Ast_Block* block, int indent) {
     fprintf(out, "}\n");
 }
 
-void generate_cpp_code(const char* filename, Ast_Block* program) {
+void generate_cpp_code(const char* filename, Ast_Block* program)
+{
     FILE* out = nullptr;
     fopen_s(&out, filename, "w");
     if (!out) {
-        fprintf(stderr, "Failed to open file: %s\n", filename);
+        printf("Failed to open file: %s\n", filename);
         return;
     }
 
@@ -201,11 +206,10 @@ void generate_cpp_code(const char* filename, Ast_Block* program) {
     fprintf(out, "#include <stdlib.h>\n");
     fprintf(out, "#include <stdio.h>\n\n");
 
-    // 1️⃣ Emit top-level globals
+    // emit top level globals
     for (auto* stmt : program->statements) {
         if (!stmt) continue;
 
-    // global variable declarations
         if (stmt->type == AST_DECLARATION) {
             emitStatement(out, stmt, 0);
         }
@@ -214,7 +218,6 @@ void generate_cpp_code(const char* filename, Ast_Block* program) {
     //     emitDeclaration(out, decl, 0);
     // }
 
-    // 2️⃣ Find the entry point block (main)
     Ast_Block* mainBlock = nullptr;
     for (auto* stmt : program->statements) {
         if (stmt && stmt->block && stmt->block->is_entry_point) {
@@ -224,18 +227,16 @@ void generate_cpp_code(const char* filename, Ast_Block* program) {
     }
 
     if (!mainBlock) {
-        fprintf(stderr, "No main block found in AST\n");
+        printf("No main block found in AST\n");
         fclose(out);
         return;
     }
 
-    // 3️⃣ Emit the entry point function
-    fprintf(out, "\nvoid _generated_main() ");
+    fprintf(out, "\nvoid GENERATED_MAIN()");
     emitBlock(out, mainBlock, 0);
 
-    // 4️⃣ Emit standard C main
-    fprintf(out, "\nint main() {\n");
-    fprintf(out, "    _generated_main();\n");
+    fprintf(out, "\nint main(int argc, char **argv){\n");
+    fprintf(out, "    GENERATED_MAIN();\n");
     fprintf(out, "    return 0;\n");
     fprintf(out, "}\n");
 

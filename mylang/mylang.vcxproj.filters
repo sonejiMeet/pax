@@ -21,6 +21,12 @@
     <ClInclude Include="..\ast_printer.h">
       <Filter>Source Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\c_converter.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\code_manager.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
     <ClInclude Include="..\lexer.h">
       <Filter>Source Files</Filter>
     </ClInclude>
@@ -30,17 +36,14 @@
     <ClInclude Include="..\token.h">
       <Filter>Source Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\tools.h">
-      <Filter>Source Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\code_manager.h">
-      <Filter>Source Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\c_converter.h">
-      <Filter>Source Files</Filter>
-    </ClInclude>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\c_converter.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\code_manager.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="..\lexer.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -50,16 +53,10 @@
     <ClCompile Include="..\parser.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\tools.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="..\token.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\code_manager.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\c_converter.cpp">
+    <ClCompile Include="..\tools.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

@@ -68,7 +68,6 @@ struct Ast {
     }
 };
 
-// Statements & Expressions
 struct Ast_Statement : public Ast {
     Ast_Statement() { type = AST_STATEMENT; }
     struct Ast_Type_Definition *type_definition = nullptr;
@@ -81,19 +80,26 @@ struct Ast_Expression : public Ast {
     Ast_Type_Definition *inferred_type = nullptr;
 };
 
+struct Ast_Declaration : public Ast_Statement {
+    Ast_Declaration() { type = AST_DECLARATION; }
+
+    Ast_Type_Definition *declared_type = nullptr;
+    Ast_Ident *identifier = nullptr;
+    Ast_Expression *initializer = nullptr;
+};
+
 struct Ast_Comma_Separated_Args : public Ast_Expression {
     Ast_Comma_Separated_Args() { type = AST_COMMA_SEPARATED_ARGS; }
     std::vector<Ast_Expression *> arguments;
 };
 
 struct Ast_Function : public Ast_Statement {
-    std::string name;          // e.g., "main"
+    std::string name;
     std::vector<Ast_Declaration*> params;
     Ast_Block* body = nullptr;
-    bool is_entry_point = false; // true for 'main'
+    bool is_entry_point = false; // only true if 'main'
 };
 
-// Literals & Identifiers
 enum Value_Type {
     LITERAL_UNINITIALIZED,
     LITERAL_NUMBER,
@@ -124,7 +130,6 @@ struct Ast_Procedure_Call_Expression : public Ast_Expression {
     Ast_Comma_Separated_Args *arguments = nullptr;
 };
 
-// Binary Expressions
 enum Binary_Op {
     BINOP_UNKNOWN,
     BINOP_ADD,
@@ -134,7 +139,6 @@ enum Binary_Op {
     BINOP_EQ,
     BINOP_NEQ,
     BINOP_ASSIGN,
-    // more....
 };
 
 struct Ast_Binary : public Ast_Expression {
@@ -144,15 +148,14 @@ struct Ast_Binary : public Ast_Expression {
     Ast_Expression *rhs = nullptr;
 };
 
-// Blocks & Control Flow
 struct Ast_Block : public Ast {
     Ast_Block() { type = AST_BLOCK; }
 
     Ast_Block *parent = nullptr;
     std::vector<Ast_Statement *> statements;
 
-    std::vector<Ast_Declaration *> members; // declarations in this scope
-    std::vector<Ast_Block *> child_scopes;
+    // std::vector<Ast_Declaration *> members; // declarations in this scope
+    // std::vector<Ast_Block *> child_scopes;
 
     bool is_scoped_block = false;
     bool is_entry_point = false;
@@ -173,7 +176,6 @@ struct Ast_While : public Ast_Expression {  // not done yet
 };
 
 
-// Declarations
 enum Ast_Builtin_Type {
     TYPE_UNKNOWN,
     TYPE_INT,
@@ -185,13 +187,11 @@ enum Ast_Builtin_Type {
 
 struct Ast_Type_Definition : public Ast {
     Ast_Builtin_Type builtin_type = TYPE_UNKNOWN;
-    std::string name; // for user-defined types
 
     Ast_Type_Definition *element_type = nullptr; // for arrays
     bool is_array = false;
 
     std::string to_string() const {
-        if (!name.empty()) return name;
         switch (builtin_type) {
             case TYPE_INT:    return "int";
             case TYPE_FLOAT:  return "float";
@@ -203,9 +203,3 @@ struct Ast_Type_Definition : public Ast {
     }
 };
 
-struct Ast_Declaration : public Ast_Statement {
-    Ast_Declaration() { type = AST_DECLARATION; }
-    Ast_Type_Definition *declared_type = nullptr;
-    Ast_Ident *identifier = nullptr;
-    Ast_Expression *initializer = nullptr; // optional
-};

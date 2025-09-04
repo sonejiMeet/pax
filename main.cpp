@@ -6,15 +6,13 @@
 #include "token.h"
 #include "parser.h"
 #include "ast_printer.h"
-
 #include "code_manager.h"
-
 #include "c_converter.h"
 
 #include <chrono>
 
 inline void printLex(FileBuffer buf);
-inline void printParsing(FileBuffer buf);
+inline void generate_and_compile(FileBuffer buf, char *filename);
 
 int main(int argc, char **args) {
 
@@ -31,7 +29,7 @@ int main(int argc, char **args) {
     if (!buf.data) return 1;
 
     // printLex(buf);
-    printParsing(buf);
+    generate_and_compile(buf, args[1]);
 
     auto end = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> elapsed = end - start;
@@ -42,7 +40,7 @@ int main(int argc, char **args) {
     free(buf.data);
 
     _CrtSetReportMode(_CRT_WARN, _CRTDBG_MODE_DEBUG);
-    // _CrtDumpMemoryLeaks();
+
     return 0;
 }
 
@@ -91,7 +89,7 @@ inline void printLex(FileBuffer buf){
 }
 
 
-inline void printParsing(FileBuffer buf){
+inline void generate_and_compile(FileBuffer buf, char *filename){
 
     Lexer lexer((const char*)buf.data, buf.size);
 
@@ -101,21 +99,38 @@ inline void printParsing(FileBuffer buf){
     // printAst(ast);
 
 
+// CODE MANAGER
     CodeManager cm;
     cm.init();
 
-    // 1) resolve identifiers and populate symbol table/scopes
+    // resolve identifiers and populate symbol table/scopes
     cm.resolve_idents(ast);
 
-    // 2) run type inference / checking
+    // run type inference / checking
     cm.infer_types_block(ast);
 
     if (cm.get_count_errors() != 0) {
         return;
     }
+    // Make a modifiable copy
+    char baseName[256];
+    strncpy_s(baseName, filename, sizeof(baseName));
+    baseName[sizeof(baseName)-1] = '\0'; // ensure null-terminated
 
-    generate_cpp_code("generated.cpp", ast);
-    printf("\n\nC code generated -> generated.cpp\n");
+    // Find the last dot
+    char* dot = strrchr(baseName, '.');
+    if (dot != NULL) {
+        *dot = '\0'; // Cut off extension (turn '.' into '\0')
+    }
+    snprintf(baseName, sizeof(baseName), "%s.cpp", baseName);
+
+    generate_cpp_code(baseName, ast);
+    printf("\nC code generated\n");
+
+    // build gennerated file
+    char command[256];
+    snprintf(command, sizeof(command), "cl /nologo %s", baseName);
+    system(command);
 
     delete ast;
 
