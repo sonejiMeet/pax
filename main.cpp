@@ -11,8 +11,9 @@
 
 #include <chrono>
 
+// #define print_lex
+
 inline void printLex(FileBuffer buf);
-inline void generate_and_compile(FileBuffer buf, char *filename);
 
 int main(int argc, char **args) {
 
@@ -28,13 +29,58 @@ int main(int argc, char **args) {
     FileBuffer buf = read_entire_file(args[1]);
     if (!buf.data) return 1;
 
-    // printLex(buf);
-    generate_and_compile(buf, args[1]);
+#ifdef print_lex
+    printLex(buf);
+#endif
+
+#ifndef print_lex
+
+    Lexer lexer((const char*)buf.data, buf.size);
+
+    Parser parser(&lexer);
+
+    Ast_Block* ast = parser.parseProgram();
+    // printAst(ast);
+
+    CodeManager cm;
+    cm.init();
+    cm.resolve_idents(ast); // resolve identifiers and populate symbol table/scopes
+    cm.infer_types_block(ast); // run type inference / checking
+
+    char baseName[256];
+    strncpy_s(baseName, args[1], sizeof(baseName));
+    baseName[sizeof(baseName)-1] = '\0';
+    char* dot = strrchr(baseName, '.');
+    if (dot != NULL) {
+        *dot = '\0';
+    }
+    snprintf(baseName, sizeof(baseName), "%s.cpp", baseName);
+
+    generate_cpp_code(baseName, ast);
+    printf("\nC code generated\n");
+
+    auto end1 = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> elapsed1 = end1 - start;
+    printf("\n\t -Time in frontend: %.6f seconds\n\n", elapsed1.count());
+
+    auto start2 = std::chrono::high_resolution_clock::now();
+    char command[256];
+    snprintf(command, sizeof(command), " cl /O2 /EHsc /nologo %s", baseName);
+    printf("Running C compiler:%s\n", command);
+    system(command); // run C compiler
+
+    auto end2 = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> elapsed2 = end2 - start2;
+    printf("\n\t -Time in c compiler: %.6f seconds\n", elapsed2.count());
+
+    delete ast;
+
+#endif
 
     auto end = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> elapsed = end - start;
 
-    printf("\nTime: %.6f seconds\n", elapsed.count());
+    printf("\nTotal Time: %.6f seconds\n", elapsed.count());
     printf("DONE. exiting..\n\n");
 
     free(buf.data);
@@ -85,52 +131,5 @@ inline void printLex(FileBuffer buf){
     }
 
     printf("\n");
-
-}
-
-
-inline void generate_and_compile(FileBuffer buf, char *filename){
-
-    Lexer lexer((const char*)buf.data, buf.size);
-
-    Parser parser(&lexer);
-
-    Ast_Block* ast = parser.parseProgram();
-    // printAst(ast);
-
-
-// CODE MANAGER
-    CodeManager cm;
-    cm.init();
-
-    // resolve identifiers and populate symbol table/scopes
-    cm.resolve_idents(ast);
-
-    // run type inference / checking
-    cm.infer_types_block(ast);
-
-    if (cm.get_count_errors() != 0) {
-        return;
-    }
-
-    char baseName[256];
-    strncpy_s(baseName, filename, sizeof(baseName));
-    baseName[sizeof(baseName)-1] = '\0';
-    char* dot = strrchr(baseName, '.');
-    if (dot != NULL) {
-        *dot = '\0';
-    }
-    snprintf(baseName, sizeof(baseName), "%s.cpp", baseName);
-
-    // generate c code
-    generate_cpp_code(baseName, ast);
-    printf("\nC code generated\n");
-
-    // build gennerated file
-    char command[256];
-    snprintf(command, sizeof(command), " cl /O2 /EHsc /nologo %s", baseName);
-    system(command); //
-
-    delete ast;
 
 }

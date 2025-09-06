@@ -14,6 +14,7 @@
     #define DBG_NEW new
 #endif
 
+
 #define AST_NEW(type) ([&]() -> type* { \
     type* node = DBG_NEW type(); \
     node->line_number = current.row;  \
@@ -33,14 +34,14 @@ void Parser::advance() {
 }
 
 void Parser::parseError(const std::string& message) {
-    std::cout << "\n" << __FILE__ << ": Parsing Error" <<  "[" << current.row << ":" << current.col << "] "  << message
+    std::cout << "\n" << ": Parsing Error" <<  "[" << current.row << ":" << current.col << "] "  << message
               << " at token '" << current.value << "' (Type: "
               << tokenTypeToString(current.type) << ")";
 
 }
 
 void Parser::reportError(const std::string& message) {
-    std::cout << "\n" << __FILE__ << ": Parsing Error" <<  "[" << current.row << ":" << current.col << "] "  << message;
+    std::cout << "\n" << ": Parsing Error" <<  "[" << current.row << ":" << current.col << "] "  << message;
 }
 
 void Parser::expect(TokenType expectedType, const std::string& errorMessage)
@@ -519,6 +520,10 @@ Ast_Block* Parser::parseProgram()
                 Ast_Declaration* decl = parseVarDeclaration();
                 program->statements.push_back(static_cast<Ast_Statement*>(decl));
                 // program->members.push_back(decl);
+            }
+            else if(next.type == TOK_DOUBLECOLON) {
+                Ast_Statement *stmt = parseStatement();
+                // program->statements.push_back(stmt);
             }
             else {
                 parseError("Top-level executable statements not allowed. Only declarations and main.");

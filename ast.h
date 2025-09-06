@@ -21,7 +21,7 @@ struct Ast_While;
 
 struct Ast_Type_Definition;
 struct Ast_Declaration;
-
+struct Ast_Struct_Description;
 
 enum Ast_Type {
     AST_UNKNOWN,
@@ -36,7 +36,7 @@ enum Ast_Type {
     AST_DECLARATION,
     AST_PROCEDURE_CALL_EXPRESSION,
     AST_COMMA_SEPARATED_ARGS,
-
+    AST_STRUCT_DESCRIPTION,
 };
 
 inline std::string astTypeToString(Ast_Type type) {
@@ -52,6 +52,7 @@ inline std::string astTypeToString(Ast_Type type) {
         case AST_DECLARATION:    return "Declaration";
         case AST_PROCEDURE_CALL_EXPRESSION:    return "ProcCallExpr";
         case AST_COMMA_SEPARATED_ARGS: return "CommaSeparatedArg";
+        case AST_STRUCT_DESCRIPTION: return "StructDescription";
         default:                 return "Unknown";
     }
 }
@@ -98,6 +99,7 @@ struct Ast_Function : public Ast_Statement {
     std::vector<Ast_Declaration*> params;
     Ast_Block* body = nullptr;
     bool is_entry_point = false; // only true if 'main'
+
 };
 
 enum Value_Type {
@@ -159,6 +161,8 @@ struct Ast_Block : public Ast {
 
     bool is_scoped_block = false;
     bool is_entry_point = false;
+
+    // int block_flag;
 };
 
 struct Ast_If : public Ast_Statement {
@@ -203,3 +207,12 @@ struct Ast_Type_Definition : public Ast {
     }
 };
 
+struct Ast_Struct_Description : public Ast_Expression {
+    Ast_Struct_Description() { type = AST_STRUCT_DESCRIPTION; }
+
+    std::string name;
+    Ast_Block *block = nullptr;
+
+    std::vector<Ast_Declaration *> declarations_who_own_memory;
+
+};

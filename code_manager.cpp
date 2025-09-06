@@ -196,7 +196,7 @@ void CodeManager::resolve_idents_in_expr(Ast_Expression* expr) {
                             lhs_ident->line_number,
                             lhs_ident->character_number,
                             "Assignment to undeclared variable '%s'",
-                            lhs_ident->name
+                            lhs_ident->name.c_str()
                         );
                     } else {
                         // Mark initialized
