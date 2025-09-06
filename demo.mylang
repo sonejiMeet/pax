@@ -15,10 +15,15 @@ num: int = 2 * (5 - h);
 something := true;
 
 /* multiline
-
-
   comment */
 
+// func :: () -> {
+
+// }
+
+// structName :: struct {
+
+// }
 
 main :: () {
     v : int = 4;

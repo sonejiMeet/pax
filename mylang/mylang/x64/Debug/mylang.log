@@ -1,7 +1,5 @@
-﻿  lexer.cpp
-  main.cpp
+﻿  main.cpp
   parser.cpp
-  token.cpp
   Generating Code...
-C:\mylang\parser.cpp(472,1): warning C4715: 'Parser::parseStatement': not all control paths return a value
+C:\mylang\parser.cpp(485,1): warning C4715: 'Parser::parseStatement': not all control paths return a value
   mylang.vcxproj -> C:\mylang\mylang\x64\Debug\mylang.exe
