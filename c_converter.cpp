@@ -39,6 +39,39 @@ void emitExpression(FILE* out, Ast_Expression* expr, int indent)
             }
             break;
         }
+        case AST_UNARY: {
+            Ast_Unary* u = static_cast<Ast_Unary*>(expr);
+
+            switch (u->op) {
+                case UNARY_ADDRESS_OF:
+                    // ^x -> &x
+                    fprintf(out, "&");
+                    emitExpression(out, u->operand, indent);
+                    break;
+
+                case UNARY_DEREFERENCE:
+                    // *x -> *x
+                    fprintf(out, "* ");
+                    emitExpression(out, u->operand, indent);
+                    break;
+
+                case UNARY_REFERENCE:
+                    // &x -> just output operand (handled as pointer in declaration)
+                    emitExpression(out, u->operand, indent);
+                    break;
+
+                case UNARY_NEGATE:
+                    fprintf(out, "-");
+                    emitExpression(out, u->operand, indent);
+                    break;
+
+                case UNARY_NOT:
+                    fprintf(out, "!");
+                    emitExpression(out, u->operand, indent);
+                    break;
+            }
+            break;
+        }
 
         case AST_IDENT: {
             auto* ident = static_cast<Ast_Ident*>(expr);
@@ -107,17 +140,114 @@ void emitStatement(FILE* out, Ast_Statement* stmt, int indent)
 
     switch (stmt->type) {
 
-        case AST_DECLARATION: {
-            auto* decl = static_cast<Ast_Declaration*>(stmt);
-            indentLine(out, indent);
-            fprintf(out, "%s %s", decl->declared_type->to_string().c_str(), decl->identifier->name.c_str());
-            if (decl->initializer) {
-                fprintf(out, " = ");
+        // case AST_DECLARATION: {
+        //     auto* decl = static_cast<Ast_Declaration*>(stmt);
+        //     indentLine(out, indent);
+        //     fprintf(out, "%s %s", decl->declared_type->to_string().c_str(), decl->identifier->name.c_str());
+        //     if (decl->initializer) {
+        //         fprintf(out, " = ");
+        //         emitExpression(out, decl->initializer, indent);
+        //     }
+        //     fprintf(out, ";\n");
+        //     break;
+        // }
+
+case AST_DECLARATION: {
+    auto* decl = static_cast<Ast_Declaration*>(stmt);
+    indentLine(out, indent);
+
+    // ----- 1. Build C type string -----
+    std::string type_str;
+    std::string array_suffix;
+    Ast_Type_Definition* type = decl->declared_type;
+
+    if (!type) {
+        type_str = "UNKNOWN";
+    } else {
+        Ast_Type_Definition* base_type = type;
+        int pointer_depth = 0;
+
+        // Walk down the type chain to find the base type
+        while (base_type->pointed_to_type) {
+            base_type = base_type->pointed_to_type;
+            pointer_depth++;
+        }
+
+        // Handle arrays
+        if (type->array_kind == ARRAY_STATIC && type->element_type) {
+            type_str = type->element_type->to_string();
+            array_suffix = "[" + std::to_string(type->static_array_size) + "]";
+        } else {
+            type_str = base_type->to_string();
+        }
+
+        // Add pointer layers for ^int, ^^int, etc.
+        for (int i = 0; i < pointer_depth; ++i) {
+            type_str += " *";
+        }
+
+        // References are represented as pointers in C
+        if (type->is_reference) {
+            type_str += " *";
+        }
+    }
+
+    // Emit variable name: "int *rint"
+    fprintf(out, "%s %s%s", type_str.c_str(), decl->identifier->name.c_str(), array_suffix.c_str());
+
+    // ----- 2. Emit initializer -----
+        if (decl->initializer) {
+            fprintf(out, " = ");
+
+            // Case A: Declared type is a reference (e.g., rint: &int = aint)
+            // Case B: Initializer explicitly uses UNARY_REFERENCE (e.g., pInt: ^int = &aint)
+            bool needs_address = (type && type->is_reference);
+
+            if (!needs_address && decl->initializer->type == AST_UNARY) {
+                auto* unary = static_cast<Ast_Unary*>(decl->initializer);
+                if (unary->op == UNARY_REFERENCE) {
+                    needs_address = true;
+                }
+            }
+
+            if (needs_address) {
+                // If the initializer is a simple identifier, just output "&id"
+                if (decl->initializer->type == AST_IDENT) {
+                    auto* id = static_cast<Ast_Ident*>(decl->initializer);
+                    fprintf(out, "&%s", id->name.c_str());
+                }
+                // If the initializer itself is UNARY_REFERENCE, emit only its operand
+                else if (decl->initializer->type == AST_UNARY) {
+                    auto* unary = static_cast<Ast_Unary*>(decl->initializer);
+                    if (unary->op == UNARY_REFERENCE) {
+                        if (unary->operand->type == AST_IDENT) {
+                            auto* inner_id = static_cast<Ast_Ident*>(unary->operand);
+                            fprintf(out, "&%s", inner_id->name.c_str());
+                        } else {
+                            fprintf(out, "&(");
+                            emitExpression(out, unary->operand, indent);
+                            fprintf(out, ")");
+                        }
+                    } else {
+                        emitExpression(out, decl->initializer, indent);
+                    }
+                }
+                // Complex case — fallback
+                else {
+                    fprintf(out, "&(");
+                    emitExpression(out, decl->initializer, indent);
+                    fprintf(out, ")");
+                }
+            } else {
+                // Normal value assignment
                 emitExpression(out, decl->initializer, indent);
             }
-            fprintf(out, ";\n");
-            break;
         }
+
+        fprintf(out, ";\n");
+        break;
+}
+
 
         case AST_STATEMENT: {
             if (stmt->expression) {

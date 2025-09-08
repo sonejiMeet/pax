@@ -30,7 +30,7 @@ private:
     Ast_Block *parseBlockStatement(bool scoped_block = false);
     Ast_Procedure_Call_Expression *parseCall();
 
-
+    Ast_Struct_Description *parseStructDefinition();
     Ast_Statement *parseStatement();
 
 

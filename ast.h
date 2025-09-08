@@ -14,14 +14,15 @@ struct Ast_Literal;
 struct Ast_Ident;
 struct Ast_Procedure_Call_Expression;
 struct Ast_Binary;
+struct Ast_Unary;
 struct Ast_Block;
 
 struct Ast_If;
 struct Ast_While;
 
-struct Ast_Type_Definition;
 struct Ast_Declaration;
 struct Ast_Struct_Description;
+struct Ast_Type_Definition;
 
 enum Ast_Type {
     AST_UNKNOWN,
@@ -33,10 +34,12 @@ enum Ast_Type {
     AST_IF,
     AST_WHILE,
     AST_LITERAL,
+    AST_UNARY,
     AST_DECLARATION,
     AST_PROCEDURE_CALL_EXPRESSION,
     AST_COMMA_SEPARATED_ARGS,
     AST_STRUCT_DESCRIPTION,
+    AST_TYPE_DEFINITION,
 };
 
 inline std::string astTypeToString(Ast_Type type) {
@@ -46,6 +49,7 @@ inline std::string astTypeToString(Ast_Type type) {
         case AST_STATEMENT:      return "Statement";
         case AST_EXPRESSION:     return "Expression";
         case AST_BINARY:         return "BinaryExpr";
+        case AST_UNARY:         return "UnaryExpr";
         case AST_IF:             return "IfStmt";
         case AST_WHILE:             return "WhileStmt";
         case AST_LITERAL:        return "Literal";
@@ -53,6 +57,7 @@ inline std::string astTypeToString(Ast_Type type) {
         case AST_PROCEDURE_CALL_EXPRESSION:    return "ProcCallExpr";
         case AST_COMMA_SEPARATED_ARGS: return "CommaSeparatedArg";
         case AST_STRUCT_DESCRIPTION: return "StructDescription";
+        case AST_TYPE_DEFINITION: return "TypeDefinition";
         default:                 return "Unknown";
     }
 }
@@ -150,6 +155,21 @@ struct Ast_Binary : public Ast_Expression {
     Ast_Expression *rhs = nullptr;
 };
 
+enum Ast_Unary_Op {
+    UNARY_NEGATE,      // -x
+    UNARY_NOT,         // !x
+    UNARY_ADDRESS_OF,  // ^x  (address-of)
+    UNARY_DEREFERENCE,  // *x  (pointer dereference)
+    UNARY_REFERENCE,
+};
+
+struct Ast_Unary : Ast_Expression {
+    Ast_Unary () { type = AST_UNARY; }
+    Ast_Unary_Op op;        // operator type
+    Ast_Expression* operand = nullptr; // expression being operated on
+
+};
+
 struct Ast_Block : public Ast {
     Ast_Block() { type = AST_BLOCK; }
 
@@ -180,33 +200,6 @@ struct Ast_While : public Ast_Expression {  // not done yet
 };
 
 
-enum Ast_Builtin_Type {
-    TYPE_UNKNOWN,
-    TYPE_INT,
-    TYPE_FLOAT,
-    TYPE_BOOL,
-    TYPE_STRING,
-    TYPE_VOID,
-};
-
-struct Ast_Type_Definition : public Ast {
-    Ast_Builtin_Type builtin_type = TYPE_UNKNOWN;
-
-    Ast_Type_Definition *element_type = nullptr; // for arrays
-    bool is_array = false;
-
-    std::string to_string() const {
-        switch (builtin_type) {
-            case TYPE_INT:    return "int";
-            case TYPE_FLOAT:  return "float";
-            case TYPE_BOOL:   return "bool";
-            case TYPE_STRING: return "string";
-            case TYPE_VOID:   return "void";
-            default:          return "unknown";
-        }
-    }
-};
-
 struct Ast_Struct_Description : public Ast_Expression {
     Ast_Struct_Description() { type = AST_STRUCT_DESCRIPTION; }
 
@@ -215,4 +208,48 @@ struct Ast_Struct_Description : public Ast_Expression {
 
     std::vector<Ast_Declaration *> declarations_who_own_memory;
 
+};
+enum Ast_Builtin_Type {
+    TYPE_UNKNOWN,
+    TYPE_INT,
+    TYPE_FLOAT,
+    TYPE_BOOL,
+    TYPE_STRING,
+    TYPE_VOID,
+    TYPE_STRUCT,
+};
+
+enum Array_Kind {
+    ARRAY_NONE,      // Not an array
+    ARRAY_DYNAMIC,   // []T
+    ARRAY_STATIC,    // [N]T
+};
+struct Ast_Type_Definition : public Ast {
+    Ast_Builtin_Type builtin_type = TYPE_UNKNOWN;
+
+    Ast_Type_Definition *pointed_to_type = nullptr;
+
+    Array_Kind array_kind = ARRAY_NONE;
+    Ast_Type_Definition *element_type = nullptr; // for arrays
+    int static_array_size = 0;
+
+    bool is_reference = false;
+    Ast_Struct_Description *struct_def = nullptr;
+
+    std::string to_string() const {
+        std::string base;
+        switch (builtin_type) {
+            case TYPE_INT:    base = "int"; break;
+            case TYPE_FLOAT:  base = "float"; break;
+            case TYPE_BOOL:   base = "bool"; break;
+            case TYPE_STRING: base = "string"; break;
+            case TYPE_VOID:   base = "void"; break;
+            case TYPE_STRUCT:
+                base = struct_def ? struct_def->name : "unknown struct";
+                break;
+            default: base =  "unknown";
+        }
+
+        return base;
+    }
 };

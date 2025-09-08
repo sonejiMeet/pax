@@ -8,12 +8,13 @@
 
 #include <cstdlib>
 #include <crtdbg.h>
-
+#include <windows.h>
 #include <chrono>
 
-// #define print_lex
+// #define PRINT_LEX
 
 inline void printLex(FileBuffer buf);
+void runCompiler(char * command);
 
 int main(int argc, char **args) {
 
@@ -29,11 +30,11 @@ int main(int argc, char **args) {
     FileBuffer buf = read_entire_file(args[1]);
     if (!buf.data) return 1;
 
-#ifdef print_lex
+#ifdef PRINT_LEX
     printLex(buf);
-#endif
+#endif // defined PRINT_LEX
 
-#ifndef print_lex
+#ifndef PRINT_LEX
 
     Lexer lexer((const char*)buf.data, buf.size);
 
@@ -42,40 +43,60 @@ int main(int argc, char **args) {
     Ast_Block* ast = parser.parseProgram();
     // printAst(ast);
 
-    CodeManager cm;
-    cm.init();
-    cm.resolve_idents(ast); // resolve identifiers and populate symbol table/scopes
-    cm.infer_types_block(ast); // run type inference / checking
+    {
+        CodeManager cm;
+        cm.init();
+        cm.resolve_idents(ast); // resolve identifiers and populate symbol table/scopes
+        cm.infer_types_block(ast); // run type inference / checking
+
+        if (cm.get_count_errors() != 0) {
+            printf("\nGot errors from code manager. Exiting...\n");
+            exit(1); // exit unexpectedly
+        }
+    }
 
     char baseName[256];
-    strncpy_s(baseName, args[1], sizeof(baseName));
-    baseName[sizeof(baseName)-1] = '\0';
-    char* dot = strrchr(baseName, '.');
-    if (dot != NULL) {
-        *dot = '\0';
+    {
+        strncpy_s(baseName, args[1], sizeof(baseName));
+        baseName[sizeof(baseName)-1] = '\0';
+        char* dot = strrchr(baseName, '.');
+        if (dot != NULL) {
+            *dot = '\0';
+        }
+        snprintf(baseName, sizeof(baseName), "%s.cpp", baseName);
     }
-    snprintf(baseName, sizeof(baseName), "%s.cpp", baseName);
-
-    generate_cpp_code(baseName, ast);
-    printf("\nC code generated\n");
 
     auto end1 = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> elapsed1 = end1 - start;
-    printf("\n\t -Time in frontend: %.6f seconds\n\n", elapsed1.count());
+    printf("\n\t -Time in frontend: %.6f seconds (lexer,parser,semantic checker)\n", elapsed1.count());
 
-    auto start2 = std::chrono::high_resolution_clock::now();
-    char command[256];
-    snprintf(command, sizeof(command), " cl /O2 /EHsc /nologo %s", baseName);
-    printf("Running C compiler:%s\n", command);
-    system(command); // run C compiler
+    {
+        auto start3 = std::chrono::high_resolution_clock::now();
 
-    auto end2 = std::chrono::high_resolution_clock::now();
-    std::chrono::duration<double> elapsed2 = end2 - start2;
-    printf("\n\t -Time in c compiler: %.6f seconds\n", elapsed2.count());
+        generate_cpp_code(baseName, ast);
+        printf("\nC code generated\n");
+
+        auto end3 = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double> elapsed3 = end3 - start3;
+        printf("\n\t -Time to ouput c code: %.6f seconds\n\n", elapsed3.count());
+    }
+
+    {
+        auto start2 = std::chrono::high_resolution_clock::now();
+        char command[256];
+        snprintf(command, sizeof(command), "cl /Od /EHsc /nologo %s", baseName);
+        printf("Running C compiler: %s\n", command);
+
+        runCompiler(command);
+
+        auto end2 = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double> elapsed2 = end2 - start2;
+        printf("\n\t -Time in c compiler: %.6f seconds\n", elapsed2.count());
+    }
 
     delete ast;
 
-#endif
+#endif // not defined PRINT_LEX
 
     auto end = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> elapsed = end - start;
@@ -97,7 +118,7 @@ inline void printLex(FileBuffer buf){
 
     while (true) {
         Token tok = lexer.nextToken();
-        printf("[%d:%d]\tToken: %s\t ", tok.row, tok.col, tokenTypeToString(tok.type));
+        printf("[%-2d:%-2d] Token: %-15s\t", tok.row, tok.col, tokenTypeToString(tok.type));
 
         switch (tok.type) {
             case TOK_NUMBER:
@@ -131,5 +152,43 @@ inline void printLex(FileBuffer buf){
     }
 
     printf("\n");
+
+}
+
+void runCompiler(char * command){
+
+    STARTUPINFOA si;
+    PROCESS_INFORMATION pi;
+    ZeroMemory(&si, sizeof(si));
+    si.cb = sizeof(si);
+    ZeroMemory(&pi, sizeof(pi));
+
+    // CreateProcessA requires the command to be mutable (non-const)
+    char cmdLine[256];
+    snprintf(cmdLine, sizeof(cmdLine), "%s", command);
+
+    if (!CreateProcessA(
+        NULL,          // Application name (NULL means use the command line)
+        cmdLine,       // Command line
+        NULL,          // Process security attributes
+        NULL,          // Thread security attributes
+        TRUE,         // Inherit handles
+        0,             // Creation flags
+        NULL,          // Use parent's environment block
+        NULL,          // Use parent's starting directory
+        &si,           // Pointer to STARTUPINFO
+        &pi            // Pointer to PROCESS_INFORMATION
+    )) {
+        printf("CreateProcess failed (%lu).\n", GetLastError());
+        exit(1);
+    }
+
+    // Wait until compiler finishes
+    WaitForSingleObject(pi.hProcess, INFINITE);
+
+    // Clean up handles
+    CloseHandle(pi.hProcess);
+    CloseHandle(pi.hThread);
+
 
 }

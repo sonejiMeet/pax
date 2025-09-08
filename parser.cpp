@@ -85,6 +85,29 @@ void Parser::synchronize() {
 // in an expression
 Ast_Expression* Parser::parseFactor()
 {
+    // Handle unary operators first: *, ^, &
+    if (current.type == TOK_STAR) { // dereference
+        advance();
+        Ast_Unary* node = AST_NEW(Ast_Unary);
+        node->op = UNARY_DEREFERENCE;
+        node->operand = parseFactor();
+        return node;
+    }
+    else if (current.type == TOK_CARET) { // address-of
+        advance();
+        Ast_Unary* node = AST_NEW(Ast_Unary);
+        node->op = UNARY_ADDRESS_OF;
+        node->operand = parseFactor();
+        return node;
+    }
+    else if (current.type == TOK_AMPERSAND) { // reference
+        advance();
+        Ast_Unary* node = AST_NEW(Ast_Unary);
+        node->op = UNARY_REFERENCE;
+        node->operand = parseFactor();
+        return node;
+    }
+
     if (current.type == TOK_NUMBER)
     {
 
@@ -195,28 +218,116 @@ Ast_Expression* Parser::parseExpression()
     return left;
 }
 
-Ast_Type_Definition* Parser::parseTypeSpecifier()
-{
-    Ast_Type_Definition *typeDef = AST_NEW(Ast_Type_Definition);
 
-    if(current.type == TOK_TYPE_INT)
-        typeDef->builtin_type = TYPE_INT;
-    else if(current.type == TOK_TYPE_FLOAT)
-        typeDef->builtin_type = TYPE_FLOAT;
-    else if(current.type == TOK_TYPE_STRING)
-        typeDef->builtin_type = TYPE_STRING;
-    else if(current.type == TOK_TYPE_BOOL)
-        typeDef->builtin_type = TYPE_BOOL;
-        // need to add more specific types sizes like signed/unsigned 8,16,32,64 bits, f32, f64,
+Ast_Type_Definition* Parser::parseTypeSpecifier() {
+    // Outermost type container
+    Ast_Type_Definition *currentType = nullptr;
+
+    while (true) {
+        if (current.type == TOK_CARET || current.type == TOK_STAR) {
+            // Pointer type
+            Ast_Type_Definition *pointerType = AST_NEW(Ast_Type_Definition);
+            pointerType->pointed_to_type = nullptr;
+            pointerType->builtin_type = TYPE_UNKNOWN; // placeholder for pointer
+
+            if (currentType) {
+                pointerType->pointed_to_type = currentType;
+            }
+
+            currentType = pointerType;
+            advance(); // consume '^' or '*'
+        }
+        else if (current.type == TOK_AMPERSAND) {
+            // Reference type
+            Ast_Type_Definition *refType = AST_NEW(Ast_Type_Definition);
+            refType->pointed_to_type = nullptr;
+            refType->builtin_type = TYPE_UNKNOWN; // placeholder for reference
+
+            if (currentType) {
+                refType->pointed_to_type = currentType;
+            }
+
+            currentType = refType;
+            advance(); // consume '&'
+        }
+        else if (current.type == TOK_LBRACKET) {
+            // Array type
+            advance(); // consume '['
+
+            Ast_Type_Definition *arrayType = AST_NEW(Ast_Type_Definition);
+            arrayType->element_type = nullptr;
+            arrayType->builtin_type = TYPE_UNKNOWN;
+
+            if (current.type == TOK_NUMBER) {
+                // Static array
+                arrayType->array_kind = ARRAY_STATIC;
+                arrayType->static_array_size = current.int_value;
+                advance(); // consume size
+                expect(TOK_RBRACKET, "Expected ']' after static array size.");
+            }
+            else {
+                parseError("Expected either ']' or a number inside array brackets.");
+                return nullptr;
+            }
+
+            if (currentType) {
+                arrayType->element_type = currentType;
+            }
+
+            currentType = arrayType;
+        }
+        else {
+            break; // No more modifiers
+        }
+    }
+
+    // Now expect the base type
+    Ast_Type_Definition *baseType = AST_NEW(Ast_Type_Definition);
+
+    if (current.type == TOK_TYPE_INT)
+        baseType->builtin_type = TYPE_INT;
+    else if (current.type == TOK_TYPE_FLOAT)
+        baseType->builtin_type = TYPE_FLOAT;
+    else if (current.type == TOK_TYPE_STRING)
+        baseType->builtin_type = TYPE_STRING;
+    else if (current.type == TOK_TYPE_BOOL)
+        baseType->builtin_type = TYPE_BOOL;
     else {
-        reportError("Expected a type keyword (e.g., 'int', 'float', 'string', 'bool').");
+        reportError("Expected a base type (e.g., 'int', 'float', 'string', 'bool').");
         synchronize();
         return nullptr;
     }
 
-    advance(); // and consume
-    return typeDef;
+    advance(); // consume the base type token
+
+    // If no modifiers were found, return base type
+    if (!currentType)
+        return baseType;
+
+    // Attach the base type into the innermost type
+    Ast_Type_Definition *iter = currentType;
+    while (true) {
+        if (iter->array_kind == ARRAY_NONE && iter->pointed_to_type == nullptr) {
+            iter->pointed_to_type = baseType;
+            break;
+        }
+        else if (iter->array_kind != ARRAY_NONE && iter->element_type == nullptr) {
+            iter->element_type = baseType;
+            break;
+        }
+
+        // Traverse deeper
+        if (iter->pointed_to_type)
+            iter = iter->pointed_to_type;
+        else if (iter->element_type)
+            iter = iter->element_type;
+        else
+            break; // safety
+    }
+
+    return currentType;
 }
+
 
 //  statement "identifier = expression;"
 Ast_Declaration* Parser::parseVarDeclaration()
@@ -386,6 +497,16 @@ Ast_Procedure_Call_Expression* Parser::parseCall()
 
 }
 
+// Ast_Struct_Description * Parser::parseStructDefinition()
+// {
+//     std::string structName = current.value;
+//     advance();
+
+//     advance();
+//     advance();
+
+
+// }
 Ast_Statement* Parser::parseStatement()
 {
 
@@ -441,6 +562,28 @@ Ast_Statement* Parser::parseStatement()
                 // return static_cast<Ast_Statement *> (decl);
                 return decl;
             }
+        }
+        // NEW CASE for pointer operations like *p = 20; or ^x = value;
+        case TOK_STAR:
+        case TOK_CARET:
+        case TOK_AMPERSAND: {
+            // These can appear at the start of a statement
+            Ast_Expression* lhs = parseExpression(); // could be *p, ^x, &y, etc.
+
+            Expect(TOK_ASSIGN, "Expected '=' in pointer assignment.");
+
+            Ast_Expression* rhs = parseExpression();
+
+            Ast_Binary* assignExpr = AST_NEW(Ast_Binary);
+            assignExpr->op = BINOP_ASSIGN;
+            assignExpr->lhs = lhs;
+            assignExpr->rhs = rhs;
+
+            Expect(TOK_SEMICOLON, "Expected ';' after assignment.");
+
+            Ast_Statement* stmt = AST_NEW(Ast_Statement);
+            stmt->expression = assignExpr;
+            return stmt;
         }
         case TOK_PRINT: {
             Ast_Procedure_Call_Expression *expr = parseCall();
