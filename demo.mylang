@@ -26,6 +26,37 @@ something := true;
 // }
 
 main :: () {
+    aint: int = 5;
+    bint: int;
+    aint = 10;
+    printf("aint = %d\n", aint);
+    printf("aint = %p\n", ^aint);
+
+    pInt : ^int = ^aint; // ^int, val = addr of aint
+    printf("pInt = %p\n", pInt); // should be equal to addr of aint
+
+    p_uninit_int := pInt; //
+    // p_uninit_int = pInt; // ^int, val of pInt
+    printf("p_uninit_int = %d\n", *p_uninit_int);
+
+    *p_uninit_int = 20; // dereference, so now aint = 20
+    printf("p_uninit_int = %d\n", *p_uninit_int);
+    printf("aint = %d\n", aint);
+
+    rint: &int = &aint; // reference to int, value = addr of a
+    printf("rint = %p\n", rint);
+
+    *rint = 30;      // reference , set value of referenced variable, so value of aint = 30
+    printf("aint = %d\n", aint);
+
+
+    *p_uninit_int = 40;
+    printf("p_uninit_int = %d\n", *p_uninit_int);
+    printf("aint = %d\n", aint);
+
+    // arrInt: []int;
+    // arrStaticInt: [4]int;
+    // printf("arrStaticInt[0]", arrStaticInt[0]); // not working
     v : int = 4;
     if (a != b) {
         x : float = 2334.34;

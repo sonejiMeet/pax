@@ -178,18 +178,40 @@ void CodeManager::resolve_idents_in_expr(Ast_Expression* expr) {
         case AST_LITERAL:
             break;
 
+        case AST_UNARY: {
+            Ast_Unary* u = static_cast<Ast_Unary*>(expr);
+            if (!u->operand) break;
+
+            // First resolve identifiers in operand
+            resolve_idents_in_expr(u->operand);
+
+            // For dereference, we can optionally check operand is a pointer
+            if (u->op == UNARY_DEREFERENCE) {
+                Ast_Type_Definition* opType = u->operand->inferred_type;
+                if (opType && !opType->pointed_to_type) {
+                    report_error(u->line_number, u->character_number,
+                        "Cannot dereference non-pointer type");
+                }
+            }
+            // Don't set expr->inferred_type here; that's for type inference pass
+            break;
+        }
+
+
         case AST_BINARY: {
             Ast_Binary* b = static_cast<Ast_Binary*>(expr);
 
             if (b->op == BINOP_ASSIGN) {
-                Ast_Ident* lhs_ident = dynamic_cast<Ast_Ident*>(b->lhs);
-                if (!lhs_ident) {
-                    report_error(
-                        b->line_number,
-                        b->character_number,
-                        "Left-hand side of assignment must be an identifier"
-                    );
-                } else {
+                // --- Resolve RHS first ---
+                if (b->rhs) {
+                    resolve_idents_in_expr(b->rhs);
+                }
+                Ast_Type_Definition* rhsType = infer_types_expr(&b->rhs);
+
+                Ast_Type_Definition* lhsType = nullptr;
+
+                // --- CASE 1: LHS is an identifier ---
+                if (Ast_Ident* lhs_ident = dynamic_cast<Ast_Ident*>(b->lhs)) {
                     CM_Symbol* sym = lookup_symbol(lhs_ident->name);
                     if (!sym) {
                         report_error(
@@ -199,29 +221,70 @@ void CodeManager::resolve_idents_in_expr(Ast_Expression* expr) {
                             lhs_ident->name.c_str()
                         );
                     } else {
-                        // Mark initialized
+                        // Mark as initialized
                         sym->initialized = true;
 
-                        // Type inference / checking
-                        Ast_Type_Definition* rhsType = infer_types_expr(&b->rhs);
+                        // Infer or check type
                         if (!sym->type) {
-                            // no explicit type, adopt RHS type
                             sym->type = rhsType;
-                        } else if (!check_that_types_match(sym->type, rhsType)) {
+                        }
+                        else if (!check_that_types_match(sym->type, rhsType)) {
                             report_error(
                                 lhs_ident->line_number,
                                 lhs_ident->character_number,
                                 "Type mismatch in assignment to '%s'",
-                                lhs_ident->name
+                                lhs_ident->name.c_str()
                             );
                         }
+
+                        lhsType = sym->type;
                     }
                 }
 
-                // Always analyze RHS expression
-                if (b->rhs) resolve_idents_in_expr(b->rhs);
-            } else {
-                // Other binary ops: resolve both sides normally
+                // --- CASE 2: LHS is a dereference (*p = value) ---
+                else if (Ast_Unary* lhs_unary = dynamic_cast<Ast_Unary*>(b->lhs)) {
+                    if (lhs_unary->op == UNARY_DEREFERENCE) {
+                        // The operand must be a pointer expression
+                        resolve_idents_in_expr(lhs_unary->operand);
+                        Ast_Type_Definition* pointerType = infer_types_expr(&lhs_unary->operand);
+
+                        if (!pointerType || !pointerType->pointed_to_type) {
+                            report_error(
+                                lhs_unary->line_number,
+                                lhs_unary->character_number,
+                                "Invalid dereference: LHS is not a pointer"
+                            );
+                        } else {
+                            lhsType = pointerType->pointed_to_type;
+
+                            if (!check_that_types_match(lhsType, rhsType)) {
+                                report_error(
+                                    lhs_unary->line_number,
+                                    lhs_unary->character_number,
+                                    "Type mismatch: cannot assign value to dereferenced pointer"
+                                );
+                            }
+                        }
+                    } else {
+                        report_error(
+                            lhs_unary->line_number,
+                            lhs_unary->character_number,
+                            "Unsupported unary operation on LHS of assignment"
+                        );
+                    }
+                }
+
+                // --- CASE 3: LHS is invalid ---
+                else {
+                    report_error(
+                        b->line_number,
+                        b->character_number,
+                        "Left-hand side of assignment must be an identifier or dereferenced pointer"
+                    );
+                }
+            }
+            else {
+                // For all other binary operations, just resolve normally
                 if (b->lhs) resolve_idents_in_expr(b->lhs);
                 if (b->rhs) resolve_idents_in_expr(b->rhs);
             }
@@ -312,6 +375,107 @@ Ast_Type_Definition* CodeManager::infer_types_expr(Ast_Expression** expr_ptr) {
             return nullptr;
         }
 
+        case AST_UNARY: {
+            Ast_Unary* u = static_cast<Ast_Unary*>(expr);
+            if (!u->operand) return nullptr;
+
+            Ast_Type_Definition* operandType = infer_types_expr(&u->operand);
+            if (!operandType) {
+                report_error(u->line_number, u->character_number,
+                    "Could not determine type of operand for unary expression");
+                return nullptr;
+            }
+
+            Ast_Type_Definition* resultType = new Ast_Type_Definition();
+            switch (u->op) {
+            case UNARY_DEREFERENCE:
+                if (!operandType->pointed_to_type) {
+                    report_error(u->line_number, u->character_number,
+                        "Cannot dereference non-pointer type");
+                    return nullptr;
+                }
+                resultType->builtin_type = TYPE_UNKNOWN;
+                resultType->pointed_to_type = operandType->pointed_to_type;
+                break;
+
+            case UNARY_ADDRESS_OF:
+            case UNARY_REFERENCE:
+                resultType->builtin_type = TYPE_UNKNOWN;
+                resultType->pointed_to_type = operandType;
+                break;
+
+            case UNARY_NEGATE:
+            case UNARY_NOT:
+                // type same as operand
+                resultType = operandType;
+                break;
+
+            default:
+                report_error(u->line_number, u->character_number,
+                    "Unknown unary operator");
+                return nullptr;
+            }
+
+            expr->inferred_type = resultType;
+            return resultType;
+        }
+
+        // Ast_Unary* u = static_cast<Ast_Unary*>(expr);
+
+        //     // First infer type of the operand
+        //     Ast_Type_Definition* operandType = infer_types_expr(&u->operand);
+        //     if (!operandType) {
+        //         report_error(u->line_number, u->character_number,
+        //                      "Could not determine type of operand for unary operator.");
+        //         return nullptr;
+        //     }
+
+        //     switch (u->op) {
+        //         case UNARY_ADDRESS_OF: {
+        //             // ^x → result is a POINTER to operand type
+        //             static Ast_Type_Definition temp;
+        //             temp = {};
+        //             temp.pointed_to_type = operandType;
+
+        //             expr->inferred_type = &temp;
+        //             return &temp;
+        //         }
+
+        //         case UNARY_DEREFERENCE: {
+        //             // *x → operand must be a pointer
+        //             if (!operandType->pointed_to_type) {
+        //                 report_error(u->line_number, u->character_number,
+        //                              "Cannot dereference non-pointer type.");
+        //                 return nullptr;
+        //             }
+        //             expr->inferred_type = operandType->pointed_to_type;
+        //             return operandType->pointed_to_type;
+        //         }
+
+        //         case UNARY_REFERENCE: {
+        //             // &x → result is a REFERENCE to operand type
+        //             static Ast_Type_Definition temp;
+        //             temp = {};
+        //             temp.is_reference = true; // <-- You need to add this to your Ast_Type_Definition
+        //             temp.pointed_to_type = operandType;
+
+        //             expr->inferred_type = &temp;
+        //             return &temp;
+        //         }
+
+        //         case UNARY_NEGATE:
+        //         case UNARY_NOT:
+        //             expr->inferred_type = operandType;
+        //             return operandType;
+
+        //         default:
+        //             report_error(u->line_number, u->character_number,
+        //                          "Unknown unary operator.");
+        //             return nullptr;
+        //     }
+        // }
+
+
         case AST_BINARY: {
             Ast_Binary* b = static_cast<Ast_Binary*>(expr);
             Ast_Type_Definition* lt = infer_types_expr(&b->lhs);
@@ -342,38 +506,78 @@ Ast_Type_Definition* CodeManager::infer_types_expr(Ast_Expression** expr_ptr) {
                     return make_builtin_type(TYPE_BOOL);
                 }
                 case BINOP_ASSIGN: {
-                // assignment expression has the type of the LHS
-                    Ast_Ident* lhs_ident = dynamic_cast<Ast_Ident*>(b->lhs);
+                    // assignment expression has the type of the LHS
                     Ast_Type_Definition* rhsType = infer_types_expr(&b->rhs);
-
-                    if (!lhs_ident) {
+                    if (!rhsType) {
                         report_error(b->line_number, b->character_number,
-                                     "Left-hand side of assignment must be an identifier");
+                                     "Right-hand side of assignment has unknown type");
                         return nullptr;
                     }
 
-                    CM_Symbol* sym = lookup_symbol(lhs_ident->name);
-                    if (!sym) {
-                        report_error(lhs_ident->line_number, lhs_ident->character_number,
-                                     "Assignment to undeclared variable '%s'",
-                                     lhs_ident->name.c_str());
+                    Ast_Type_Definition* lhsType = nullptr;
+
+                    // --- Case 1: LHS is an identifier ---
+                    if (Ast_Ident* lhs_ident = dynamic_cast<Ast_Ident*>(b->lhs)) {
+                        CM_Symbol* sym = lookup_symbol(lhs_ident->name);
+                        if (!sym) {
+                            report_error(lhs_ident->line_number, lhs_ident->character_number,
+                                         "Assignment to undeclared variable '%s'",
+                                         lhs_ident->name.c_str());
+                            return nullptr;
+                        }
+
+                        // Infer the type of the variable if it's not known yet
+                        if (!sym->type) {
+                            sym->type = rhsType;
+                        }
+                        else if (!check_that_types_match(sym->type, rhsType)) {
+                            report_error(lhs_ident->line_number, lhs_ident->character_number,
+                                         "Type mismatch in assignment to '%s'",
+                                         lhs_ident->name.c_str());
+                        }
+
+                        sym->initialized = true;
+                        lhsType = sym->type;
+                    }
+
+                    // --- Case 2: LHS is a dereference (*p = value) ---
+                    else if (Ast_Unary* lhs_unary = dynamic_cast<Ast_Unary*>(b->lhs)) {
+                        if (lhs_unary->op == UNARY_DEREFERENCE) {
+                            // Get type of the pointer expression
+                            Ast_Type_Definition* pointerType = infer_types_expr(&lhs_unary->operand);
+
+                            if (!pointerType || !pointerType->pointed_to_type) {
+                                report_error(lhs_unary->line_number, lhs_unary->character_number,
+                                             "Invalid dereference: LHS is not a pointer");
+                                return nullptr;
+                            }
+
+                            lhsType = pointerType->pointed_to_type;
+
+                            // Check that the inner type matches RHS
+                            if (!check_that_types_match(lhsType, rhsType)) {
+                                report_error(lhs_unary->line_number, lhs_unary->character_number,
+                                             "Type mismatch: cannot assign value to dereferenced pointer");
+                            }
+                        }
+                        else {
+                            report_error(lhs_unary->line_number, lhs_unary->character_number,
+                                         "Unsupported unary operation on LHS of assignment");
+                            return nullptr;
+                        }
+                    }
+
+                    // --- Case 3: Unsupported LHS ---
+                    else {
+                        report_error(b->line_number, b->character_number,
+                                     "Left-hand side of assignment must be an identifier or a dereferenced pointer");
                         return nullptr;
                     }
 
-                    if (!sym->type) {
-                        // Infer type from RHS
-                        sym->type = rhsType;
-                    } else if (!check_that_types_match(sym->type, rhsType)) {
-                        report_error(lhs_ident->line_number, lhs_ident->character_number,
-                                     "Type mismatch in assignment to '%s'",
-                                     lhs_ident->name.c_str());
-                    }
-
-                    sym->initialized = true;
-
-                    // The result type of an assignment expression is the type of the variable
-                    return sym->type;
+                    // The result type of an assignment expression is the type of the LHS
+                    return lhsType;
                 }
+
                 default:
                     report_error(b->line_number, b->character_number, "Unknown binary operator in type inference");
                     return nullptr;
@@ -426,7 +630,7 @@ void CodeManager::infer_types_decl(Ast_Declaration* decl) {
         if (decl->declared_type) {
 
             // explicit type, check if they match
-            if (!check_that_types_match(decl->declared_type, init_type)) {
+                if (!check_that_types_match(decl->declared_type, init_type)) {
                 report_error(
                     decl->line_number,
                     decl->character_number,
@@ -525,13 +729,52 @@ void CodeManager::infer_types_block(Ast_Block* block) {
 bool CodeManager::check_that_types_match(Ast_Type_Definition* wanted, Ast_Type_Definition* have) {
     if (!wanted || !have) return false;
 
-    if (wanted->builtin_type != TYPE_UNKNOWN && have->builtin_type != TYPE_UNKNOWN) {
-        if(wanted->builtin_type == have->builtin_type) return true;
-        if(wanted->builtin_type == TYPE_FLOAT && have->builtin_type == TYPE_INT) return true;
-        // return wanted->builtin_type == have->builtin_type;
+    // --- Handle Arrays ---
+    if (wanted->array_kind != ARRAY_NONE || have->array_kind != ARRAY_NONE) {
+        // Both must be arrays
+        if (wanted->array_kind != have->array_kind)
+            return false;
+
+        // If static arrays, size must match
+        if (wanted->array_kind == ARRAY_STATIC &&
+            wanted->static_array_size != have->static_array_size)
+            return false;
+
+        // Element type must exist
+        if (!wanted->element_type || !have->element_type)
+            return false;
+
+        // Compare element types recursively
+        return check_that_types_match(wanted->element_type, have->element_type);
     }
+
+    // --- Handle Pointers / References ---
+    if (wanted->pointed_to_type || have->pointed_to_type) {
+        // Both must be pointers/references
+        if (!wanted->pointed_to_type || !have->pointed_to_type)
+            return false;
+
+        // Compare the inner types recursively
+        return check_that_types_match(wanted->pointed_to_type, have->pointed_to_type);
+    }
+
+    // --- Handle Base Types ---
+    if (wanted->builtin_type != TYPE_UNKNOWN && have->builtin_type != TYPE_UNKNOWN) {
+        if (wanted->builtin_type == have->builtin_type)
+            return true;
+
+        // Allow implicit int -> float
+        if (wanted->builtin_type == TYPE_FLOAT && have->builtin_type == TYPE_INT)
+            return true;
+
+        return false;
+    }
+
+    // If either type is unknown, conservatively assume mismatch
     return false;
 }
+
+
 
 bool CodeManager::is_integer_type(Ast_Type_Definition* type) {
     if (!type) return false;

@@ -64,4 +64,5 @@ struct CodeManager {
     void report_error(int line, int col, const char* fmt, ...);
     bool check_that_types_match(Ast_Type_Definition* wanted, Ast_Type_Definition* have);
     bool is_integer_type(Ast_Type_Definition* type);
+
 };

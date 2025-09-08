@@ -42,6 +42,12 @@ What should work?
 - struct (c style but slightly differnt)
 - array using ( [] ) operators
 
+- defer
+- functions inside functions
+- multiple function return values
+- simple new operator that just does malloc, maybe its possible to 0 initialize by default (using calloc) and not if explicitly told by programmer.
+- no need to forward declaring  functions/structs. it would be automatically done in .cpp
+
 Check things for correctness and proof of concept
 - should obey operator precedence (pemdas eg.)
 - some simple programs like computing factorial, estimating arctan with taylor series or something (this could be hard)

@@ -15,6 +15,25 @@ int idk = 1;
 bool boolean = true;
 
 void GENERATED_MAIN(){
+    int aint = 5;
+    int bint;
+    (aint = 10);
+    printf("aint = %d\n",aint);
+    printf("aint = %p\n",&aint);
+    int * pInt = &aint;
+    printf("pInt = %p\n",pInt);
+    int * p_uninit_int = pInt;
+    printf("p_uninit_int = %d\n",* p_uninit_int);
+    (* p_uninit_int = 20);
+    printf("p_uninit_int = %d\n",* p_uninit_int);
+    printf("aint = %d\n",aint);
+    int * rint = &aint;
+    printf("rint = %p\n",rint);
+    (* rint = 30);
+    printf("aint = %d\n",aint);
+    (* p_uninit_int = 40);
+    printf("p_uninit_int = %d\n",* p_uninit_int);
+    printf("aint = %d\n",aint);
     int v = 4;
     if((a != b)){
         float x = 2334.340088;

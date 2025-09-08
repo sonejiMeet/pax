@@ -29,25 +29,27 @@ enum TokenType {
     TOK_LBRACKET,
     TOK_RBRACKET,
 
-    TOK_COLON,
-    TOK_DOUBLECOLON,
-    TOK_SEMICOLON,
-    TOK_COMMA,
-    TOK_SINGLEQOUTE,
-    TOK_DOUBLEQUOTE,
+    TOK_COLON,          // :
+    TOK_DOUBLECOLON,    // ::
+    TOK_SEMICOLON,      // ;
+    TOK_COMMA,          // ,
+    TOK_SINGLEQOUTE,    // '
+    TOK_DOUBLEQUOTE,    // "
 
-    TOK_PLUS,
-    TOK_MINUS,
-    TOK_STAR,
-    TOK_SLASH,
+    TOK_PLUS,           // +
+    TOK_MINUS,          // -
+    TOK_STAR,           // *
+    TOK_SLASH,          // /
+    TOK_CARET,          // ^
+    TOK_AMPERSAND,      // &
 
-    TOK_ASSIGN,
-    TOK_EQUAL,
-    TOK_NOT_EQUAL,
-    TOK_LESS,
-    TOK_GREATER,
-    TOK_LESS_EQUAL,
-    TOK_GREATER_EQUAL,
+    TOK_ASSIGN,         // =
+    TOK_EQUAL,          // ==
+    TOK_NOT_EQUAL,      // !=
+    TOK_LESS,           // <
+    TOK_GREATER,        // >
+    TOK_LESS_EQUAL,     // <=
+    TOK_GREATER_EQUAL,  // >=
 
     TOK_COMMENT,
     TOK_L_MULTILINE_COMMENT, // /*
@@ -98,6 +100,9 @@ inline const char* tokenTypeToString(TokenType type) {
         case TOK_MINUS: return "TOK_MINUS";
         case TOK_STAR: return "TOK_STAR";
         case TOK_SLASH: return "TOK_SLASH";
+        case TOK_CARET: return "TOK_CARET";
+        case TOK_AMPERSAND: return "TOK_AMPERSAND";
+
         case TOK_ASSIGN: return "TOK_ASSIGN";
         case TOK_EQUAL: return "TOK_EQUAL";
         case TOK_NOT_EQUAL: return "TOK_NOT_EQUAL";
