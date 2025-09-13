@@ -54,7 +54,7 @@ main :: () {
     printf("aint = %d\n", aint);
 
     // arrInt: []int;
-    // arrStaticInt: [4]int;
+    arrStaticInt: [4]int;
     // printf("arrStaticInt[0]", arrStaticInt[0]); // not working
     v : int = 4;
     if (a != b) {

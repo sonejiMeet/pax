@@ -14,7 +14,6 @@ char* Lexer::pool_strdup(Pool* pool, const char* str) {
 }
 
 Token* Lexer::makeToken(TokenType type, const char* value, int row, int col) {
-
     Token* t = (Token*)pool_alloc(lex_pool, sizeof(Token));
     t->type = type;
     if (type == TOK_IDENTIFIER || type == TOK_PRINT || type == TOK_IF || type == TOK_STRUCT
