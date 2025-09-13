@@ -2,12 +2,18 @@
 #include "lexer.h"
 #include "ast.h"
 
+#include "pool.h"
+
 struct Parser {
     Lexer *lexer;
-    Token current;
-    Token previous;
 
-    Parser(Lexer *l);
+    Pool *pool;
+
+    Token *current = nullptr;
+    Token *previous = nullptr;
+
+    Parser(Lexer *l, Pool *pool);
+    ~Parser();
 
     void parseError(const std::string &message);
     void reportError(const std::string &message);

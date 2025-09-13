@@ -1,6 +1,8 @@
 #include "token.h"
 #include "tools.h"
 
+#include "pool.h"
+
 struct Lexer
 {
     const char *Source;
@@ -10,14 +12,17 @@ struct Lexer
     int Row;
     int Col;
 
-    Token peeked_token;
+    Token* peeked_token = nullptr;
     bool has_peeked;
 
-    Lexer(const char *data, size_t len)
-     : Source(data), size(len), Pos(0), Row(1), Col(1), peeked_token({}), has_peeked(false)
+    Pool *lex_pool;
+    Lexer(const char *data, size_t len, Pool *pool)
+     : Source(data), size(len), Pos(0), Row(1), Col(1), peeked_token(nullptr), has_peeked(false), lex_pool(pool)
     {
 
     }
+    char* pool_strdup(Pool* pool, const char* str);
+
     inline void lexerError(const std::string& message, int row, int col);
 
     inline char get_and_advance() {
@@ -93,23 +98,16 @@ struct Lexer
         }
     }
 
-    Token makeToken(TokenType type, const char* value, int row, int col);
-    Token makeIntToken(TokenType type, unsigned long long val, int row, int col);
-    Token makeFloatToken(TokenType type, float val, int row, int col);
+    Token* makeToken(TokenType type, const char* value, int row, int col);
+    Token* makeIntToken(TokenType type, unsigned long long val, int row, int col);
+    Token* makeFloatToken(TokenType type, float val, int row, int col);
 
 
-    Token stringToken(int row, int col);
-    Token numberToken(char first, int row, int col);
-    Token identifierToken(char first, int row, int col);
+    Token* stringToken(int row, int col);
+    Token* numberToken(char first, int row, int col);
+    Token* identifierToken(char first, int row, int col);
 
-    Token nextToken();
-    Token peekNextToken(int lookahead = 1);
+    Token* nextToken();
+    Token* peekNextToken(int lookahead = 1);
 
 };
-
-struct FileBuffer {
-    uint8_t *data;
-    size_t size;
-};
-
-FileBuffer read_entire_file(const char *path);

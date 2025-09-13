@@ -1,5 +1,6 @@
 #pragma once
 #include "ast.h"
+#include "pool.h"
 #include <iostream>
 
 // Forward declarations
@@ -148,9 +149,14 @@ void printBinary(const Ast_Binary* bin, int indent) {
 void printBlock(const Ast_Block* block, int indent) {
     printIndent(indent);
     std::cout << "Block {" << std::endl;
-    for (auto* stmt : block->statements) {
+    // for (auto* stmt : block->statements) {
+    //     printStatement(stmt, indent + 1);
+    // }
+    for (int i = 0; i < block->statements.count; i++) {
+        Ast_Statement* stmt = block->statements.data[i];
         printStatement(stmt, indent + 1);
     }
+
     printIndent(indent);
     std::cout << "}" << std::endl;
 }

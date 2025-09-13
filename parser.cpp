@@ -2,51 +2,77 @@
 #include "token.h"
 
 #include <iostream>
-#include <vector>
+// #include <vector>
 
 
-// https://learn.microsoft.com/en-us/cpp/c-runtime-library/find-memory-leaks-using-the-crt-library?view=msvc-170#interpret-the-memory-leak-report
-#ifdef _DEBUG
-    #define DBG_NEW new ( _NORMAL_BLOCK , __FILE__ , __LINE__ )
-    // Replace _NORMAL_BLOCK with _CLIENT_BLOCK if you want the
-    // allocations to be of _CLIENT_BLOCK type
-#else
-    #define DBG_NEW new
-#endif
+ // https://learn.microsoft.com/en-us/cpp/c-runtime-library/find-memory-leaks-using-the-crt-library?view=msvc-170#interpret-the-memory-leak-report
+ #ifdef _DEBUG
+     #define DBG_NEW new ( _NORMAL_BLOCK , __FILE__ , __LINE__ )
+     // Replace _NORMAL_BLOCK with _CLIENT_BLOCK if you want the
+     // allocations to be of _CLIENT_BLOCK type
+ #else
+     #define DBG_NEW new
+ #endif
 
+#define malloc(s) _malloc_dbg(s, _NORMAL_BLOCK, __FILE__, __LINE__)
+#define free(p) _free_dbg(p, _NORMAL_BLOCK)
+// #define AST_NEW(pool,type) ([&]() -> type* { \
+//     type* node = DBG_NEW type(); \
+//     node->line_number = current->row;  \
+//     node->character_number = current->col; \
+//     return node; \
+// }())
 
-#define AST_NEW(type) ([&]() -> type* { \
-    type* node = DBG_NEW type(); \
-    node->line_number = current.row;  \
-    node->character_number = current.col; \
-    return node; \
+#define AST_NEW(pool, type) ([&]() -> type* {                     \
+    printf("-----------------------------------used AST_NEW for [%d %d] %s---%zu---\n", current->row, current->col, typeid(type).name(), sizeof(type)); \
+    assert(pool != nullptr && "Pool must not be null");           \
+    void* mem = pool_alloc(pool, sizeof(type));                  \
+    type* node = new (mem) type(pool);                           \
+    node->line_number = current->row;                              \
+    node->character_number = current->col;                        \
+    return node;                                                  \
 }())
 
 bool exitSuccess = true;
 
-Parser::Parser(Lexer* l) : lexer(l) {
+Parser::Parser(Lexer* l, Pool *p) : lexer(l), pool(p) {
     current = lexer->nextToken();
 }
 
 void Parser::advance() {
+    // if (previous && previous->owns_value && previous->type != TOK_STRING) {
+    //     printf("[ADVANCE FREE] Freeing token value: %s\n", previous->value);
+    //     freeToken(*previous);
+    // }
     previous = current;
     current = lexer->nextToken();
 }
 
+Parser::~Parser() {
+    // // Free token memory
+    // if (current) {
+    //     // Assuming lexer->freeToken() frees the token memory
+    //     freeToken(*current);
+    // }
+    // if (previous) {
+    //     freeToken(*previous);
+    // }
+}
+
 void Parser::parseError(const std::string& message) {
-    std::cout << "\n" << ": Parsing Error" <<  "[" << current.row << ":" << current.col << "] "  << message
-              << " at token '" << current.value << "' (Type: "
-              << tokenTypeToString(current.type) << ")";
+    std::cout << "\n" << ": Parsing Error" <<  "[" << current->row << ":" << current->col << "] "  << message
+              << " at token '" << current->value << "' (Type: "
+              << tokenTypeToString(current->type) << ")";
 
 }
 
 void Parser::reportError(const std::string& message) {
-    std::cout << "\n" << ": Parsing Error" <<  "[" << current.row << ":" << current.col << "] "  << message;
+    std::cout << "\n" << ": Parsing Error" <<  "[" << current->row << ":" << current->col << "] "  << message;
 }
 
 void Parser::expect(TokenType expectedType, const std::string& errorMessage)
 {
-    if (current.type != expectedType) {
+    if (current->type != expectedType) {
         parseError(errorMessage);
         exitSuccess = false;
         synchronize();
@@ -56,9 +82,9 @@ void Parser::expect(TokenType expectedType, const std::string& errorMessage)
 }
 void Parser::Expect(TokenType expectedType, const std::string& errorMessage)
 {
-    if (current.type != expectedType) {
+    if (current->type != expectedType) {
 
-    std::cout << "\n" << __FILE__ << ": Parsing Error" <<  "[" << previous.row << ":" << previous.col << "] "  << errorMessage;
+    std::cout << "\n" << __FILE__ << ": Parsing Error" <<  "[" << previous->row << ":" << previous->col << "] "  << errorMessage;
 
         exitSuccess = false;
         synchronize();
@@ -68,9 +94,9 @@ void Parser::Expect(TokenType expectedType, const std::string& errorMessage)
 }
 void Parser::synchronize() {
     // Skip tokens until we reach a "safe" point to restart parsing
-    while (current.type != TOK_END_OF_FILE) {
-        if (previous.type == TOK_SEMICOLON) return;  // after a full statement
-        switch (current.type) {
+    while (current->type != TOK_END_OF_FILE) {
+        if (previous->type == TOK_SEMICOLON) return;  // after a full statement
+        switch (current->type) {
             case TOK_IF:
             case TOK_PRINT:
             case TOK_IDENTIFIER:
@@ -86,74 +112,75 @@ void Parser::synchronize() {
 Ast_Expression* Parser::parseFactor()
 {
     // Handle unary operators first: *, ^, &
-    if (current.type == TOK_STAR) { // dereference
+    if (current->type == TOK_STAR) { // dereference
         advance();
-        Ast_Unary* node = AST_NEW(Ast_Unary);
+        Ast_Unary* node = AST_NEW(pool,Ast_Unary);
         node->op = UNARY_DEREFERENCE;
         node->operand = parseFactor();
         return node;
     }
-    else if (current.type == TOK_CARET) { // address-of
+    else if (current->type == TOK_CARET) { // address-of
         advance();
-        Ast_Unary* node = AST_NEW(Ast_Unary);
+        Ast_Unary* node = AST_NEW(pool,Ast_Unary);
         node->op = UNARY_ADDRESS_OF;
         node->operand = parseFactor();
         return node;
     }
-    else if (current.type == TOK_AMPERSAND) { // reference
+    else if (current->type == TOK_AMPERSAND) { // reference
         advance();
-        Ast_Unary* node = AST_NEW(Ast_Unary);
+        Ast_Unary* node = AST_NEW(pool,Ast_Unary);
         node->op = UNARY_REFERENCE;
         node->operand = parseFactor();
         return node;
     }
 
-    if (current.type == TOK_NUMBER)
+    if (current->type == TOK_NUMBER)
     {
 
-        Ast_Literal *node = AST_NEW(Ast_Literal);
+        Ast_Literal *node = AST_NEW(pool,Ast_Literal);
         node->value_type = LITERAL_NUMBER;
-        node->integer_value = current.int_value;
+        node->integer_value = current->int_value;
         advance();
         return node;
     }
-    else if (current.type == TOK_FLOAT)
+    else if (current->type == TOK_FLOAT)
     {
 
-        Ast_Literal *node = AST_NEW(Ast_Literal);
+        Ast_Literal *node = AST_NEW(pool,Ast_Literal);
         node->value_type = LITERAL_FLOAT;
-        node->float_value = current.float32_value;
+        node->float_value = current->float32_value;
         advance();
         return node;
     }
-    else if (current.type == TOK_STRING )
+    else if (current->type == TOK_STRING )
     {
-        Ast_Literal *node = AST_NEW(Ast_Literal);
+        Ast_Literal *node = AST_NEW(pool,Ast_Literal);
         node->value_type = LITERAL_STRING;
-        node->string_value = std::string(
-            reinterpret_cast<const char*>(current.string_value.data),
-            static_cast<size_t>(current.string_value.count)
-        );
+        node->string_value = reinterpret_cast<const char*>(current->string_value.data);
+        // node->string_value = std::string(
+        //     reinterpret_cast<const char*>(current->string_value.data),
+        //     static_cast<size_t>(current->string_value.count)
+        // );
         advance();
         return node;
     }
-    else if (current.type == TOK_KEYWORD_TRUE || current.type == TOK_KEYWORD_FALSE){
-        Ast_Literal *node = AST_NEW(Ast_Literal);
-        if(current.type == TOK_KEYWORD_TRUE)
+    else if (current->type == TOK_KEYWORD_TRUE || current->type == TOK_KEYWORD_FALSE){
+        Ast_Literal *node = AST_NEW(pool,Ast_Literal);
+        if(current->type == TOK_KEYWORD_TRUE)
             node->value_type = LITERAL_TRUE;
         else node->value_type = LITERAL_FALSE;
         advance();
         return node;
     }
-    else if (current.type == TOK_IDENTIFIER)
+    else if (current->type == TOK_IDENTIFIER)
     {
-        Ast_Ident *node = AST_NEW(Ast_Ident);
-        node->name = current.value;
+        Ast_Ident *node = AST_NEW(pool,Ast_Ident);
+        node->name = current->value;
         advance();
         return node;
 
     }
-    else if (current.type == TOK_LPAREN)
+    else if (current->type == TOK_LPAREN)
     {
         advance();
         Ast_Expression* expr = parseExpression();
@@ -173,13 +200,13 @@ Ast_Expression* Parser::parseTerm()
 {
     Ast_Expression* left = parseFactor();
 
-    while (current.type == TOK_STAR || current.type == TOK_SLASH)
+    while (current->type == TOK_STAR || current->type == TOK_SLASH)
     {
-        Ast_Binary *node = AST_NEW(Ast_Binary);
+        Ast_Binary *node = AST_NEW(pool,Ast_Binary);
         node->lhs = left;
 
-        if(current.type == TOK_STAR) node->op = BINOP_MUL;
-        else if (current.type == TOK_SLASH) node->op = BINOP_DIV;
+        if(current->type == TOK_STAR) node->op = BINOP_MUL;
+        else if (current->type == TOK_SLASH) node->op = BINOP_DIV;
 
         advance();
         node->rhs = parseFactor();
@@ -194,15 +221,15 @@ Ast_Expression* Parser::parseExpression()
 {
     Ast_Expression* left = parseTerm();
 
-    while (current.type == TOK_PLUS || current.type == TOK_MINUS ||
-           current.type == TOK_EQUAL || current.type == TOK_NOT_EQUAL ||
-           current.type == TOK_LESS || current.type == TOK_GREATER ||
-           current.type == TOK_LESS_EQUAL || current.type == TOK_GREATER_EQUAL) {
+    while (current->type == TOK_PLUS || current->type == TOK_MINUS ||
+           current->type == TOK_EQUAL || current->type == TOK_NOT_EQUAL ||
+           current->type == TOK_LESS || current->type == TOK_GREATER ||
+           current->type == TOK_LESS_EQUAL || current->type == TOK_GREATER_EQUAL) {
 
-        Ast_Binary *node = AST_NEW(Ast_Binary);
+        Ast_Binary *node = AST_NEW(pool,Ast_Binary);
         node->lhs = left;
 
-        switch(current.type){
+        switch(current->type){
             case TOK_PLUS: node->op = BINOP_ADD; break;
             case TOK_MINUS: node->op = BINOP_SUB; break;
             case TOK_EQUAL: node->op = BINOP_EQ; break;
@@ -224,9 +251,9 @@ Ast_Type_Definition* Parser::parseTypeSpecifier() {
     Ast_Type_Definition *currentType = nullptr;
 
     while (true) {
-        if (current.type == TOK_CARET || current.type == TOK_STAR) {
+        if (current->type == TOK_CARET || current->type == TOK_STAR) {
             // Pointer type
-            Ast_Type_Definition *pointerType = AST_NEW(Ast_Type_Definition);
+            Ast_Type_Definition *pointerType = AST_NEW(pool,Ast_Type_Definition);
             pointerType->pointed_to_type = nullptr;
             pointerType->builtin_type = TYPE_UNKNOWN; // placeholder for pointer
 
@@ -237,9 +264,9 @@ Ast_Type_Definition* Parser::parseTypeSpecifier() {
             currentType = pointerType;
             advance(); // consume '^' or '*'
         }
-        else if (current.type == TOK_AMPERSAND) {
+        else if (current->type == TOK_AMPERSAND) {
             // Reference type
-            Ast_Type_Definition *refType = AST_NEW(Ast_Type_Definition);
+            Ast_Type_Definition *refType = AST_NEW(pool,Ast_Type_Definition);
             refType->pointed_to_type = nullptr;
             refType->builtin_type = TYPE_UNKNOWN; // placeholder for reference
 
@@ -250,18 +277,18 @@ Ast_Type_Definition* Parser::parseTypeSpecifier() {
             currentType = refType;
             advance(); // consume '&'
         }
-        else if (current.type == TOK_LBRACKET) {
+        else if (current->type == TOK_LBRACKET) {
             // Array type
             advance(); // consume '['
 
-            Ast_Type_Definition *arrayType = AST_NEW(Ast_Type_Definition);
+            Ast_Type_Definition *arrayType = AST_NEW(pool,Ast_Type_Definition);
             arrayType->element_type = nullptr;
             arrayType->builtin_type = TYPE_UNKNOWN;
 
-            if (current.type == TOK_NUMBER) {
+            if (current->type == TOK_NUMBER) {
                 // Static array
                 arrayType->array_kind = ARRAY_STATIC;
-                arrayType->static_array_size = current.int_value;
+                arrayType->static_array_size = current->int_value;
                 advance(); // consume size
                 expect(TOK_RBRACKET, "Expected ']' after static array size.");
             }
@@ -282,15 +309,15 @@ Ast_Type_Definition* Parser::parseTypeSpecifier() {
     }
 
     // Now expect the base type
-    Ast_Type_Definition *baseType = AST_NEW(Ast_Type_Definition);
+    Ast_Type_Definition *baseType = AST_NEW(pool,Ast_Type_Definition);
 
-    if (current.type == TOK_TYPE_INT)
+    if (current->type == TOK_TYPE_INT)
         baseType->builtin_type = TYPE_INT;
-    else if (current.type == TOK_TYPE_FLOAT)
+    else if (current->type == TOK_TYPE_FLOAT)
         baseType->builtin_type = TYPE_FLOAT;
-    else if (current.type == TOK_TYPE_STRING)
+    else if (current->type == TOK_TYPE_STRING)
         baseType->builtin_type = TYPE_STRING;
-    else if (current.type == TOK_TYPE_BOOL)
+    else if (current->type == TOK_TYPE_BOOL)
         baseType->builtin_type = TYPE_BOOL;
     else {
         reportError("Expected a base type (e.g., 'int', 'float', 'string', 'bool').");
@@ -332,27 +359,27 @@ Ast_Type_Definition* Parser::parseTypeSpecifier() {
 //  statement "identifier = expression;"
 Ast_Declaration* Parser::parseVarDeclaration()
 {
-    Ast_Declaration* varDecl = AST_NEW(Ast_Declaration);
+    Ast_Declaration* varDecl = AST_NEW(pool,Ast_Declaration);
 
-    std::string varName = current.value;
+    const char * varName = current->value;
     advance(); // consume identifier
 
     Ast_Type_Definition *typeDef = nullptr;
 
     Ast_Expression *initializer = nullptr;
 
-    if(current.type == TOK_COLON){
+    if(current->type == TOK_COLON){
         advance();
 
         // After consuming ':', current is the token after ':'
-        if (current.type == TOK_ASSIGN) {
+        if (current->type == TOK_ASSIGN) {
             // form:  x := expr;   (inferred declaration or later assignment)
             advance(); // consume '=' (the second char of ":=")
             initializer = parseExpression();
-        } else if(current.type != TOK_SEMICOLON) {
+        } else if(current->type != TOK_SEMICOLON) {
                 typeDef = parseTypeSpecifier();
 
-                if(current.type == TOK_ASSIGN){
+                if(current->type == TOK_ASSIGN){
                     advance();
                     initializer = parseExpression();
                 }
@@ -367,7 +394,7 @@ Ast_Declaration* Parser::parseVarDeclaration()
     Expect(TOK_SEMICOLON, "Expected ';' after variable declaration.");
 
     varDecl->declared_type = typeDef;      // nullptr for inferred form
-    varDecl->identifier = AST_NEW(Ast_Ident);
+    varDecl->identifier = AST_NEW(pool,Ast_Ident);
     varDecl->identifier->name = varName;
     varDecl->initializer = initializer;    // may be nullptr
 
@@ -384,12 +411,12 @@ Ast_If* Parser::parseIfStatement(){
 
     Ast_Block *thenBlock = parseBlockStatement();
 
-    Ast_If* ifNode = AST_NEW(Ast_If);
+    Ast_If* ifNode = AST_NEW(pool,Ast_If);
 
     ifNode->condition = condition;
     ifNode->then_block = thenBlock;
 
-    if(current.type == TOK_ELSE){
+    if(current->type == TOK_ELSE){
         advance();
         Ast_Block *elseBlock = parseBlockStatement();
         ifNode->else_block = elseBlock;
@@ -401,11 +428,11 @@ Ast_If* Parser::parseIfStatement(){
 Ast_Block* Parser::parseBlockStatement(bool scoped_block) {
     expect(TOK_LCURLY_PAREN, "Expected '{' to start a block statement.");
 
-    Ast_Block* block = AST_NEW(Ast_Block);
+    Ast_Block* block = AST_NEW(pool,Ast_Block);
 
     block->is_scoped_block = scoped_block;
 
-    while (current.type != TOK_RCURLY_PAREN && current.type != TOK_END_OF_FILE) {
+    while (current->type != TOK_RCURLY_PAREN && current->type != TOK_END_OF_FILE) {
         Ast_Statement* stmt = parseStatement(); // recursively parse statements within the block
         if (stmt) block->statements.push_back(stmt);
         else {
@@ -422,10 +449,10 @@ Ast_Block* Parser::parseBlockStatement(bool scoped_block) {
 // Ast_Block* Parser::parseBlockStatement(bool scoped_block) {
 //     expect(TOK_LCURLY_PAREN, "Expected '{' to start a block statement.");
 
-//     Ast_Block* block = AST_NEW(Ast_Block);
+//     Ast_Block* block = AST_NEW(pool,Ast_Block);
 //     block->is_scoped_block = scoped_block;
 
-//     while (current.type != TOK_RCURLY_PAREN && current.type != TOK_END_OF_FILE) {
+//     while (current->type != TOK_RCURLY_PAREN && current->type != TOK_END_OF_FILE) {
 //         Ast_Statement* stmt = parseStatement();
 
 //         if (!stmt) {
@@ -453,31 +480,33 @@ Ast_Block* Parser::parseBlockStatement(bool scoped_block) {
 
 Ast_Procedure_Call_Expression* Parser::parseCall()
 {
-    Token identToken = current;
+    Token *identToken = current;
+
+    Ast_Procedure_Call_Expression* callExpr = AST_NEW(pool,Ast_Procedure_Call_Expression);
+    callExpr->function = AST_NEW(pool,Ast_Ident);
+    callExpr->function->name = identToken->value;
+
     advance();
 
     expect(TOK_LPAREN, "Expected '(' after function name");
 
-    Ast_Procedure_Call_Expression* callExpr = AST_NEW(Ast_Procedure_Call_Expression);
-    callExpr->function = AST_NEW(Ast_Ident);
-    callExpr->function->name = identToken.value;
 
-    Ast_Comma_Separated_Args* argsNode = AST_NEW(Ast_Comma_Separated_Args);
+    Ast_Comma_Separated_Args* argsNode = AST_NEW(pool,Ast_Comma_Separated_Args);
 
-    if(current.type != TOK_RPAREN)
+    if(current->type != TOK_RPAREN)
     {
         while(true)
         {
             Ast_Expression* arg = parseExpression();
             argsNode->arguments.push_back(arg);
 
-            if (current.type != TOK_RPAREN && current.type != TOK_COMMA){
+            if (current->type != TOK_RPAREN && current->type != TOK_COMMA){
                 parseError("Expected ',' in function call arguments.");
             }
-            if (current.type == TOK_COMMA)
+            if (current->type == TOK_COMMA)
             {
                 advance();
-                if(current.type == TOK_RPAREN)
+                if(current->type == TOK_RPAREN)
                 {
                     parseError("Expected argument after ',' in function call");
                     exitSuccess = false;
@@ -499,7 +528,7 @@ Ast_Procedure_Call_Expression* Parser::parseCall()
 
 // Ast_Struct_Description * Parser::parseStructDefinition()
 // {
-//     std::string structName = current.value;
+//     std::string structName = current->value;
 //     advance();
 
 //     advance();
@@ -510,13 +539,13 @@ Ast_Procedure_Call_Expression* Parser::parseCall()
 Ast_Statement* Parser::parseStatement()
 {
 
-    switch (current.type) {
+    switch (current->type) {
         case TOK_IDENTIFIER: {
-            Token next = lexer->peekNextToken();
+            Token *next = lexer->peekNextToken();
 
-            if (next.type == TOK_DOUBLECOLON){
-                Token lookahead = lexer->peekNextToken(2);
-                if(lookahead.type == TOK_STRUCT){
+            if (next->type == TOK_DOUBLECOLON){
+                Token *lookahead = lexer->peekNextToken(2);
+                if(lookahead->type == TOK_STRUCT){
 
                     // parse struct
                 }
@@ -529,25 +558,25 @@ Ast_Statement* Parser::parseStatement()
             //     // return static_cast<Ast_Statement *> (decl);
             //     return decl;
             // }
-            else if (next.type == TOK_ASSIGN) {
+            else if (next->type == TOK_ASSIGN) {
                 // assignment
-                std::string varName = current.value;
+                const char * varName = current->value;
                 advance(); // consume identifier
 
                 advance(); // consume '='
                 Ast_Expression* rhs = parseExpression();
 
-                Ast_Ident* lhs = AST_NEW(Ast_Ident);
+                Ast_Ident* lhs = AST_NEW(pool,Ast_Ident);
                 lhs->name = varName;
 
-                Ast_Binary* assignExpr = AST_NEW(Ast_Binary);
+                Ast_Binary* assignExpr = AST_NEW(pool,Ast_Binary);
                 assignExpr->op = BINOP_ASSIGN;
                 assignExpr->lhs = lhs;
                 assignExpr->rhs = rhs;
 
                 Expect(TOK_SEMICOLON, "Expected ';' after assignment.");
 
-                Ast_Statement* stmt = AST_NEW(Ast_Statement);
+                Ast_Statement* stmt = AST_NEW(pool,Ast_Statement);
                 stmt->expression = assignExpr;
                 return stmt;
             }
@@ -555,7 +584,7 @@ Ast_Statement* Parser::parseStatement()
                 // // plain expression statement
                 // Ast_Expression* expr = parseExpression();
                 // expect(TOK_SEMICOLON, "Expected ';' after expression statement.");
-                // Ast_Statement* stmt = AST_NEW(Ast_Statement);
+                // Ast_Statement* stmt = AST_NEW(pool,Ast_Statement);
                 // stmt->expression = expr;
                 // return stmt;
                 Ast_Declaration* decl = parseVarDeclaration();
@@ -574,14 +603,14 @@ Ast_Statement* Parser::parseStatement()
 
             Ast_Expression* rhs = parseExpression();
 
-            Ast_Binary* assignExpr = AST_NEW(Ast_Binary);
+            Ast_Binary* assignExpr = AST_NEW(pool,Ast_Binary);
             assignExpr->op = BINOP_ASSIGN;
             assignExpr->lhs = lhs;
             assignExpr->rhs = rhs;
 
             Expect(TOK_SEMICOLON, "Expected ';' after assignment.");
 
-            Ast_Statement* stmt = AST_NEW(Ast_Statement);
+            Ast_Statement* stmt = AST_NEW(pool,Ast_Statement);
             stmt->expression = assignExpr;
             return stmt;
         }
@@ -590,7 +619,7 @@ Ast_Statement* Parser::parseStatement()
 
             Expect(TOK_SEMICOLON, "Expected ';' after printf call.");
 
-            Ast_Statement *stmt = AST_NEW(Ast_Statement);
+            Ast_Statement *stmt = AST_NEW(pool,Ast_Statement);
             stmt->expression = expr;
             return stmt;
         }
@@ -606,7 +635,7 @@ Ast_Statement* Parser::parseStatement()
         case TOK_LCURLY_PAREN: {
             bool is_scoped_block = true;
             Ast_Block *scopedBlock = parseBlockStatement(is_scoped_block);
-            Ast_Statement *stmt = AST_NEW(Ast_Statement);
+            Ast_Statement *stmt = AST_NEW(pool,Ast_Statement);
             stmt->block = scopedBlock;
             return stmt;
         }
@@ -616,7 +645,7 @@ Ast_Statement* Parser::parseStatement()
         case TOK_FLOAT: {
             Ast_Expression *expr = parseExpression();
             expect(TOK_SEMICOLON, "Expected ';' after expression statement.");
-            Ast_Statement *stmt = AST_NEW(Ast_Statement);
+            Ast_Statement *stmt = AST_NEW(pool,Ast_Statement);
             stmt->expression = expr;
             return stmt;
         }
@@ -630,20 +659,22 @@ Ast_Statement* Parser::parseStatement()
 
 Ast_Block* Parser::parseProgram()
 {
-    Ast_Block* program = AST_NEW(Ast_Block);
+    Ast_Block* program = AST_NEW(pool,Ast_Block);
 
+    //printf("size of Ast_Ident %zu----------->>>>>>>>>>>>>>>>>>>\n", sizeof(Ast_Ident));
+    //printf("size of Ast_Procedure_Call_Expression %zu----------->>>>>>>>>>>>>>>>>>>\n", sizeof(Ast_Procedure_Call_Expression));
     bool mainFound = false;
 
-    while (current.type != TOK_END_OF_FILE)
+    while (current->type != TOK_END_OF_FILE)
     {
-        if (current.type == TOK_MAIN_ENTRY_POINT) {
+        if (current->type == TOK_MAIN_ENTRY_POINT) {
             if (mainFound) {
                 parseError("Multiple 'main' functions not allowed.");
                 exitSuccess = false;
                 advance();
             }
             mainFound = true;
-            Ast_Statement* stmt = AST_NEW(Ast_Statement);
+            Ast_Statement* stmt = AST_NEW(pool,Ast_Statement);
 
             advance();
 
@@ -657,14 +688,15 @@ Ast_Block* Parser::parseProgram()
             stmt->block = mainBlock;
             program->statements.push_back(stmt);
         }
-        else if (current.type == TOK_IDENTIFIER) {
-            Token next = lexer->peekNextToken();
-            if (next.type == TOK_COLON) {
+        else if (current->type == TOK_IDENTIFIER) {
+            Token *next = lexer->peekNextToken();
+            if (next->type == TOK_COLON) {
                 Ast_Declaration* decl = parseVarDeclaration();
                 program->statements.push_back(static_cast<Ast_Statement*>(decl));
+                printf("\n/////////////// RIGHT AFTER PUSH_BACK ////////////\n");
                 // program->members.push_back(decl);
             }
-            else if(next.type == TOK_DOUBLECOLON) {
+            else if(next->type == TOK_DOUBLECOLON) {
                 Ast_Statement *stmt = parseStatement();
                 // program->statements.push_back(stmt);
             }
@@ -674,7 +706,7 @@ Ast_Block* Parser::parseProgram()
                 synchronize();
                 break;
             }
-            // Ast_Statement *stmt = AST_NEW(Ast_Statement);
+            // Ast_Statement *stmt = AST_NEW(pool,Ast_Statement);
             // stmt = parseStatement();
             // if(stmt)
             //     program->statements.push_back(stmt);
@@ -691,9 +723,10 @@ Ast_Block* Parser::parseProgram()
     }
 
 
-    if (!mainFound && exitSuccess)
+    if (!mainFound && exitSuccess) {
         parseError("No 'main' function found. An entry point is required.");
-
+        exit(1);
+    }
     if(!exitSuccess){
         printf("\n\nExiting... There were errors.\n\n");
         exit(1);

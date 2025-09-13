@@ -1,24 +1,72 @@
+#ifdef _DEBUG
 #define _CRTDBG_MAP_ALLOC // for mem leaks
+#include <crtdbg.h>
+#endif
 
 #include "token.h"
 #include "parser.h"
 #include "ast_printer.h"
 #include "code_manager.h"
 #include "c_converter.h"
+#include "tools.h"
+
+#include "pool.h"
 
 #include <cstdlib>
-#include <crtdbg.h>
 #include <windows.h>
 #include <chrono>
 
-// #define PRINT_LEX
+#ifdef _DEBUG
+#define malloc(s) _malloc_dbg(s, _NORMAL_BLOCK, __FILE__, __LINE__)
+#define free(p) _free_dbg(p, _NORMAL_BLOCK)
+#endif
 
-inline void printLex(FileBuffer buf);
+ // #define PRINT_LEX
+
+#ifdef _DEBUG
+long totalNbyte = 0;
+long long total_count = 0;
+long long total_capacity = 0;
+#endif
+
+inline void printLex(FileBuffer buf, Pool *pool);
 void runCompiler(char * command);
+
+
+void* default_allocator(int mode, long size, long old_size,
+                        void* old_memory, void* allocator_data, long options) {
+    switch(mode) {
+        case ALLOCATE: {
+            void* ptr = malloc(size);
+            if (!ptr) {
+                // Handle allocation failure
+                printf("Memory allocation failed\n");
+                exit(1); // or throw an exception
+            }
+            return ptr;
+        }
+        case RESIZE: {
+            void* new_ptr = realloc(old_memory, size);
+            if (!new_ptr) {
+                // Handle allocation failure
+                printf("Memory reallocation failed\n");
+                exit(1); // or throw an exception
+            }
+            return new_ptr;
+        }
+        case FREE: return 0;
+        case FREE_ALL: return 0;
+    }
+    return 0;
+}
 
 int main(int argc, char **args) {
 
-    _CrtSetDbgFlag ( _CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF ); // to avoid when there are
+#ifdef _DEBUG
+    _CrtSetDbgFlag ( _CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF ); // put it at start, when we want to exit(1) early. temporary!!!!!!
+    //_CrtSetBreakAlloc(182);
+
+#endif
 
     if (argc < 2) {
         fprintf(stderr, "Usage: %s <file>\n", args[0]);
@@ -27,24 +75,32 @@ int main(int argc, char **args) {
 
     auto start = std::chrono::high_resolution_clock::now();
 
+    Pool pool;
+    pool_init(&pool);
+    pool.block_allocator = default_allocator;
+    pool.block_allocator_data = nullptr;
+
     FileBuffer buf = read_entire_file(args[1]);
     if (!buf.data) return 1;
 
 #ifdef PRINT_LEX
-    printLex(buf);
+    printLex(buf, &pool);
 #endif // defined PRINT_LEX
+
 
 #ifndef PRINT_LEX
 
-    Lexer lexer((const char*)buf.data, buf.size);
+    Lexer lexer((const char*)buf.data, buf.size, &pool);
 
-    Parser parser(&lexer);
+    Parser parser(&lexer, &pool);
 
     Ast_Block* ast = parser.parseProgram();
     // printAst(ast);
 
+    free(buf.data);
+
     {
-        CodeManager cm;
+        CodeManager cm(&pool);
         cm.init();
         cm.resolve_idents(ast); // resolve identifiers and populate symbol table/scopes
         cm.infer_types_block(ast); // run type inference / checking
@@ -94,9 +150,9 @@ int main(int argc, char **args) {
         printf("\n\t -Time in c compiler: %.6f seconds\n", elapsed2.count());
     }
 
-    delete ast;
-
 #endif // not defined PRINT_LEX
+
+    pool_release(&pool);
 
     auto end = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> elapsed = end - start;
@@ -104,55 +160,15 @@ int main(int argc, char **args) {
     printf("\nTotal Time: %.6f seconds\n", elapsed.count());
     printf("DONE. exiting..\n\n");
 
-    free(buf.data);
 
+#ifdef _DEBUG
+    _CrtMemState state;
+    _CrtMemCheckpoint(&state); // snapshot current memory state
+    _CrtMemDumpStatistics(&state); // print summary
+    _CrtMemDumpAllObjectsSince(&state); // detailed list of allocations
     _CrtSetReportMode(_CRT_WARN, _CRTDBG_MODE_DEBUG);
-
+#endif
     return 0;
-}
-
-inline void printLex(FileBuffer buf){
-
-    Lexer lexer((const char*)buf.data, buf.size);
-    std::vector<Token> tokens;
-
-    while (true) {
-        Token tok = lexer.nextToken();
-        printf("[%-2d:%-2d] Token: %-15s\t", tok.row, tok.col, tokenTypeToString(tok.type));
-
-        switch (tok.type) {
-            case TOK_NUMBER:
-                printf("Value: \"%llu\"\n", tok.int_value);
-                break;
-            case TOK_FLOAT:
-                printf("Value: \"%f\"\n", tok.float32_value);
-                break;
-
-                // printf("Value: \"%c\"\n",(char)tok.value);
-            case TOK_STRING:
-                printf("Value: \"%.*s\"\n", (int)tok.string_value.count, tok.string_value.data);
-                break;
-            case TOK_IDENTIFIER:
-            default:
-                // For simple tokens (operators, etc.)
-                if (tok.value) {
-                    printf("Value: \"%s\"\n", tok.value);
-                } else {
-                    printf("\n");
-                }
-                break;
-        }
-
-        if (tok.type == TOK_END_OF_FILE) {
-            freeToken(tok);
-            break;
-        }
-        freeToken(tok);
-
-    }
-
-    printf("\n");
-
 }
 
 void runCompiler(char * command){
@@ -167,28 +183,56 @@ void runCompiler(char * command){
     char cmdLine[256];
     snprintf(cmdLine, sizeof(cmdLine), "%s", command);
 
-    if (!CreateProcessA(
-        NULL,          // Application name (NULL means use the command line)
-        cmdLine,       // Command line
-        NULL,          // Process security attributes
-        NULL,          // Thread security attributes
-        TRUE,         // Inherit handles
-        0,             // Creation flags
-        NULL,          // Use parent's environment block
-        NULL,          // Use parent's starting directory
-        &si,           // Pointer to STARTUPINFO
-        &pi            // Pointer to PROCESS_INFORMATION
-    )) {
+    if (!CreateProcessA( NULL, cmdLine, NULL, NULL, TRUE, 0, NULL, NULL, &si, &pi))
+    {
         printf("CreateProcess failed (%lu).\n", GetLastError());
         exit(1);
     }
 
-    // Wait until compiler finishes
     WaitForSingleObject(pi.hProcess, INFINITE);
-
-    // Clean up handles
     CloseHandle(pi.hProcess);
     CloseHandle(pi.hThread);
+}
 
+inline void printLex(FileBuffer buf, Pool *pool){
+
+    Lexer lexer((const char*)buf.data, buf.size, pool);
+
+    while (true) {
+        Token *tok = lexer.nextToken();
+        printf("[%-2d:%-2d] Token: %-15s\t", tok->row, tok->col, tokenTypeToString(tok->type));
+
+        switch (tok->type) {
+            case TOK_NUMBER:
+                printf("Value: \"%llu\"\n", tok->int_value);
+                break;
+            case TOK_FLOAT:
+                printf("Value: \"%f\"\n", tok->float32_value);
+                break;
+
+                // printf("Value: \"%c\"\n",(char)tok.value);
+            case TOK_STRING:
+                printf("Value: \"%.*s\"\n", (int)tok->string_value.count, tok->string_value.data);
+                break;
+            case TOK_IDENTIFIER:
+            default:
+                // For simple tokens (operators, etc.)
+                if (tok->value) {
+                    printf("Value: \"%s\"\n", tok->value);
+                } else {
+                    printf("\n");
+                }
+                break;
+        }
+
+        if (tok->type == TOK_END_OF_FILE) {
+            // freeToken(tok);
+            break;
+        }
+        // freeToken(tok);
+
+    }
+
+    printf("\n");
 
 }

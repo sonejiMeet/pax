@@ -1,42 +1,77 @@
 #include "lexer.h"
 
-#define MAX_NUM_STR_LEN 64
+ // https://learn.microsoft.com/en-us/cpp/c-runtime-library/find-memory-leaks-using-the-crt-library?view=msvc-170#interpret-the-memory-leak-report
+ #ifdef _DEBUG
+     #define DBG_NEW new ( _NORMAL_BLOCK , __FILE__ , __LINE__ )
+     // Replace _NORMAL_BLOCK with _CLIENT_BLOCK if you want the
+     // allocations to be of _CLIENT_BLOCK type
+ #else
+     #define DBG_NEW new
+ #endif
 
-Token Lexer::makeToken(TokenType type, const char* value, int row, int col) {
-    Token t;
-    t.type = type;
+
+#define malloc(s) _malloc_dbg(s, _NORMAL_BLOCK, __FILE__, __LINE__)
+#define free(p) _free_dbg(p, _NORMAL_BLOCK)
+
+#define _strdup(s) _strdup_dbg(s, _NORMAL_BLOCK, __FILE__, __LINE__)
+
+ #define MAX_NUM_STR_LEN 64
+
+inline char* heap_strdup(const char* str) {
+    if (!str) return nullptr;
+    size_t len = strlen(str) + 1;
+    char* copy = (char*)malloc(len);   // regular malloc
+    memcpy(copy, str, len);
+    return copy;
+}
+
+char* Lexer::pool_strdup(Pool* pool, const char* str) {
+    long len = strlen(str) + 1;
+    char* p = (char*)pool_alloc(pool, len);
+    memcpy(p, str, len);
+    return p;
+}
+
+Token* Lexer::makeToken(TokenType type, const char* value, int row, int col) {
+    printf("----------------first pool alloc in makeToken\n");
+    Token* t = (Token*)pool_alloc(lex_pool, sizeof(Token));
+    t->type = type;
     if (type == TOK_IDENTIFIER || type == TOK_PRINT || type == TOK_IF || type == TOK_STRUCT
         || type == TOK_TYPE_INT || type == TOK_TYPE_FLOAT || type == TOK_TYPE_STRING
         || type == TOK_TYPE_BOOL || type == TOK_KEYWORD_TRUE || type == TOK_KEYWORD_FALSE) {
 
-        t.value = _strdup(value);
-        t.owns_value = true;
+        printf("--------------second  pool alloc in makeToken\n");
+        // t->value = _strdup(value);
+        t->value = pool_strdup(lex_pool, value);
+        t->owns_value = false;
     } else {
-        t.value = value;
-        t.owns_value = false;
+        t->value = value;
+         t->owns_value = false;
     }
-    t.row = row;
-    t.col = col;
+    t->row = row;
+    t->col = col;
     return t;
 }
 
-Token Lexer::makeIntToken(TokenType type, unsigned long long val, int row, int col)
+Token* Lexer::makeIntToken(TokenType type, unsigned long long val, int row, int col)
 {
-    Token t;
-    t.type = type;
-    t.int_value = val;
-    t.row = row;
-    t.col = col;
+    Token* t = (Token*)pool_alloc(lex_pool, sizeof(Token));
+    t->type = type;
+    t->int_value = val;
+    t->row = row;
+    t->col = col;
+    t->owns_value = false;
     return t;
 }
 
-Token Lexer::makeFloatToken(TokenType type, float val, int row, int col)
+Token* Lexer::makeFloatToken(TokenType type, float val, int row, int col)
 {
-    Token t;
-    t.type = type;
-    t.float32_value = val;
-    t.row = row;
-    t.col = col;
+    Token* t = (Token*)pool_alloc(lex_pool, sizeof(Token));
+    t->type = type;
+    t->float32_value = val;
+    t->row = row;
+    t->col = col;
+    t->owns_value = false;
     return t;
 }
 
@@ -46,7 +81,7 @@ inline void Lexer::lexerError(const std::string& message, int row, int col) {
     exit(1);
 }
 
-Token Lexer::stringToken(int row, int col)
+Token* Lexer::stringToken(int row, int col)
 {
     const char* startPtr = Source + Pos+1; // start after quote
     while (Pos < size && Source[Pos+1] != '"') {
@@ -62,20 +97,25 @@ Token Lexer::stringToken(int row, int col)
     get_and_advance();
     get_and_advance();
 
-    unsigned char* str = (unsigned char*)malloc(len);
+    // unsigned char* str = (unsigned char*)malloc(len);
+    unsigned char* str = (unsigned char*) pool_alloc(lex_pool, len+1);
     memcpy(str, startPtr, len);
+    str[len] = '\0';
 
-    Token t;
-    t.type = TOK_STRING;
-    t.string_value.data = str;
-    t.string_value.count = len;
-    t.row = row;
-    t.col = col;
+    Token* t = (Token*)pool_alloc(lex_pool, sizeof(Token));
+    t->type = TOK_STRING;
+    t->string_value.data = str;
+    t->string_value.count = len;
+    t->row = row;
+    t->col = col;
+    t->owns_value = false;
+
+    // free(str);
 
     return t;
 }
 
-Token Lexer::numberToken(char first, int row, int col)
+Token* Lexer::numberToken(char first, int row, int col)
 {
     static char num_str_buffer[MAX_NUM_STR_LEN];
 
@@ -155,7 +195,7 @@ Token Lexer::numberToken(char first, int row, int col)
     return makeIntToken(TOK_NUMBER, val, row, col);
 }
 
-Token Lexer::identifierToken(char first, int row, int col)
+Token* Lexer::identifierToken(char first, int row, int col)
 {
     const char* startPtr = Source + Pos - 1;
     while (Pos < size && (isAlphaNumeric(Source[Pos]) || Source[Pos] == '_')) {
@@ -186,14 +226,14 @@ Token Lexer::identifierToken(char first, int row, int col)
     else if (strcmp(ident, "struct") == 0) type = TOK_STRUCT;
 
 
-    Token t = makeToken(type, ident, row, col);
+    Token* t = makeToken(type, ident, row, col);
 
     free(ident);
     return t;
 }
 
 
-Token Lexer::nextToken()
+Token* Lexer::nextToken()
 {
 
     skipUnwantedChar();
@@ -224,7 +264,6 @@ Token Lexer::nextToken()
         case '+': return makeToken(TOK_PLUS, "+", sRow, sCol);
         case '-': return makeToken(TOK_MINUS, "-", sRow, sCol);
         case '*':
-            // if(match_and_advance('/')) return makeToken(TOK_R_MULTILINE_COMMENT, "*/", sRow, sCol);
             return makeToken(TOK_STAR, "*", sRow, sCol);
 
         case '=':
@@ -244,21 +283,6 @@ Token Lexer::nextToken()
                 return makeToken(TOK_DOUBLEQUOTE, "\"", sRow, sCol);
             return stringToken(Row, Col);
         case '/':
-
-            // if (match_and_advance('/')) {
-
-            //     while(Pos < size && Source[Pos] != '\n') get_and_advance();
-            //     return makeToken(TOK_COMMENT, "//", sRow, sCol);
-            // }
-            // if(match_and_advance('*')) {
-            //      while (Pos < size) {
-            //         if (Source[Pos] == '*' && Pos + 1 < size && Source[Pos + 1] == '/') {
-            //             get_and_advance();
-            //             break;
-            //         }
-            //     }
-            //     return makeToken(TOK_L_MULTILINE_COMMENT, "/*", sRow, sCol);
-            // }
             return makeToken(TOK_SLASH, "/", sRow, sCol);
         case '^':
             return makeToken(TOK_CARET, "^", sRow, sCol);
@@ -275,7 +299,7 @@ Token Lexer::nextToken()
 
 }
 
-Token Lexer::peekNextToken(int lookahead)
+Token* Lexer::peekNextToken(int lookahead)
 {
     // if(has_peeked) return peeked_token;
 
@@ -294,37 +318,3 @@ Token Lexer::peekNextToken(int lookahead)
 
     return peeked_token;
 }
-
-
-// move this to tools.h !!!
-
-FileBuffer read_entire_file(const char *path)
-{
-    FileBuffer result = {};
-    FILE *f = NULL;
-    fopen_s(&f, path, "rb"); // fopen_s cause fopen is depreacted vs throws error
-    if (!f) {
-        fprintf(stderr, "Could not open file: %s\n", path);
-        return result;
-    }
-
-    struct stat st;
-    if (stat(path, &st) != 0) {
-        fprintf(stderr, "Could not stat file: %s\n", path);
-        fclose(f);
-        return result;
-    }
-    result.size = st.st_size;
-
-    result.data = (uint8_t*)malloc(result.size);
-    if (!result.data) {
-        fprintf(stderr, "Memory allocation failed.\n");
-        fclose(f);
-        return result;
-    }
-
-    fread(result.data, 1, result.size, f);
-    fclose(f);
-    return result;
-}
-

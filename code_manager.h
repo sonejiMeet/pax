@@ -2,9 +2,10 @@
 #include <string>
 #include <vector>
 
-#include "ast.h" // your AST header
+#include "ast.h"
 
-// Forward declare AST node types (if needed)
+#include "pool.h"
+
 struct Ast_Block;
 struct Ast_Statement;
 struct Ast_Expression;
@@ -17,29 +18,27 @@ struct Ast_Literal;
 struct Ast_Binary;
 struct Ast_If;
 
-// Symbol entry
 struct CM_Symbol {
     std::string name;
     Ast_Declaration* decl = nullptr;
-    Ast_Type_Definition* type = nullptr; // explicit or inferred type
+    Ast_Type_Definition* type = nullptr; // explicit or inferred
     bool initialized = false;
     bool inferred = false;
 };
 
-// One scope is a vector of symbols
 using CM_Scope = std::vector<CM_Symbol>;
 
-// Code manager (procedural style, but grouped in a struct)
-struct CodeManager {
+struct CodeManager
+{
     std::vector<CM_Scope> scopes;
-    // std::vector<std::string> errors;
+
+    Pool* ast_pool;
+    CodeManager(Pool* pool);
+
     int count_errors = 0;
-    // lifecycle
-    void init();              // push global scope
-    // bool has_errors() const;
-    // void print_errors() const;
+
+    void init();
     int get_count_errors();
-    // scope management
     void push_scope();
     void pop_scope();
 
@@ -54,6 +53,8 @@ struct CodeManager {
     void resolve_idents(Ast_Block* block); // resolution pass (undeclared idents)
     void resolve_idents_in_declaration(Ast_Declaration* decl);
     void resolve_idents_in_expr(Ast_Expression* expr);
+
+    Ast_Type_Definition* make_builtin_type(Ast_Builtin_Type t);
 
     // type inference/checking
     Ast_Type_Definition* infer_types_expr(Ast_Expression** expr_ptr);
