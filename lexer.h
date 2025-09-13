@@ -5,22 +5,32 @@
 
 struct Lexer
 {
-    const char *Source;
-    size_t size;
-    size_t Pos;
+    const char *Source; // entire file
+    size_t size; // size of file
+    size_t Pos; // current position in Source while we interate over it to create Tokens
 
+    // position in file
     int Row;
     int Col;
 
     Token* peeked_token = nullptr;
-    bool has_peeked;
 
     Pool *lex_pool;
-    Lexer(const char *data, size_t len, Pool *pool)
-     : Source(data), size(len), Pos(0), Row(1), Col(1), peeked_token(nullptr), has_peeked(false), lex_pool(pool)
-    {
 
+    Lexer(const char *data, size_t len, Pool *pool)
+    {
+        Source = data;
+        size = len;
+        Pos = 0;
+
+        Row = 1;
+        Col = 1;
+
+        peeked_token = nullptr;
+
+        lex_pool = pool;
     }
+
     char* pool_strdup(Pool* pool, const char* str);
 
     inline void lexerError(const std::string& message, int row, int col);
@@ -53,36 +63,33 @@ struct Lexer
         return true;
     }
 
-    inline void skipUnwantedChar() {
-
+    inline void skipUnwantedChar()
+    {
        while (Pos < size) {
             char c = Source[Pos];
 
-            // Whitespace
             if (c == ' ' || c == '\t' || c == '\r' || c == '\n') {
                 get_and_advance();
                 continue;
             }
 
-            // Single-line comment
             if (c == '/' && Pos + 1 < size && Source[Pos + 1] == '/') {
-                Pos += 2; // skip //
+                Pos += 2; // skip '//'
                 while (Pos < size && Source[Pos] != '\n') get_and_advance();
                 continue;
             }
 
-            // Multi-line comment
             if (c == '/' && Pos + 1 < size && Source[Pos + 1] == '*') {
-                Pos += 2; // skip /*
+                Pos += 2; // skip '/*'
                 bool closed = false;
                 while (Pos < size) {
                     if (Source[Pos] == '/' && Pos + 1 < size && Source[Pos + 1] == '/') {  // in case multiline comment is not commented out by a single line comment, if it is skip the line
-                        Pos += 2; // skip //
+                        Pos += 2;
                         while (Pos < size && Source[Pos] != '\n') get_and_advance();
                         continue;
                     }
                     if (Source[Pos] == '*' && Pos + 1 < size && Source[Pos + 1] == '/') {
-                        Pos += 2; // skip */
+                        Pos += 2; // skip '*/'
                         closed = true;
                         break;
                     }

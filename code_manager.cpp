@@ -2,15 +2,6 @@
 
 #include <cstdarg> // for variadic function
 
- // https://learn.microsoft.com/en-us/cpp/c-runtime-library/find-memory-leaks-using-the-crt-library?view=msvc-170#interpret-the-memory-leak-report
- #ifdef _DEBUG
-     #define DBG_NEW new ( _NORMAL_BLOCK , __FILE__ , __LINE__ )
-     // Replace _NORMAL_BLOCK with _CLIENT_BLOCK if you want the
-     // allocations to be of _CLIENT_BLOCK type
- #else
-     #define DBG_NEW new
- #endif
-
 #define AST_NEW(pool, type) ([&]() -> type* {                   \
     assert(pool != nullptr && "Pool must not be null");         \
     void* mem = pool_alloc(pool, sizeof(type));                \
@@ -113,14 +104,6 @@ void CodeManager::resolve_idents(Ast_Block* block)
 {
     if (!block) return;
 
-    // for (auto* decl : block->members) {
-    //     if (!decl) continue;
-
-    //     resolve_idents_in_declaration(decl);
-    //     declare_variable(decl);
-    // }
-
-    // for (auto* stmt : block->statements) {
     for (int i = 0; i < block->statements.count; i++) {
         Ast_Statement* stmt = block->statements.data[i];
 
@@ -167,12 +150,6 @@ void CodeManager::resolve_idents(Ast_Block* block)
                 pop_scope();
         }
     }
-    // for (auto* child_block : block->child_scopes) {
-    //     // Each nested block gets its own new scope.
-    //     push_scope();
-    //     resolve_idents(child_block);
-    //     pop_scope();
-    // }
 }
 
 void CodeManager::resolve_idents_in_declaration(Ast_Declaration* decl) {
@@ -338,7 +315,6 @@ void CodeManager::resolve_idents_in_expr(Ast_Expression* expr) {
 
             if (call->arguments) {
 
-                // for (auto* a : call->arguments->arguments) {
                 for (int i = 0; i < call->arguments->arguments.count; ++i) {
                     Ast_Expression* a = call->arguments->arguments.data[i];
                     resolve_idents_in_expr(a);
@@ -351,7 +327,6 @@ void CodeManager::resolve_idents_in_expr(Ast_Expression* expr) {
             Ast_Comma_Separated_Args* args =
                 static_cast<Ast_Comma_Separated_Args*>(expr);
 
-            // for (auto* a : args->arguments) {
             for (int i = 0; i < args->arguments.count; ++i) {
                 Ast_Expression * a = args->arguments.data[i];
                 resolve_idents_in_expr(a);
@@ -367,7 +342,6 @@ void CodeManager::resolve_idents_in_expr(Ast_Expression* expr) {
 
 
 Ast_Type_Definition* CodeManager::make_builtin_type(Ast_Builtin_Type t) {
-    // Ast_Type_Definition* out = DBG_NEW Ast_Type_Definition();
     Ast_Type_Definition* out = AST_NEW(ast_pool, Ast_Type_Definition);
     out->builtin_type = t;
     return out;
@@ -453,62 +427,6 @@ Ast_Type_Definition* CodeManager::infer_types_expr(Ast_Expression** expr_ptr) {
             expr->inferred_type = resultType;
             return resultType;
         }
-
-        // Ast_Unary* u = static_cast<Ast_Unary*>(expr);
-
-        //     // First infer type of the operand
-        //     Ast_Type_Definition* operandType = infer_types_expr(&u->operand);
-        //     if (!operandType) {
-        //         report_error(u->line_number, u->character_number,
-        //                      "Could not determine type of operand for unary operator.");
-        //         return nullptr;
-        //     }
-
-        //     switch (u->op) {
-        //         case UNARY_ADDRESS_OF: {
-        //             // ^x → result is a POINTER to operand type
-        //             static Ast_Type_Definition temp;
-        //             temp = {};
-        //             temp.pointed_to_type = operandType;
-
-        //             expr->inferred_type = &temp;
-        //             return &temp;
-        //         }
-
-        //         case UNARY_DEREFERENCE: {
-        //             // *x → operand must be a pointer
-        //             if (!operandType->pointed_to_type) {
-        //                 report_error(u->line_number, u->character_number,
-        //                              "Cannot dereference non-pointer type.");
-        //                 return nullptr;
-        //             }
-        //             expr->inferred_type = operandType->pointed_to_type;
-        //             return operandType->pointed_to_type;
-        //         }
-
-        //         case UNARY_REFERENCE: {
-        //             // &x → result is a REFERENCE to operand type
-        //             static Ast_Type_Definition temp;
-        //             temp = {};
-        //             temp.is_reference = true; // <-- You need to add this to your Ast_Type_Definition
-        //             temp.pointed_to_type = operandType;
-
-        //             expr->inferred_type = &temp;
-        //             return &temp;
-        //         }
-
-        //         case UNARY_NEGATE:
-        //         case UNARY_NOT:
-        //             expr->inferred_type = operandType;
-        //             return operandType;
-
-        //         default:
-        //             report_error(u->line_number, u->character_number,
-        //                          "Unknown unary operator.");
-        //             return nullptr;
-        //     }
-        // }
-
 
         case AST_BINARY: {
             Ast_Binary* b = static_cast<Ast_Binary*>(expr);
@@ -703,12 +621,6 @@ void CodeManager::infer_types_decl(Ast_Declaration* decl) {
 void CodeManager::infer_types_block(Ast_Block* block) {
     if (!block) return;
 
-    // for (auto* decl : block->members) {
-    //     if(!decl) continue;
-    //     infer_types_decl(decl);
-    // }
-
-    // for (auto* stmt : block->statements) {
     for (int i = 0; i < block->statements.count; i++) {
 
         Ast_Statement* stmt = block->statements.data[i];
@@ -748,24 +660,9 @@ void CodeManager::infer_types_block(Ast_Block* block) {
                 infer_types_block(ifn->else_block);
                 pop_scope();
             }
-        // } else if (stmt->expression) {
-        //     Ast_Expression* expr = stmt->expression;
-        //     infer_types_expr(&expr);
-        // } else if (stmt->block) {
-        //     if (stmt->block->is_scoped_block)
-        //         push_scope();
-        //     infer_types_block(stmt->block);
-        //     if (stmt->block->is_scoped_block)
-        //         pop_scope();
         }
 
     }
-    // // 3. NEW: Recursively process all nested child scopes.
-    // for (auto* child_block : block->child_scopes) {
-    //     push_scope();
-    //     infer_types_block(child_block);
-    //     pop_scope();
-    // }
 }
 
 bool CodeManager::check_that_types_match(Ast_Type_Definition* wanted, Ast_Type_Definition* have) {
@@ -815,7 +712,6 @@ bool CodeManager::check_that_types_match(Ast_Type_Definition* wanted, Ast_Type_D
     // If either type is unknown, conservatively assume mismatch
     return false;
 }
-
 
 
 bool CodeManager::is_integer_type(Ast_Type_Definition* type) {
