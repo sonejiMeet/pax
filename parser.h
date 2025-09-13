@@ -13,7 +13,6 @@ struct Parser {
     Token *previous = nullptr;
 
     Parser(Lexer *l, Pool *pool);
-    ~Parser();
 
     void parseError(const std::string &message);
     void reportError(const std::string &message);

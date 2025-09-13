@@ -1,29 +1,10 @@
 #include "lexer.h"
 
- // https://learn.microsoft.com/en-us/cpp/c-runtime-library/find-memory-leaks-using-the-crt-library?view=msvc-170#interpret-the-memory-leak-report
- #ifdef _DEBUG
-     #define DBG_NEW new ( _NORMAL_BLOCK , __FILE__ , __LINE__ )
-     // Replace _NORMAL_BLOCK with _CLIENT_BLOCK if you want the
-     // allocations to be of _CLIENT_BLOCK type
- #else
-     #define DBG_NEW new
- #endif
-
-
 #define malloc(s) _malloc_dbg(s, _NORMAL_BLOCK, __FILE__, __LINE__)
 #define free(p) _free_dbg(p, _NORMAL_BLOCK)
 
-#define _strdup(s) _strdup_dbg(s, _NORMAL_BLOCK, __FILE__, __LINE__)
+#define MAX_NUM_STR_LEN 64
 
- #define MAX_NUM_STR_LEN 64
-
-inline char* heap_strdup(const char* str) {
-    if (!str) return nullptr;
-    size_t len = strlen(str) + 1;
-    char* copy = (char*)malloc(len);   // regular malloc
-    memcpy(copy, str, len);
-    return copy;
-}
 
 char* Lexer::pool_strdup(Pool* pool, const char* str) {
     long len = strlen(str) + 1;
@@ -33,15 +14,13 @@ char* Lexer::pool_strdup(Pool* pool, const char* str) {
 }
 
 Token* Lexer::makeToken(TokenType type, const char* value, int row, int col) {
-    printf("----------------first pool alloc in makeToken\n");
+
     Token* t = (Token*)pool_alloc(lex_pool, sizeof(Token));
     t->type = type;
     if (type == TOK_IDENTIFIER || type == TOK_PRINT || type == TOK_IF || type == TOK_STRUCT
         || type == TOK_TYPE_INT || type == TOK_TYPE_FLOAT || type == TOK_TYPE_STRING
         || type == TOK_TYPE_BOOL || type == TOK_KEYWORD_TRUE || type == TOK_KEYWORD_FALSE) {
 
-        printf("--------------second  pool alloc in makeToken\n");
-        // t->value = _strdup(value);
         t->value = pool_strdup(lex_pool, value);
         t->owns_value = false;
     } else {
@@ -97,7 +76,6 @@ Token* Lexer::stringToken(int row, int col)
     get_and_advance();
     get_and_advance();
 
-    // unsigned char* str = (unsigned char*)malloc(len);
     unsigned char* str = (unsigned char*) pool_alloc(lex_pool, len+1);
     memcpy(str, startPtr, len);
     str[len] = '\0';
@@ -171,14 +149,14 @@ Token* Lexer::numberToken(char first, int row, int col)
 
         // Convert to float using strtof
         char* end_ptr;
-        float val = strtof(num_str_buffer, &end_ptr); // Use strtof for float conversion
+        float val = strtof(num_str_buffer, &end_ptr);
 
         if (*end_ptr != '\0') {
             lexerError("Lexer Error: Invalid float literal conversion", row, col);
             return makeToken(TOK_UNKNOWN, num_str_buffer, row, col);
         }
 
-        return makeFloatToken(TOK_FLOAT, val, row, col); // Pass float value
+        return makeFloatToken(TOK_FLOAT, val, row, col);
     }
 
     // If no decimal point, it's an integer
@@ -301,7 +279,6 @@ Token* Lexer::nextToken()
 
 Token* Lexer::peekNextToken(int lookahead)
 {
-    // if(has_peeked) return peeked_token;
 
     size_t origPos = Pos;
     int origRow = Row;
@@ -310,7 +287,6 @@ Token* Lexer::peekNextToken(int lookahead)
     for(int i=0; i<lookahead; i++){
         peeked_token = nextToken();
     }
-    has_peeked = true;
 
     Pos = origPos;
     Row = origRow;

@@ -2,10 +2,8 @@
 #include <cstdio>
 #include <string>
 
-
 void emitStatement(FILE* out, Ast_Statement* stmt, int indent = 0);
 void emitExpression(FILE* out, Ast_Expression* expr, int indent = 0);
-// void emitDeclaration(FILE* out, Ast_Declaration* decl, int indent = 0);
 void emitBlock(FILE* out, Ast_Block* block, int indent = 0);
 
 void indentLine(FILE* out, int indent)
@@ -24,7 +22,6 @@ void emitExpression(FILE* out, Ast_Expression* expr, int indent)
             switch (lit->value_type) {
                 case LITERAL_NUMBER: fprintf(out, "%lld", lit->integer_value); break;
                 case LITERAL_FLOAT:  fprintf(out, "%f", lit->float_value); break;
-                // case LITERAL_STRING: fprintf(out, "\"%s\"", lit->string_value.c_str()); break;
                 case LITERAL_STRING: fprintf(out, "\"%s\"", lit->string_value ? lit->string_value : ""); break;
                 case LITERAL_TRUE: {
                     char *s = (char *)"true";
@@ -102,14 +99,11 @@ void emitExpression(FILE* out, Ast_Expression* expr, int indent)
 
         case AST_PROCEDURE_CALL_EXPRESSION: {
             auto* call = static_cast<Ast_Procedure_Call_Expression*>(expr);
-            //fprintf(out, "%s(", call->function->name.c_str());
             fprintf(out, "%s(", call->function->name ? call->function->name : "");
             if (call->arguments) {
                 bool first = true;
-                // for (auto* arg : call->arguments->arguments) {
                     for (int i = 0; i < call->arguments->arguments.count; i++) {
                     Ast_Expression* arg = call->arguments->arguments.data[i];
-
 
                     if (!first) fprintf(out, ",");
                     emitExpression(out, arg, indent);
@@ -126,136 +120,109 @@ void emitExpression(FILE* out, Ast_Expression* expr, int indent)
     }
 }
 
-// void emitDeclaration(FILE* out, Ast_Declaration* decl, int indent) {
-//     if (!decl || !decl->declared_type)
-//     {
-//         printf("undelcared type!!! %s\n", decl->identifier->name);
-//         return;
-//     }
-//     indentLine(out, indent);
-//     fprintf(out, "%s %s", decl->declared_type->to_string().c_str(), decl->identifier->name.c_str());
-//     if (decl->initializer) {
-//         fprintf(out, " = ");
-//         emitExpression(out, decl->initializer, 0);
-//     }
-//     fprintf(out, ";\n");
-// }
-
 void emitStatement(FILE* out, Ast_Statement* stmt, int indent)
 {
     if (!stmt) return;
 
     switch (stmt->type) {
 
-        // case AST_DECLARATION: {
-        //     auto* decl = static_cast<Ast_Declaration*>(stmt);
-        //     indentLine(out, indent);
-        //     fprintf(out, "%s %s", decl->declared_type->to_string().c_str(), decl->identifier->name.c_str());
-        //     if (decl->initializer) {
-        //         fprintf(out, " = ");
-        //         emitExpression(out, decl->initializer, indent);
-        //     }
-        //     fprintf(out, ";\n");
-        //     break;
-        // }
+        case AST_DECLARATION: {
+            auto* decl = static_cast<Ast_Declaration*>(stmt);
+            indentLine(out, indent);
 
-case AST_DECLARATION: {
-    auto* decl = static_cast<Ast_Declaration*>(stmt);
-    indentLine(out, indent);
+            // ----- 1. Build C type string -----
+            std::string type_str;
+            std::string array_suffix;
+            Ast_Type_Definition* type = decl->declared_type;
 
-    // ----- 1. Build C type string -----
-    std::string type_str;
-    std::string array_suffix;
-    Ast_Type_Definition* type = decl->declared_type;
+            if (!type) {
+                type_str = "UNKNOWN";
+            } else {
+                Ast_Type_Definition* base_type = type;
+                int pointer_depth = 0;
 
-    if (!type) {
-        type_str = "UNKNOWN";
-    } else {
-        Ast_Type_Definition* base_type = type;
-        int pointer_depth = 0;
+                // Walk down the type chain to find the base type
+                while (base_type->pointed_to_type) {
+                    base_type = base_type->pointed_to_type;
+                    pointer_depth++;
+                }
 
-        // Walk down the type chain to find the base type
-        while (base_type->pointed_to_type) {
-            base_type = base_type->pointed_to_type;
-            pointer_depth++;
-        }
+                // Handle arrays
+                if (type->array_kind == ARRAY_STATIC && type->element_type) {
+                    type_str = type->element_type->to_string();
+                    array_suffix = "[" + std::to_string(type->static_array_size) + "]";
+                } else {
+                    type_str = base_type->to_string();
+                }
 
-        // Handle arrays
-        if (type->array_kind == ARRAY_STATIC && type->element_type) {
-            type_str = type->element_type->to_string();
-            array_suffix = "[" + std::to_string(type->static_array_size) + "]";
-        } else {
-            type_str = base_type->to_string();
-        }
+                // Add pointer layers for ^int, ^^int, etc.
+                for (int i = 0; i < pointer_depth; ++i) {
+                    type_str += " *";
+                }
 
-        // Add pointer layers for ^int, ^^int, etc.
-        for (int i = 0; i < pointer_depth; ++i) {
-            type_str += " *";
-        }
-
-        // References are represented as pointers in C
-        if (type->is_reference) {
-            type_str += " *";
-        }
-    }
-
-    // Emit variable name: "int *rint"
-    /*fprintf(out, "%s %s%s", type_str.c_str(), decl->identifier->name.c_str(), array_suffix.c_str());*/
-    fprintf(out, "%s %s%s", type_str.c_str(), decl->identifier->name ? decl->identifier->name : "", array_suffix.c_str());
-    // ----- 2. Emit initializer -----
-        if (decl->initializer) {
-            fprintf(out, " = ");
-
-            // Case A: Declared type is a reference (e.g., rint: &int = aint)
-            // Case B: Initializer explicitly uses UNARY_REFERENCE (e.g., pInt: ^int = &aint)
-            bool needs_address = (type && type->is_reference);
-
-            if (!needs_address && decl->initializer->type == AST_UNARY) {
-                auto* unary = static_cast<Ast_Unary*>(decl->initializer);
-                if (unary->op == UNARY_REFERENCE) {
-                    needs_address = true;
+                // References are represented as pointers in C
+                if (type->is_reference) {
+                    type_str += " *";
                 }
             }
 
-            if (needs_address) {
-                // If the initializer is a simple identifier, just output "&id"
-                if (decl->initializer->type == AST_IDENT) {
-                    auto* id = static_cast<Ast_Ident*>(decl->initializer);
-                    /*fprintf(out, "&%s", id->name.c_str());*/
-                    fprintf(out, "&%s", id->name ? id->name : "");
-                }
-                // If the initializer itself is UNARY_REFERENCE, emit only its operand
-                else if (decl->initializer->type == AST_UNARY) {
-                    auto* unary = static_cast<Ast_Unary*>(decl->initializer);
-                    if (unary->op == UNARY_REFERENCE) {
-                        if (unary->operand->type == AST_IDENT) {
-                            auto* inner_id = static_cast<Ast_Ident*>(unary->operand);
-                            //fprintf(out, "&%s", inner_id->name.c_str());
-                            fprintf(out, "&%s", inner_id->name ? inner_id->name : "");
-                        } else {
+            // Emit variable name: "int *rint"
+            /*fprintf(out, "%s %s%s", type_str.c_str(), decl->identifier->name.c_str(), array_suffix.c_str());*/
+            fprintf(out, "%s %s%s", type_str.c_str(), decl->identifier->name ? decl->identifier->name : "", array_suffix.c_str());
+            // ----- 2. Emit initializer -----
+                if (decl->initializer) {
+                    fprintf(out, " = ");
+
+                    // Case A: Declared type is a reference (e.g., rint: &int = aint)
+                    // Case B: Initializer explicitly uses UNARY_REFERENCE (e.g., pInt: ^int = &aint)
+                    bool needs_address = (type && type->is_reference);
+
+                    if (!needs_address && decl->initializer->type == AST_UNARY) {
+                        auto* unary = static_cast<Ast_Unary*>(decl->initializer);
+                        if (unary->op == UNARY_REFERENCE) {
+                            needs_address = true;
+                        }
+                    }
+
+                    if (needs_address) {
+                        // If the initializer is a simple identifier, just output "&id"
+                        if (decl->initializer->type == AST_IDENT) {
+                            auto* id = static_cast<Ast_Ident*>(decl->initializer);
+                            /*fprintf(out, "&%s", id->name.c_str());*/
+                            fprintf(out, "&%s", id->name ? id->name : "");
+                        }
+                        // If the initializer itself is UNARY_REFERENCE, emit only its operand
+                        else if (decl->initializer->type == AST_UNARY) {
+                            auto* unary = static_cast<Ast_Unary*>(decl->initializer);
+                            if (unary->op == UNARY_REFERENCE) {
+                                if (unary->operand->type == AST_IDENT) {
+                                    auto* inner_id = static_cast<Ast_Ident*>(unary->operand);
+                                    //fprintf(out, "&%s", inner_id->name.c_str());
+                                    fprintf(out, "&%s", inner_id->name ? inner_id->name : "");
+                                } else {
+                                    fprintf(out, "&(");
+                                    emitExpression(out, unary->operand, indent);
+                                    fprintf(out, ")");
+                                }
+                            } else {
+                                emitExpression(out, decl->initializer, indent);
+                            }
+                        }
+                        // Complex case — fallback
+                        else {
                             fprintf(out, "&(");
-                            emitExpression(out, unary->operand, indent);
+                            emitExpression(out, decl->initializer, indent);
                             fprintf(out, ")");
                         }
                     } else {
+                        // Normal value assignment
                         emitExpression(out, decl->initializer, indent);
                     }
                 }
-                // Complex case — fallback
-                else {
-                    fprintf(out, "&(");
-                    emitExpression(out, decl->initializer, indent);
-                    fprintf(out, ")");
-                }
-            } else {
-                // Normal value assignment
-                emitExpression(out, decl->initializer, indent);
-            }
-        }
 
-        fprintf(out, ";\n");
-        break;
-}
+                fprintf(out, ";\n");
+                break;
+        }
 
 
         case AST_STATEMENT: {
@@ -305,32 +272,15 @@ void emitBlock(FILE* out, Ast_Block* block, int indent)
 {
     if (!block) return;
 
-    // fprintf(out, "\n");
-
-    // indentLine(out, indent);
     fprintf(out, "{\n");
 
-    // right now we emit all the members local to current block to the very top.
-    // idk how this would affect in future when we implement #line directive feature to step into our code
-    // for (auto* decl : block->members) {
-    //     emitDeclaration(out, decl, indent + 4);
-    // }
-
-
-    // if (!block->members.empty() && !block->statements.empty()) {
-    //     fprintf(out, "\n");
-    // }
-
-    // for (auto* stmt : block->statements) {
     for (int i = 0; i < block->statements.count; i++) {
         Ast_Statement* stmt = block->statements.data[i];
 
         emitStatement(out, stmt, indent+4);
     }
 
-    // for (auto *c_scope : block->child_scopes){
-    //     emitBlock(out, c_scope, indent+4);
-    // }
+
     indentLine(out, indent);
     fprintf(out, "}\n");
 }
@@ -348,8 +298,6 @@ void generate_cpp_code(const char* filename, Ast_Block* program)
     fprintf(out, "#include <stdlib.h>\n");
     fprintf(out, "#include <stdio.h>\n\n");
 
-    // emit top level globals
-    // for (auto* stmt : program->statements) {
     for (int i = 0; i < program->statements.count; i++) {
         Ast_Statement* stmt = program->statements.data[i];
 
@@ -359,12 +307,9 @@ void generate_cpp_code(const char* filename, Ast_Block* program)
             emitStatement(out, stmt, 0);
         }
     }
-    // for (auto* decl : program->members) {
-    //     emitDeclaration(out, decl, 0);
-    // }
 
     Ast_Block* mainBlock = nullptr;
-    // for (auto* stmt : program->statements) {
+
     for (int i = 0; i < program->statements.count; i++) {
         Ast_Statement* stmt = program->statements.data[i];
 

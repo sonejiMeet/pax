@@ -1,16 +1,8 @@
 #pragma once
+
 #include <string>
-//#include <vector>
 
 #include "pool.h"
- // https://learn.microsoft.com/en-us/cpp/c-runtime-library/find-memory-leaks-using-the-crt-library?view=msvc-170#interpret-the-memory-leak-report
- #ifdef _DEBUG
-     #define DBG_NEW new ( _NORMAL_BLOCK , __FILE__ , __LINE__ )
-     // Replace _NORMAL_BLOCK with _CLIENT_BLOCK if you want the
-     // allocations to be of _CLIENT_BLOCK type
- #else
-     #define DBG_NEW new
- #endif
 
 struct Token;
 
@@ -112,8 +104,9 @@ struct Ast_Comma_Separated_Args : public Ast_Expression {
 
 struct Ast_Function : public Ast_Statement {
     Ast_Function(Pool* p) : params(p) { type = AST_STATEMENT; }
-    // std::string name;
+
     const char* name = nullptr;
+
     Array<Ast_Declaration*> params;
     Ast_Block* body = nullptr;
     bool is_entry_point = false; // only true if 'main'
@@ -133,7 +126,7 @@ struct Ast_Literal : public Ast_Expression {
     Ast_Literal(Pool* = nullptr) { type = AST_LITERAL; }
 
     Value_Type value_type = LITERAL_UNINITIALIZED;
-    // std::string string_value;
+
     const char* string_value = nullptr;
     double float_value = 0;
     int64_t integer_value = 0;
@@ -141,7 +134,7 @@ struct Ast_Literal : public Ast_Expression {
 
 struct Ast_Ident : public Ast_Expression {
     Ast_Ident(Pool* = nullptr) { type = AST_IDENT; }
-    // std::string name;
+
     const char* name = nullptr;
 
 };
@@ -181,7 +174,7 @@ enum Ast_Unary_Op {
 
 struct Ast_Unary : Ast_Expression {
     Ast_Unary (Pool* = nullptr) { type = AST_UNARY; }
-    Ast_Unary_Op op;        // operator type
+    Ast_Unary_Op op;
     Ast_Expression* operand = nullptr; // expression being operated on
 
 };
@@ -192,13 +185,9 @@ struct Ast_Block : public Ast {
     Ast_Block *parent = nullptr;
     Array<Ast_Statement *> statements;
 
-    // Array<Ast_Declaration *> members; // declarations in this scope
-    // Array<Ast_Block *> child_scopes;
-
     bool is_scoped_block = false;
     bool is_entry_point = false;
 
-    // int block_flag;
 };
 
 struct Ast_If : public Ast_Statement {
@@ -219,7 +208,6 @@ struct Ast_While : public Ast_Expression {  // not done yet
 struct Ast_Struct_Description : public Ast_Expression {
     Ast_Struct_Description(Pool* p) : declarations_who_own_memory(p) { type = AST_STRUCT_DESCRIPTION; }
 
-    // std::string name;
     const char* name = nullptr;
 
     Ast_Block *block = nullptr;
