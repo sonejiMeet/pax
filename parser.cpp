@@ -3,18 +3,23 @@
 
 #include <iostream>
 
-//#ifdef _DEBUG
-//    printf("-----------------------------------used AST_NEW for [%d %d] %s---%zu---\n", current->row, current->col, typeid(type).name(), sizeof(type)); \
-//#endif
+
+#ifdef _DEBUG
+#define AST_NEW_LOG(type) \
+   printf("-----------------------------------used AST_NEW for [%d %d] %s---%zu---\n", current->row, current->col, typeid(type).name(), sizeof(type));
+#else
+#define AST_NEW_LOG(type)
+#endif
 
 // MACRO
-#define AST_NEW(pool, type) ([&]() -> type* {                     \
-    assert(pool != nullptr && "Pool must not be null");           \
-    void* mem = pool_alloc(pool, sizeof(type));                  \
-    type* node = new (mem) type(pool);                           \
-    node->line_number = current->row;                              \
-    node->character_number = current->col;                        \
-    return node;                                                  \
+#define AST_NEW(pool, type) ([&]() -> type* {              \
+    AST_NEW_LOG(type)                                      \
+    assert(pool != nullptr && "Pool must not be null");    \
+    void* mem = pool_alloc(pool, sizeof(type));            \
+    type* node = new (mem) type(pool);                     \
+    node->line_number = current->row;                      \
+    node->character_number = current->col;                 \
+    return node;                                           \
 }())
 
 bool exitSuccess = true;
