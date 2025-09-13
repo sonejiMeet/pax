@@ -24,7 +24,8 @@ void emitExpression(FILE* out, Ast_Expression* expr, int indent)
             switch (lit->value_type) {
                 case LITERAL_NUMBER: fprintf(out, "%lld", lit->integer_value); break;
                 case LITERAL_FLOAT:  fprintf(out, "%f", lit->float_value); break;
-                case LITERAL_STRING: fprintf(out, "\"%s\"", lit->string_value.c_str()); break;
+                // case LITERAL_STRING: fprintf(out, "\"%s\"", lit->string_value.c_str()); break;
+                case LITERAL_STRING: fprintf(out, "\"%s\"", lit->string_value ? lit->string_value : ""); break;
                 case LITERAL_TRUE: {
                     char *s = (char *)"true";
                     fprintf(out, "%s",s);
@@ -51,7 +52,7 @@ void emitExpression(FILE* out, Ast_Expression* expr, int indent)
 
                 case UNARY_DEREFERENCE:
                     // *x -> *x
-                    fprintf(out, "* ");
+                    fprintf(out, "/*Dereference*/ * ");
                     emitExpression(out, u->operand, indent);
                     break;
 
@@ -75,7 +76,8 @@ void emitExpression(FILE* out, Ast_Expression* expr, int indent)
 
         case AST_IDENT: {
             auto* ident = static_cast<Ast_Ident*>(expr);
-            fprintf(out, "%s", ident->name.c_str());
+            //fprintf(out, "%s", ident->name.c_str());
+            fprintf(out, "%s", ident->name ? ident->name : "");
             break;
         }
 
@@ -100,10 +102,15 @@ void emitExpression(FILE* out, Ast_Expression* expr, int indent)
 
         case AST_PROCEDURE_CALL_EXPRESSION: {
             auto* call = static_cast<Ast_Procedure_Call_Expression*>(expr);
-            fprintf(out, "%s(", call->function->name.c_str());
+            //fprintf(out, "%s(", call->function->name.c_str());
+            fprintf(out, "%s(", call->function->name ? call->function->name : "");
             if (call->arguments) {
                 bool first = true;
-                for (auto* arg : call->arguments->arguments) {
+                // for (auto* arg : call->arguments->arguments) {
+                    for (int i = 0; i < call->arguments->arguments.count; i++) {
+                    Ast_Expression* arg = call->arguments->arguments.data[i];
+
+
                     if (!first) fprintf(out, ",");
                     emitExpression(out, arg, indent);
                     first = false;
@@ -193,8 +200,8 @@ case AST_DECLARATION: {
     }
 
     // Emit variable name: "int *rint"
-    fprintf(out, "%s %s%s", type_str.c_str(), decl->identifier->name.c_str(), array_suffix.c_str());
-
+    /*fprintf(out, "%s %s%s", type_str.c_str(), decl->identifier->name.c_str(), array_suffix.c_str());*/
+    fprintf(out, "%s %s%s", type_str.c_str(), decl->identifier->name ? decl->identifier->name : "", array_suffix.c_str());
     // ----- 2. Emit initializer -----
         if (decl->initializer) {
             fprintf(out, " = ");
@@ -214,7 +221,8 @@ case AST_DECLARATION: {
                 // If the initializer is a simple identifier, just output "&id"
                 if (decl->initializer->type == AST_IDENT) {
                     auto* id = static_cast<Ast_Ident*>(decl->initializer);
-                    fprintf(out, "&%s", id->name.c_str());
+                    /*fprintf(out, "&%s", id->name.c_str());*/
+                    fprintf(out, "&%s", id->name ? id->name : "");
                 }
                 // If the initializer itself is UNARY_REFERENCE, emit only its operand
                 else if (decl->initializer->type == AST_UNARY) {
@@ -222,7 +230,8 @@ case AST_DECLARATION: {
                     if (unary->op == UNARY_REFERENCE) {
                         if (unary->operand->type == AST_IDENT) {
                             auto* inner_id = static_cast<Ast_Ident*>(unary->operand);
-                            fprintf(out, "&%s", inner_id->name.c_str());
+                            //fprintf(out, "&%s", inner_id->name.c_str());
+                            fprintf(out, "&%s", inner_id->name ? inner_id->name : "");
                         } else {
                             fprintf(out, "&(");
                             emitExpression(out, unary->operand, indent);
@@ -312,7 +321,10 @@ void emitBlock(FILE* out, Ast_Block* block, int indent)
     //     fprintf(out, "\n");
     // }
 
-    for (auto* stmt : block->statements) {
+    // for (auto* stmt : block->statements) {
+    for (int i = 0; i < block->statements.count; i++) {
+        Ast_Statement* stmt = block->statements.data[i];
+
         emitStatement(out, stmt, indent+4);
     }
 
@@ -337,7 +349,10 @@ void generate_cpp_code(const char* filename, Ast_Block* program)
     fprintf(out, "#include <stdio.h>\n\n");
 
     // emit top level globals
-    for (auto* stmt : program->statements) {
+    // for (auto* stmt : program->statements) {
+    for (int i = 0; i < program->statements.count; i++) {
+        Ast_Statement* stmt = program->statements.data[i];
+
         if (!stmt) continue;
 
         if (stmt->type == AST_DECLARATION) {
@@ -349,7 +364,10 @@ void generate_cpp_code(const char* filename, Ast_Block* program)
     // }
 
     Ast_Block* mainBlock = nullptr;
-    for (auto* stmt : program->statements) {
+    // for (auto* stmt : program->statements) {
+    for (int i = 0; i < program->statements.count; i++) {
+        Ast_Statement* stmt = program->statements.data[i];
+
         if (stmt && stmt->block && stmt->block->is_entry_point) {
             mainBlock = stmt->block;
             break;

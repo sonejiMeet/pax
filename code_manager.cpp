@@ -2,10 +2,31 @@
 
 #include <cstdarg> // for variadic function
 
+ // https://learn.microsoft.com/en-us/cpp/c-runtime-library/find-memory-leaks-using-the-crt-library?view=msvc-170#interpret-the-memory-leak-report
+ #ifdef _DEBUG
+     #define DBG_NEW new ( _NORMAL_BLOCK , __FILE__ , __LINE__ )
+     // Replace _NORMAL_BLOCK with _CLIENT_BLOCK if you want the
+     // allocations to be of _CLIENT_BLOCK type
+ #else
+     #define DBG_NEW new
+ #endif
+
+#define AST_NEW(pool, type) ([&]() -> type* {                   \
+    assert(pool != nullptr && "Pool must not be null");         \
+    void* mem = pool_alloc(pool, sizeof(type));                \
+    type* node = new (mem) type(pool);                         \
+    return node;                                               \
+}())
+
+
+CodeManager::CodeManager(Pool* pool)
+    : ast_pool(pool) {}
+
 void CodeManager::init() {
     scopes.clear();
     scopes.emplace_back(); // global scope
 }
+
 
 int CodeManager::get_count_errors(){
     return count_errors;
@@ -98,7 +119,11 @@ void CodeManager::resolve_idents(Ast_Block* block)
     //     resolve_idents_in_declaration(decl);
     //     declare_variable(decl);
     // }
-    for (auto* stmt : block->statements) {
+
+    // for (auto* stmt : block->statements) {
+    for (int i = 0; i < block->statements.count; i++) {
+        Ast_Statement* stmt = block->statements.data[i];
+
         if (!stmt) continue;
 
         if (stmt->type == AST_DECLARATION) {
@@ -218,7 +243,8 @@ void CodeManager::resolve_idents_in_expr(Ast_Expression* expr) {
                             lhs_ident->line_number,
                             lhs_ident->character_number,
                             "Assignment to undeclared variable '%s'",
-                            lhs_ident->name.c_str()
+                            //lhs_ident->name.c_str()
+                            lhs_ident->name ? lhs_ident->name : ""
                         );
                     } else {
                         // Mark as initialized
@@ -233,7 +259,8 @@ void CodeManager::resolve_idents_in_expr(Ast_Expression* expr) {
                                 lhs_ident->line_number,
                                 lhs_ident->character_number,
                                 "Type mismatch in assignment to '%s'",
-                                lhs_ident->name.c_str()
+                                //lhs_ident->name.c_str()
+                                lhs_ident->name ? lhs_ident->name : ""
                             );
                         }
 
@@ -297,7 +324,7 @@ void CodeManager::resolve_idents_in_expr(Ast_Expression* expr) {
 
             if (call->function && call->function->type == AST_IDENT) {
                 Ast_Ident* fn = static_cast<Ast_Ident*>(call->function);
-                if (fn->name != "printf") { // allow builtins, this is temporary.
+                if (fn->name && strcmp(fn->name, "printf") != 0) { // allow builtins, this is temporary.
                     if (!lookup_symbol(fn->name)) {
                         report_error(
                             fn->line_number,
@@ -310,7 +337,10 @@ void CodeManager::resolve_idents_in_expr(Ast_Expression* expr) {
             }
 
             if (call->arguments) {
-                for (auto* a : call->arguments->arguments) {
+
+                // for (auto* a : call->arguments->arguments) {
+                for (int i = 0; i < call->arguments->arguments.count; ++i) {
+                    Ast_Expression* a = call->arguments->arguments.data[i];
                     resolve_idents_in_expr(a);
                 }
             }
@@ -320,7 +350,10 @@ void CodeManager::resolve_idents_in_expr(Ast_Expression* expr) {
         case AST_COMMA_SEPARATED_ARGS: {
             Ast_Comma_Separated_Args* args =
                 static_cast<Ast_Comma_Separated_Args*>(expr);
-            for (auto* a : args->arguments) {
+
+            // for (auto* a : args->arguments) {
+            for (int i = 0; i < args->arguments.count; ++i) {
+                Ast_Expression * a = args->arguments.data[i];
                 resolve_idents_in_expr(a);
             }
             break;
@@ -333,8 +366,9 @@ void CodeManager::resolve_idents_in_expr(Ast_Expression* expr) {
 }
 
 
-static Ast_Type_Definition* make_builtin_type(Ast_Builtin_Type t) {
-    Ast_Type_Definition* out = new Ast_Type_Definition();
+Ast_Type_Definition* CodeManager::make_builtin_type(Ast_Builtin_Type t) {
+    // Ast_Type_Definition* out = DBG_NEW Ast_Type_Definition();
+    Ast_Type_Definition* out = AST_NEW(ast_pool, Ast_Type_Definition);
     out->builtin_type = t;
     return out;
 }
@@ -386,7 +420,7 @@ Ast_Type_Definition* CodeManager::infer_types_expr(Ast_Expression** expr_ptr) {
                 return nullptr;
             }
 
-            Ast_Type_Definition* resultType = new Ast_Type_Definition();
+            Ast_Type_Definition* resultType = AST_NEW(ast_pool, Ast_Type_Definition);
             switch (u->op) {
             case UNARY_DEREFERENCE:
                 if (!operandType->pointed_to_type) {
@@ -521,8 +555,9 @@ Ast_Type_Definition* CodeManager::infer_types_expr(Ast_Expression** expr_ptr) {
                         CM_Symbol* sym = lookup_symbol(lhs_ident->name);
                         if (!sym) {
                             report_error(lhs_ident->line_number, lhs_ident->character_number,
-                                         "Assignment to undeclared variable '%s'",
-                                         lhs_ident->name.c_str());
+                                "Assignment to undeclared variable '%s'",
+                                //lhs_ident->name.c_str());
+                                lhs_ident->name ? lhs_ident->name : "");
                             return nullptr;
                         }
 
@@ -532,8 +567,9 @@ Ast_Type_Definition* CodeManager::infer_types_expr(Ast_Expression** expr_ptr) {
                         }
                         else if (!check_that_types_match(sym->type, rhsType)) {
                             report_error(lhs_ident->line_number, lhs_ident->character_number,
-                                         "Type mismatch in assignment to '%s'",
-                                         lhs_ident->name.c_str());
+                                "Type mismatch in assignment to '%s'",
+                                //lhs_ident->name.c_str());
+                                lhs_ident->name ? lhs_ident->name : "");
                         }
 
                         sym->initialized = true;
@@ -588,8 +624,10 @@ Ast_Type_Definition* CodeManager::infer_types_expr(Ast_Expression** expr_ptr) {
             Ast_Procedure_Call_Expression* call = static_cast<Ast_Procedure_Call_Expression*>(expr);
             // infer argument types
             if (call->arguments) {
-                for (auto* arg : call->arguments->arguments) {
-                    Ast_Expression* p = arg;
+                // for (auto* arg : call->arguments->arguments) {
+                for (int i = 0; i < call->arguments->arguments.count; ++i) {
+                    // Ast_Expression* p = arg;
+                    Ast_Expression* p = call->arguments->arguments.data[i];
                     infer_types_expr(&p);
                 }
             }
@@ -670,7 +708,11 @@ void CodeManager::infer_types_block(Ast_Block* block) {
     //     infer_types_decl(decl);
     // }
 
-    for (auto* stmt : block->statements) {
+    // for (auto* stmt : block->statements) {
+    for (int i = 0; i < block->statements.count; i++) {
+
+        Ast_Statement* stmt = block->statements.data[i];
+
         if (!stmt) continue;
 
         if (stmt->type == AST_DECLARATION) {

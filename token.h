@@ -123,6 +123,10 @@ inline const char* tokenTypeToString(TokenType type) {
 
 struct Token {
     TokenType type = TOK_ERROR;
+    int row;
+    int col;
+
+    bool owns_value = false;
 
     union {
         const char* value;
@@ -136,10 +140,6 @@ struct Token {
         } string_value;
     };
 
-    int row;
-    int col;
-
-    bool owns_value = false;
 };
 
 

@@ -1,6 +1,16 @@
 #pragma once
 #include <string>
-#include <vector>
+//#include <vector>
+
+#include "pool.h"
+ // https://learn.microsoft.com/en-us/cpp/c-runtime-library/find-memory-leaks-using-the-crt-library?view=msvc-170#interpret-the-memory-leak-report
+ #ifdef _DEBUG
+     #define DBG_NEW new ( _NORMAL_BLOCK , __FILE__ , __LINE__ )
+     // Replace _NORMAL_BLOCK with _CLIENT_BLOCK if you want the
+     // allocations to be of _CLIENT_BLOCK type
+ #else
+     #define DBG_NEW new
+ #endif
 
 struct Token;
 
@@ -42,6 +52,7 @@ enum Ast_Type {
     AST_TYPE_DEFINITION,
 };
 
+
 inline std::string astTypeToString(Ast_Type type) {
     switch (type) {
         case AST_BLOCK:          return "Block";
@@ -75,19 +86,19 @@ struct Ast {
 };
 
 struct Ast_Statement : public Ast {
-    Ast_Statement() { type = AST_STATEMENT; }
+    Ast_Statement(Pool* = nullptr) { type = AST_STATEMENT; }
     struct Ast_Type_Definition *type_definition = nullptr;
     struct Ast_Expression *expression = nullptr;
     struct Ast_Block *block = nullptr;
 };
 
 struct Ast_Expression : public Ast {
-    Ast_Expression() { type = AST_EXPRESSION; }
+    Ast_Expression(Pool* = nullptr) { type = AST_EXPRESSION; }
     Ast_Type_Definition *inferred_type = nullptr;
 };
 
 struct Ast_Declaration : public Ast_Statement {
-    Ast_Declaration() { type = AST_DECLARATION; }
+    Ast_Declaration(Pool* = nullptr) { type = AST_DECLARATION; }
 
     Ast_Type_Definition *declared_type = nullptr;
     Ast_Ident *identifier = nullptr;
@@ -95,13 +106,15 @@ struct Ast_Declaration : public Ast_Statement {
 };
 
 struct Ast_Comma_Separated_Args : public Ast_Expression {
-    Ast_Comma_Separated_Args() { type = AST_COMMA_SEPARATED_ARGS; }
-    std::vector<Ast_Expression *> arguments;
+    Ast_Comma_Separated_Args(Pool * p) :arguments(p) { type = AST_COMMA_SEPARATED_ARGS; }
+    Array<Ast_Expression *> arguments;
 };
 
 struct Ast_Function : public Ast_Statement {
-    std::string name;
-    std::vector<Ast_Declaration*> params;
+    Ast_Function(Pool* p) : params(p) { type = AST_STATEMENT; }
+    // std::string name;
+    const char* name = nullptr;
+    Array<Ast_Declaration*> params;
     Ast_Block* body = nullptr;
     bool is_entry_point = false; // only true if 'main'
 
@@ -117,21 +130,24 @@ enum Value_Type {
 };
 
 struct Ast_Literal : public Ast_Expression {
-    Ast_Literal() { type = AST_LITERAL; }
+    Ast_Literal(Pool* = nullptr) { type = AST_LITERAL; }
 
     Value_Type value_type = LITERAL_UNINITIALIZED;
-    std::string string_value;
+    // std::string string_value;
+    const char* string_value = nullptr;
     double float_value = 0;
     int64_t integer_value = 0;
 };
 
 struct Ast_Ident : public Ast_Expression {
-    Ast_Ident() { type = AST_IDENT; }
-    std::string name;
+    Ast_Ident(Pool* = nullptr) { type = AST_IDENT; }
+    // std::string name;
+    const char* name = nullptr;
+
 };
 
 struct Ast_Procedure_Call_Expression : public Ast_Expression {
-    Ast_Procedure_Call_Expression () { type = AST_PROCEDURE_CALL_EXPRESSION; }
+    Ast_Procedure_Call_Expression (Pool* = nullptr) { type = AST_PROCEDURE_CALL_EXPRESSION; }
 
     Ast_Ident *function = nullptr;
     Ast_Comma_Separated_Args *arguments = nullptr;
@@ -149,7 +165,7 @@ enum Binary_Op {
 };
 
 struct Ast_Binary : public Ast_Expression {
-    Ast_Binary() { type = AST_BINARY; }
+    Ast_Binary(Pool* = nullptr) { type = AST_BINARY; }
     Binary_Op op = BINOP_UNKNOWN;
     Ast_Expression *lhs = nullptr;
     Ast_Expression *rhs = nullptr;
@@ -164,20 +180,20 @@ enum Ast_Unary_Op {
 };
 
 struct Ast_Unary : Ast_Expression {
-    Ast_Unary () { type = AST_UNARY; }
+    Ast_Unary (Pool* = nullptr) { type = AST_UNARY; }
     Ast_Unary_Op op;        // operator type
     Ast_Expression* operand = nullptr; // expression being operated on
 
 };
 
 struct Ast_Block : public Ast {
-    Ast_Block() { type = AST_BLOCK; }
+    Ast_Block(Pool* p) : statements(p) { type = AST_BLOCK; }
 
     Ast_Block *parent = nullptr;
-    std::vector<Ast_Statement *> statements;
+    Array<Ast_Statement *> statements;
 
-    // std::vector<Ast_Declaration *> members; // declarations in this scope
-    // std::vector<Ast_Block *> child_scopes;
+    // Array<Ast_Declaration *> members; // declarations in this scope
+    // Array<Ast_Block *> child_scopes;
 
     bool is_scoped_block = false;
     bool is_entry_point = false;
@@ -186,7 +202,7 @@ struct Ast_Block : public Ast {
 };
 
 struct Ast_If : public Ast_Statement {
-    Ast_If() { type = AST_IF; }
+    Ast_If(Pool* = nullptr) { type = AST_IF; }
     Ast_Expression *condition = nullptr;
     Ast_Block *then_block = nullptr;
     // Ast_If *else_if = nullptr; // not done yet
@@ -194,19 +210,21 @@ struct Ast_If : public Ast_Statement {
 };
 
 struct Ast_While : public Ast_Expression {  // not done yet
-    Ast_While() { type = AST_WHILE; };
+    Ast_While(Pool* = nullptr) { type = AST_WHILE; };
     Ast_Expression *condition = nullptr;
     Ast_Block *block = nullptr;
 };
 
 
 struct Ast_Struct_Description : public Ast_Expression {
-    Ast_Struct_Description() { type = AST_STRUCT_DESCRIPTION; }
+    Ast_Struct_Description(Pool* p) : declarations_who_own_memory(p) { type = AST_STRUCT_DESCRIPTION; }
 
-    std::string name;
+    // std::string name;
+    const char* name = nullptr;
+
     Ast_Block *block = nullptr;
 
-    std::vector<Ast_Declaration *> declarations_who_own_memory;
+    Array<Ast_Declaration *> declarations_who_own_memory;
 
 };
 enum Ast_Builtin_Type {
@@ -225,6 +243,8 @@ enum Array_Kind {
     ARRAY_STATIC,    // [N]T
 };
 struct Ast_Type_Definition : public Ast {
+    Ast_Type_Definition(Pool* = nullptr) { type = AST_TYPE_DEFINITION; }
+
     Ast_Builtin_Type builtin_type = TYPE_UNKNOWN;
 
     Ast_Type_Definition *pointed_to_type = nullptr;

@@ -130,3 +130,199 @@ Program
                 Literal: 23234.3
           }
     }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    // here is output of printf debug, see how many bytes needs to be allocated just for few lines of source code. just as a proof
+
+----------------first pool alloc in makeToken
+allocated NEW BLOCK in cycle_new_block
+[POOL ALLOC TOTAL] 48 bytes
+--------------second  pool alloc in makeToken
+[POOL ALLOC TOTAL] 56 bytes
+-----------------------------------used AST_NEW for [2 1] struct Ast_Block---64---
+[POOL ALLOC TOTAL] 128 bytes
+----------------first pool alloc in makeToken
+[POOL ALLOC TOTAL] 176 bytes
+-----------------------------------used AST_NEW for [2 1] struct Ast_Declaration---72---
+[POOL ALLOC TOTAL] 256 bytes
+----------------first pool alloc in makeToken
+[POOL ALLOC TOTAL] 304 bytes
+----------------first pool alloc in makeToken
+[POOL ALLOC TOTAL] 352 bytes
+----------------first pool alloc in makeToken
+[POOL ALLOC TOTAL] 400 bytes
+[POOL ALLOC TOTAL] 448 bytes
+-----------------------------------used AST_NEW for [2 7] struct Ast_Literal---96---
+[POOL ALLOC TOTAL] 552 bytes
+----------------first pool alloc in makeToken
+[POOL ALLOC TOTAL] 600 bytes
+-----------------------------------used AST_NEW for [2 8] struct Ast_Binary---56---
+[POOL ALLOC TOTAL] 664 bytes
+[POOL ALLOC TOTAL] 712 bytes
+-----------------------------------used AST_NEW for [2 9] struct Ast_Literal---96---
+[POOL ALLOC TOTAL] 816 bytes
+----------------first pool alloc in makeToken
+[POOL ALLOC TOTAL] 864 bytes
+-----------------------------------used AST_NEW for [2 10] struct Ast_Binary---56---
+[POOL ALLOC TOTAL] 928 bytes
+[POOL ALLOC TOTAL] 976 bytes
+-----------------------------------used AST_NEW for [2 11] struct Ast_Literal---96---
+[POOL ALLOC TOTAL] 1080 bytes
+----------------first pool alloc in makeToken
+[POOL ALLOC TOTAL] 1128 bytes
+-----------------------------------used AST_NEW for [2 12] struct Ast_Binary---56---
+[POOL ALLOC TOTAL] 1192 bytes
+[POOL ALLOC TOTAL] 1240 bytes
+-----------------------------------used AST_NEW for [2 13] struct Ast_Literal---96---
+[POOL ALLOC TOTAL] 1344 bytes
+----------------first pool alloc in makeToken
+[POOL ALLOC TOTAL] 1392 bytes
+-----------------------------------used AST_NEW for [2 14] struct Ast_Binary---56---
+[POOL ALLOC TOTAL] 1456 bytes
+[POOL ALLOC TOTAL] 1504 bytes
+-----------------------------------used AST_NEW for [2 15] struct Ast_Literal---96---
+[POOL ALLOC TOTAL] 1608 bytes
+----------------first pool alloc in makeToken
+[POOL ALLOC TOTAL] 1656 bytes
+----------------first pool alloc in makeToken
+[POOL ALLOC TOTAL] 1704 bytes
+-----------------------------------used AST_NEW for [2 17] struct Ast_Binary---56---
+[POOL ALLOC TOTAL] 1768 bytes
+[POOL ALLOC TOTAL] 1816 bytes
+-----------------------------------used AST_NEW for [2 18] struct Ast_Literal---96---
+[POOL ALLOC TOTAL] 1920 bytes
+----------------first pool alloc in makeToken
+[POOL ALLOC TOTAL] 1968 bytes
+----------------first pool alloc in makeToken
+[POOL ALLOC TOTAL] 2016 bytes
+--------------second  pool alloc in makeToken
+[POOL ALLOC TOTAL] 2024 bytes
+-----------------------------------used AST_NEW for [4 1] struct Ast_Ident---72---
+[POOL ALLOC TOTAL] 2104 bytes
+
+<<<<<<<< PUSH_BACK >>>>>>>>>>
+
+[POOL ALLOC TOTAL] 2144 bytes
+
+/////////////// RIGHT AFTER PUSH_BACK ////////////
+----------------first pool alloc in makeToken
+[POOL ALLOC TOTAL] 2192 bytes
+-----------------------------------used AST_NEW for [4 1] struct Ast_Declaration---72---
+[POOL ALLOC TOTAL] 2272 bytes
+----------------first pool alloc in makeToken
+[POOL ALLOC TOTAL] 2320 bytes
+----------------first pool alloc in makeToken
+[POOL ALLOC TOTAL] 2368 bytes
+[POOL ALLOC TOTAL] 2416 bytes
+-----------------------------------used AST_NEW for [4 6] struct Ast_Literal---96---
+[POOL ALLOC TOTAL] 2520 bytes
+----------------first pool alloc in makeToken
+[POOL ALLOC TOTAL] 2568 bytes
+-----------------------------------used AST_NEW for [4 8] struct Ast_Binary---56---
+[POOL ALLOC TOTAL] 2632 bytes
+[POOL ALLOC TOTAL] 2680 bytes
+-----------------------------------used AST_NEW for [4 10] struct Ast_Literal---96---
+[POOL ALLOC TOTAL] 2784 bytes
+----------------first pool alloc in makeToken
+[POOL ALLOC TOTAL] 2832 bytes
+-----------------------------------used AST_NEW for [4 12] struct Ast_Binary---56---
+[POOL ALLOC TOTAL] 2896 bytes
+[POOL ALLOC TOTAL] 2944 bytes
+-----------------------------------used AST_NEW for [4 14] struct Ast_Literal---96---
+[POOL ALLOC TOTAL] 3048 bytes
+----------------first pool alloc in makeToken
+[POOL ALLOC TOTAL] 3096 bytes
+----------------first pool alloc in makeToken
+[POOL ALLOC TOTAL] 3144 bytes
+--------------second  pool alloc in makeToken
+[POOL ALLOC TOTAL] 3152 bytes
+-----------------------------------used AST_NEW for [5 1] struct Ast_Ident---72---
+[POOL ALLOC TOTAL] 3232 bytes
+
+<<<<<<<< PUSH_BACK >>>>>>>>>>
+
+
+/////////////// RIGHT AFTER PUSH_BACK ////////////
+----------------first pool alloc in makeToken
+[POOL ALLOC TOTAL] 3280 bytes
+-----------------------------------used AST_NEW for [5 1] struct Ast_Declaration---72---
+[POOL ALLOC TOTAL] 3360 bytes
+----------------first pool alloc in makeToken
+[POOL ALLOC TOTAL] 3408 bytes
+----------------first pool alloc in makeToken
+[POOL ALLOC TOTAL] 3456 bytes
+[POOL ALLOC TOTAL] 3504 bytes
+-----------------------------------used AST_NEW for [5 6] struct Ast_Literal---96---
+[POOL ALLOC TOTAL] 3608 bytes
+----------------first pool alloc in makeToken
+[POOL ALLOC TOTAL] 3656 bytes
+-----------------------------------used AST_NEW for [5 8] struct Ast_Binary---56---
+[POOL ALLOC TOTAL] 3720 bytes
+[POOL ALLOC TOTAL] 3768 bytes
+-----------------------------------used AST_NEW for [5 10] struct Ast_Literal---96---
+[POOL ALLOC TOTAL] 3872 bytes
+----------------first pool alloc in makeToken
+[POOL ALLOC TOTAL] 3920 bytes
+-----------------------------------used AST_NEW for [5 12] struct Ast_Binary---56---
+[POOL ALLOC TOTAL] 3984 bytes
+[POOL ALLOC TOTAL] 4032 bytes
+-----------------------------------used AST_NEW for [5 14] struct Ast_Literal---96---
+[POOL ALLOC TOTAL] 4136 bytes
+----------------first pool alloc in makeToken
+[POOL ALLOC TOTAL] 4184 bytes
+----------------first pool alloc in makeToken
+[POOL ALLOC TOTAL] 4232 bytes
+--------------second  pool alloc in makeToken
+[POOL ALLOC TOTAL] 4240 bytes
+-----------------------------------used AST_NEW for [6 1] struct Ast_Ident---72---
+[POOL ALLOC TOTAL] 4320 bytes
+
+<<<<<<<< PUSH_BACK >>>>>>>>>>
+
+
+/////////////// RIGHT AFTER PUSH_BACK ////////////
+----------------first pool alloc in makeToken
+[POOL ALLOC TOTAL] 4368 bytes
+-----------------------------------used AST_NEW for [6 1] struct Ast_Declaration---72---
+[POOL ALLOC TOTAL] 4448 bytes
+----------------first pool alloc in makeToken
+[POOL ALLOC TOTAL] 4496 bytes
+----------------first pool alloc in makeToken
+[POOL ALLOC TOTAL] 4544 bytes
+[POOL ALLOC TOTAL] 4592 bytes
+-----------------------------------used AST_NEW for [6 6] struct Ast_Literal---96---
+[POOL ALLOC TOTAL] 4696 bytes
+----------------first pool alloc in makeToken
+[POOL ALLOC TOTAL] 4744 bytes
+-----------------------------------used AST_NEW for [6 8] struct Ast_Binary---56---
+[POOL ALLOC TOTAL] 4808 bytes
+[POOL ALLOC TOTAL] 4856 bytes
+-----------------------------------used AST_NEW for [6 10] struct Ast_Literal---96---
+[POOL ALLOC TOTAL] 4960 bytes
+----------------first pool alloc in makeToken
+[POOL ALLOC TOTAL] 5008 bytes
+-----------------------------------used AST_NEW for [6 12] struct Ast_Binary---56---
+[POOL ALLOC TOTAL] 5072 bytes
+[POOL ALLOC TOTAL] 5120 bytes
+-----------------------------------used AST_NEW for [6 14] struct Ast_Literal---96---
+[POOL ALLOC TOTAL] 5224 bytes
+----------------first pool alloc in makeToken
+[POOL ALLOC TOTAL] 5272 bytes
+----------------first pool alloc in makeToken
+[POOL ALLOC TOTAL] 5320 bytes
+--------------second  pool alloc in makeToken
+[POOL ALLOC TOTAL] 5328 bytes
+-----------------------------------used AST_NEW for [7 1] struct Ast_Ident---72---
+[POOL ALLOC TOTAL] 5408 bytes
