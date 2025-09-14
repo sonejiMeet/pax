@@ -136,7 +136,7 @@ struct Pool {
     void* current_pos = nullptr;
     size_t bytes_left = 0;
 
-    void* (*block_allocator)(int, long, long, void*, void*, long) = nullptr;
+    void* (*block_allocator)(int, size_t, size_t, void*, void*, int) = nullptr;
     void* block_allocator_data = nullptr;
 };
 

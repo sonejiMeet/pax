@@ -264,7 +264,7 @@ Ast_Type_Definition* Parser::parseTypeSpecifier() {
             if (current->type == TOK_NUMBER) {
                 // Static array
                 arrayType->array_kind = ARRAY_STATIC;
-                arrayType->static_array_size = current->int_value;
+                arrayType->static_array_size = (int)current->int_value;
                 advance(); // consume size
                 expect(TOK_RBRACKET, "Expected ']' after static array size.");
             }
@@ -562,7 +562,8 @@ Ast_Statement* Parser::parseStatement()
             reportError("Got 'else' without an 'if' statement.");
             exitSuccess = false;
             advance();
-            break;
+            // break;
+            return nullptr;
         }
 
         case TOK_LCURLY_PAREN: {
@@ -594,7 +595,7 @@ Ast_Block* Parser::parseProgram()
 {
     Ast_Block* program = AST_NEW(pool,Ast_Block);
 
-    printf("size of Ast_Ident %zu----------->>>>>>>>>>>>>>>>>>>\n", sizeof(Ast_Ident));
+    // printf("size of Ast_Ident %zu----------->>>>>>>>>>>>>>>>>>>\n", sizeof(Ast_Ident));
     //printf("size of Ast_Procedure_Call_Expression %zu----------->>>>>>>>>>>>>>>>>>>\n", sizeof(Ast_Procedure_Call_Expression));
     bool mainFound = false;
 

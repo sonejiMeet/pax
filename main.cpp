@@ -33,8 +33,8 @@ inline void printLex(FileBuffer buf, Pool *pool);
 void runCompiler(char * command);
 
 
-void* default_allocator(int mode, long size, long old_size,
-                        void* old_memory, void* allocator_data, long options) {
+void* default_allocator(int mode, size_t size, size_t old_size,
+                        void* old_memory, void* allocator_data, int options) {
     switch(mode) {
         case ALLOCATE: {
             void* ptr = malloc(size);
@@ -143,8 +143,9 @@ int main(int argc, char **args) {
         snprintf(command, sizeof(command), "cl.exe /Od /EHsc /nologo %s", baseName);
         printf("Running C compiler: %s\n", command);
 
-        //runCompiler(command);
-
+#ifndef _DEBUG // temporary!!!!
+        runCompiler(command);
+#endif
         auto end2 = std::chrono::high_resolution_clock::now();
         std::chrono::duration<double> elapsed2 = end2 - start2;
         printf("\n\t -Time in c compiler: %.6f seconds\n", elapsed2.count());
