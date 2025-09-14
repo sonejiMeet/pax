@@ -7,19 +7,21 @@
 
 
 char* Lexer::pool_strdup(Pool* pool, const char* str) {
-    long len = strlen(str) + 1;
+    long len = strlen(str)+1;
     char* p = (char*)pool_alloc(pool, len);
     memcpy(p, str, len);
+    //printf("pool_strdup %d\"%.*s\"\n", len, len, p);
     return p;
 }
 
 Token* Lexer::makeToken(TokenType type, const char* value, int row, int col) {
+    printf("First pool_alloc in makeToken\n");
     Token* t = (Token*)pool_alloc(lex_pool, sizeof(Token));
     t->type = type;
     if (type == TOK_IDENTIFIER || type == TOK_PRINT || type == TOK_IF || type == TOK_STRUCT
         || type == TOK_TYPE_INT || type == TOK_TYPE_FLOAT || type == TOK_TYPE_STRING
         || type == TOK_TYPE_BOOL || type == TOK_KEYWORD_TRUE || type == TOK_KEYWORD_FALSE) {
-
+        printf("Second pool_alloc in makeToken\n");
         t->value = pool_strdup(lex_pool, value);
         t->owns_value = false;
     } else {

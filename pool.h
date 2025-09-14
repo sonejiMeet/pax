@@ -126,7 +126,7 @@ enum Allocator_Mode {
 
 struct Pool {
     size_t memblock_size = POOL_BUCKET_SIZE_DEFAULT;
-    size_t alignment = 8;
+    size_t alignment = 1;
 
     BlockList unused_memblocks;
     BlockList used_memblocks;
@@ -159,7 +159,7 @@ inline void pool_init(Pool* pool) {
 inline void* pool_alloc(Pool* pool, size_t size) {
     assert(pool != nullptr);
 
-    size_t extra = pool->alignment - (size % pool->alignment);
+    size_t extra = (size % pool->alignment) ? pool->alignment - (size % pool->alignment) : 0;
     size += extra;
 
     ensure_memory_exists(pool, size);
@@ -170,6 +170,7 @@ inline void* pool_alloc(Pool* pool, size_t size) {
 
 #ifdef _DEBUG
     totalNbyte += size;
+    printf("[POOL_ALLOC] %zu bytes %p\n", size, retval);
     printf("[POOL_ALLOC TOTAL SO FAR] %ld bytes\n", totalNbyte);
 #endif
 

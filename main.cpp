@@ -140,10 +140,10 @@ int main(int argc, char **args) {
     {
         auto start2 = std::chrono::high_resolution_clock::now();
         char command[256];
-        snprintf(command, sizeof(command), "cl /Od /EHsc /nologo %s", baseName);
+        snprintf(command, sizeof(command), "cl.exe /Od /EHsc /nologo %s", baseName);
         printf("Running C compiler: %s\n", command);
 
-        runCompiler(command);
+        //runCompiler(command);
 
         auto end2 = std::chrono::high_resolution_clock::now();
         std::chrono::duration<double> elapsed2 = end2 - start2;
@@ -179,13 +179,12 @@ void runCompiler(char * command){
     si.cb = sizeof(si);
     ZeroMemory(&pi, sizeof(pi));
 
-    // CreateProcessA requires the command to be mutable (non-const)
     char cmdLine[256];
     snprintf(cmdLine, sizeof(cmdLine), "%s", command);
 
     if (!CreateProcessA( NULL, cmdLine, NULL, NULL, TRUE, 0, NULL, NULL, &si, &pi))
     {
-        printf("CreateProcess failed (%lu).\n", GetLastError());
+        printf("CreateProcess failed (%lu)\n", GetLastError());
         exit(1);
     }
 
@@ -226,11 +225,8 @@ inline void printLex(FileBuffer buf, Pool *pool){
         }
 
         if (tok->type == TOK_END_OF_FILE) {
-            // freeToken(tok);
             break;
         }
-        // freeToken(tok);
-
     }
 
     printf("\n");

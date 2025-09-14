@@ -1,10 +1,40 @@
-﻿  parser.cpp
+﻿  c_converter.cpp
+C:\mylang\pool.h(172,19): warning C4267: '+=': conversion from 'size_t' to 'long', possible loss of data
+  (compiling source file '../c_converter.cpp')
+  
+C:\mylang\pool.h(218,57): warning C4267: 'argument': conversion from 'size_t' to 'long', possible loss of data
+  (compiling source file '../c_converter.cpp')
+  
+  code_manager.cpp
+C:\mylang\pool.h(172,19): warning C4267: '+=': conversion from 'size_t' to 'long', possible loss of data
+  (compiling source file '../code_manager.cpp')
+  
+C:\mylang\pool.h(218,57): warning C4267: 'argument': conversion from 'size_t' to 'long', possible loss of data
+  (compiling source file '../code_manager.cpp')
+  
+  lexer.cpp
+C:\mylang\pool.h(172,19): warning C4267: '+=': conversion from 'size_t' to 'long', possible loss of data
+  (compiling source file '../lexer.cpp')
+  
+C:\mylang\pool.h(218,57): warning C4267: 'argument': conversion from 'size_t' to 'long', possible loss of data
+  (compiling source file '../lexer.cpp')
+  
+C:\mylang\lexer.cpp(10,14): warning C4267: 'initializing': conversion from 'size_t' to 'long', possible loss of data
+  main.cpp
+C:\mylang\pool.h(172,19): warning C4267: '+=': conversion from 'size_t' to 'long', possible loss of data
+  (compiling source file '../main.cpp')
+  
+C:\mylang\pool.h(218,57): warning C4267: 'argument': conversion from 'size_t' to 'long', possible loss of data
+  (compiling source file '../main.cpp')
+  
+  parser.cpp
 C:\mylang\pool.h(172,19): warning C4267: '+=': conversion from 'size_t' to 'long', possible loss of data
   (compiling source file '../parser.cpp')
   
-C:\mylang\pool.h(217,57): warning C4267: 'argument': conversion from 'size_t' to 'long', possible loss of data
+C:\mylang\pool.h(218,57): warning C4267: 'argument': conversion from 'size_t' to 'long', possible loss of data
   (compiling source file '../parser.cpp')
   
 C:\mylang\parser.cpp(267,55): warning C4244: '=': conversion from 'unsigned __int64' to 'int', possible loss of data
+  Generating Code...
 C:\mylang\parser.cpp(590,1): warning C4715: 'Parser::parseStatement': not all control paths return a value
   mylang.vcxproj -> C:\mylang\mylang\x64\Debug\mylang.exe
