@@ -141,6 +141,3 @@ struct Token {
     };
 
 };
-
-
-void freeToken(Token& t);

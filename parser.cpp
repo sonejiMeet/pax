@@ -594,7 +594,7 @@ Ast_Block* Parser::parseProgram()
 {
     Ast_Block* program = AST_NEW(pool,Ast_Block);
 
-    //printf("size of Ast_Ident %zu----------->>>>>>>>>>>>>>>>>>>\n", sizeof(Ast_Ident));
+    printf("size of Ast_Ident %zu----------->>>>>>>>>>>>>>>>>>>\n", sizeof(Ast_Ident));
     //printf("size of Ast_Procedure_Call_Expression %zu----------->>>>>>>>>>>>>>>>>>>\n", sizeof(Ast_Procedure_Call_Expression));
     bool mainFound = false;
 
