@@ -20,14 +20,16 @@ const size_t POOL_BUCKET_SIZE_DEFAULT = 65536; // 64Kb
 struct Pool;
 
 template<typename T>
-struct Array {
-    T* data;
+struct Array
+{
+    T *data;
     long count;
     long capacity;
-    Pool* pool;
+
+    Pool *pool;
 
     Array() : data(nullptr), count(0), capacity(0), pool(nullptr) {}
-    Array(Pool* p) : data(nullptr), count(0), capacity(0), pool(p) {}
+    Array(Pool *p) : data(nullptr), count(0), capacity(0), pool(p) {}
 
     void push_back(T value);
     T pop();
@@ -37,15 +39,17 @@ struct Array {
 template<typename T>
 inline void Array<T>::push_back(T value)
 {
+
 #ifdef _DEBUG
    printf("\n<<<<<<<< PUSH_BACK >>>>>>>>>>\n\n");
 #endif
+
     assert(pool && "Array's pool pointer is null!");
 
     if (count >= capacity) {
         long new_cap = capacity ? capacity * 2 : 4;
 
-        T* new_data = (T*)pool_alloc(pool, sizeof(T) * new_cap);
+        T *new_data = (T *)pool_alloc(pool, sizeof(T) * new_cap);
         assert(new_data && "Memory allocation failed for Array");
 
         if (data) {
@@ -65,7 +69,8 @@ inline void Array<T>::push_back(T value)
 }
 
 template<typename T>
-inline T Array<T>::pop() {
+inline T Array<T>::pop()
+{
     if (count == 0) {
         printf("*********** ATTEMPT TO POP AN EMPTY ARRAY!\n");
         return T();
@@ -74,23 +79,27 @@ inline T Array<T>::pop() {
 }
 
 template<typename T>
-inline void Array<T>::release() {
+inline void Array<T>::release()
+{
     data = nullptr;
     count = 0;
     capacity = 0;
 }
 
 
-struct BlockList {
-    void** data = nullptr;
+// we need to keep track of used, unused, obsolete blocks and need to use malloc seperately where we push starting positions of these blocks
+struct BlockList
+{
+    void **data = nullptr;
     long count = 0;
     long capacity = 0;
 };
 
-inline void blocklist_push(BlockList* list, void* value) {
+inline void blocklist_push(BlockList *list, void *value)
+{
     if (list->count >= list->capacity) {
         long new_capacity = (list->capacity == 0) ? 4 : list->capacity * 2;
-        void** new_data = (void**)realloc(list->data, sizeof(void*) * new_capacity);
+        void **new_data = (void**)realloc(list->data, sizeof(void*) * new_capacity);
         assert(new_data && "Failed to allocate memory for BlockList");
         list->data = new_data;
         list->capacity = new_capacity;
@@ -98,12 +107,14 @@ inline void blocklist_push(BlockList* list, void* value) {
     list->data[list->count++] = value;
 }
 
-inline void* blocklist_pop(BlockList* list) {
+inline void *blocklist_pop(BlockList *list)
+{
     if (list->count == 0) return nullptr;
     return list->data[--list->count];
 }
 
-inline void blocklist_free_all(BlockList* list) {
+inline void blocklist_free_all(BlockList *list)
+{
     if (!list->data) return;
 
     for (long i = 0; i < list->count; i++) {
@@ -117,7 +128,9 @@ inline void blocklist_free_all(BlockList* list) {
 }
 
 
-enum Allocator_Mode {
+
+enum Allocator_Mode
+{
     ALLOCATE,
     RESIZE,
     FREE,
@@ -126,45 +139,47 @@ enum Allocator_Mode {
 
 struct Pool {
     size_t memblock_size = POOL_BUCKET_SIZE_DEFAULT;
-    size_t alignment = 1;
+    size_t alignment = 8;
 
     BlockList unused_memblocks;
     BlockList used_memblocks;
     BlockList obsoleted_memblocks;
 
-    void* current_memblock = nullptr;
-    void* current_pos = nullptr;
+    void *current_memblock = nullptr;
+    void *current_pos = nullptr;
     size_t bytes_left = 0;
 
-    void* (*block_allocator)(int, size_t, size_t, void*, void*, int) = nullptr;
-    void* block_allocator_data = nullptr;
+    void * (*block_allocator)(int, size_t, size_t, void*, void*, int) = nullptr;
+    void *block_allocator_data = nullptr;
 };
 
 
-inline void pool_init(Pool* pool);
-inline void* pool_alloc(Pool* pool, size_t size);
-inline void ensure_memory_exists(Pool* pool, size_t nbytes);
-inline void resize_blocks(Pool* pool, size_t block_size);
-inline void cycle_new_block(Pool* pool);
-inline void pool_reset(Pool* pool);
-inline void pool_release(Pool* pool);
+inline void pool_init(Pool *pool);
+inline void *pool_alloc(Pool *pool, size_t size);
+inline void ensure_memory_exists(Pool *pool, size_t size);
+inline void resize_blocks(Pool *pool, size_t block_size);
+inline void cycle_new_block(Pool *pool);
+inline void pool_reset(Pool *pool);
+inline void pool_release(Pool *pool);
 
 
-inline void pool_init(Pool* pool) {
+inline void pool_init(Pool *pool) {
     pool->current_memblock = nullptr;
     pool->current_pos = nullptr;
     pool->bytes_left = 0;
 }
 
-inline void* pool_alloc(Pool* pool, size_t size) {
+inline void *pool_alloc(Pool *pool, size_t size) {
     assert(pool != nullptr);
 
-    size_t extra = (size % pool->alignment) ? pool->alignment - (size % pool->alignment) : 0;
+    // size_t extra = (size % pool->alignment) ? pool->alignment - (size % pool->alignment) : 0;
+    size_t extra = pool->alignment - (size % pool->alignment); // how many bytes are we missing to alignment in size-to-be-allocated
     size += extra;
 
+    // do we have enough bytes left in current block?
     ensure_memory_exists(pool, size);
 
-    void* retval = pool->current_pos;
+    void *retval = pool->current_pos;
     pool->current_pos = (void*)((uintptr_t)pool->current_pos + size);
     pool->bytes_left -= size;
 
@@ -177,21 +192,26 @@ inline void* pool_alloc(Pool* pool, size_t size) {
     return retval;
 }
 
-inline void ensure_memory_exists(Pool* pool, size_t nbytes) {
+inline void ensure_memory_exists(Pool* pool, size_t size) {
 
-    if (pool->bytes_left < nbytes)
+    if (pool->bytes_left < size)
     {
         size_t bs = pool->memblock_size;
-        while (bs < nbytes) bs *= 2;
-        if (bs > pool->memblock_size) resize_blocks(pool, bs);
+
+        while (bs < size)
+            bs *= 2;
+
+        if (bs > pool->memblock_size)
+            resize_blocks(pool, bs);
 
         cycle_new_block(pool);
     }
 
-    assert(pool->bytes_left >= nbytes);
+    assert(pool->bytes_left >= size);
 }
 
-inline void resize_blocks(Pool* pool, size_t block_size) {
+inline void resize_blocks(Pool *pool, size_t block_size)
+{
     pool->memblock_size = block_size;
 
     if (pool->current_memblock)
@@ -205,21 +225,24 @@ inline void resize_blocks(Pool* pool, size_t block_size) {
     pool->current_memblock = nullptr;
 }
 
-inline void cycle_new_block(Pool* pool) {
+
+inline void cycle_new_block(Pool *pool)
+{
     if (pool->current_memblock)
         blocklist_push(&pool->used_memblocks, pool->current_memblock);
 
-
-    void* new_block = nullptr;
+    void *new_block = nullptr;
     if (pool->unused_memblocks.count > 0) {
         new_block = blocklist_pop(&pool->unused_memblocks);
     } else {
         assert(pool->block_allocator != nullptr);
         new_block = pool->block_allocator(ALLOCATE, pool->memblock_size, 0, nullptr, pool->block_allocator_data, 0);
 
-        #ifdef _DEBUG
+        // total_count += 1;
+#ifdef _DEBUG
         printf("allocated NEW BLOCK in cycle_new_block\n");
-        #endif
+#endif
+
     }
 
     pool->bytes_left = pool->memblock_size;
@@ -227,7 +250,8 @@ inline void cycle_new_block(Pool* pool) {
     pool->current_memblock = new_block;
 }
 
-inline void pool_reset(Pool* pool) {
+inline void pool_reset(Pool* pool)
+{
     if (pool->current_memblock) {
         blocklist_push(&pool->unused_memblocks, pool->current_memblock);
         pool->current_memblock = nullptr;
@@ -247,7 +271,9 @@ inline void pool_reset(Pool* pool) {
     pool->current_pos = pool->current_memblock;
 }
 
-inline void pool_release(Pool* pool) {
+
+inline void pool_release(Pool* pool)
+{
     pool_reset(pool);
 
     if (pool->current_memblock) {

@@ -52,7 +52,7 @@ void GENERATED_MAIN(){
     printf("e=%f\n",e);
     printf("h=%d\n",h);
     float scopedint = 5.900000;
-    (scopedint = 21);
+    (scopedint = 2);
     printf("scopedint=%f\n",scopedint);
     int zeroChild = 0;
     {

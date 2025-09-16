@@ -4,14 +4,11 @@
         to be FIXed
 
 
+reduce unnesessary allocation in our pool. peekNextToken() in lexer.cpp we could just pop the peeked token from our POOL after we check Token type and same for advance() in parser.cpp calls nextToken which obviously pushes the token into our pool.
+
 low priority: ast_printer for printf does not work
 
 low priority: inside struct Ast, should add filename member
-
-mid priority: make the c converter and compilation process automatic
-
-high priority: find an alternative to std::vector for Ast nodes
-high priority: get rid of std::string usage cause fuck c++ in the assshole
 
 when string literal removed it throws weird parsing error. ex.
 s : string = "something; <----notice string literal missing
@@ -20,13 +17,17 @@ Parsing Error[18:9] Expected ';' after variable declaration. at token 'asda' (Ty
 struct
 function defintion
 
-
 (Todo for later)
 Emit Debug Information
  \#line + debug info
 emit #line directives so the compiler and debugger know the real source file and line.
 
 
+
+DONE: mid priority: make the c converter and compilation process automatic
+
+DONE (replaced with ARRAY<> that uses our own POOL allocator): high priority: find an alternative to std::vector for Ast nodes
+DONE (replaced with char * cause we already use pool alloc for them): high priority: get rid of std::string usage cause fuck c++ in the assshole
 
 DONE: inside struct Ast, we are not setting line_number
 DONE: floats are not lexed correctly there is unknown token for decimal

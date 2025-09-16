@@ -21,7 +21,7 @@
 #define free(p) _free_dbg(p, _NORMAL_BLOCK)
 #endif
 
- // #define PRINT_LEX
+  //#define PRINT_LEX
 
 #ifdef _DEBUG
 long totalNbyte = 0;
@@ -37,25 +37,21 @@ void* default_allocator(int mode, size_t size, size_t old_size,
                         void* old_memory, void* allocator_data, int options) {
     switch(mode) {
         case ALLOCATE: {
-            void* ptr = malloc(size);
-            if (!ptr) {
-                // Handle allocation failure
-                printf("Memory allocation failed\n");
-                exit(1); // or throw an exception
-            }
+            void* ptr = calloc(size, 1);
+            assert(ptr && "Memeory allocation failed");
             return ptr;
         }
-        case RESIZE: {
-            void* new_ptr = realloc(old_memory, size);
-            if (!new_ptr) {
-                // Handle allocation failure
-                printf("Memory reallocation failed\n");
-                exit(1); // or throw an exception
-            }
-            return new_ptr;
-        }
-        case FREE: return 0;
-        case FREE_ALL: return 0;
+        // case RESIZE: {
+        //     void* new_ptr = realloc(old_memory, size);
+        //     if (!new_ptr) {
+        //         // Handle allocation failure
+        //         printf("Memory reallocation failed\n");
+        //         exit(1); // or throw an exception
+        //     }
+        //     return new_ptr;
+        // }
+        // case FREE: return 0;
+        // case FREE_ALL: return 0;
     }
     return 0;
 }
@@ -64,6 +60,7 @@ int main(int argc, char **args) {
 
 #ifdef _DEBUG
     _CrtSetDbgFlag ( _CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF ); // put it at start, when we want to exit(1) early. temporary!!!!!!
+
     //_CrtSetBreakAlloc(182);
 
 #endif
@@ -78,7 +75,6 @@ int main(int argc, char **args) {
     Pool pool;
     pool_init(&pool);
     pool.block_allocator = default_allocator;
-    pool.block_allocator_data = nullptr;
 
     FileBuffer buf = read_entire_file(args[1]);
     if (!buf.data) return 1;
@@ -95,7 +91,7 @@ int main(int argc, char **args) {
     Parser parser(&lexer, &pool);
 
     Ast_Block* ast = parser.parseProgram();
-    // printAst(ast);
+     // printAst(ast);
 
     free(buf.data);
 
@@ -169,6 +165,8 @@ int main(int argc, char **args) {
     _CrtMemDumpAllObjectsSince(&state); // detailed list of allocations
     _CrtSetReportMode(_CRT_WARN, _CRTDBG_MODE_DEBUG);
 #endif
+
+    // printf("\n\n\nTotal mallocs called %llu\n\n", total_count);
     return 0;
 }
 
