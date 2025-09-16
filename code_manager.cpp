@@ -2,6 +2,8 @@
 
 #include <cstdarg> // for variadic function
 
+
+
 #define AST_NEW(pool, type) ([&]() -> type* {                   \
     assert(pool != nullptr && "Pool must not be null");         \
     void* mem = pool_alloc(pool, sizeof(type));                \
@@ -13,10 +15,18 @@
 CodeManager::CodeManager(Pool* pool)
     : ast_pool(pool) {}
 
+char *CodeManager::pool_strdup(Pool* pool, const char* str) {
+    size_t len = strlen(str) + 1;
+    char* p = (char*)pool_alloc(pool, len);
+    memcpy(p, str, len);
+    //printf("pool_strdup %d\"%.*s\"\n", len, len, p);
+    return p;
+}
 void CodeManager::init() {
     scopes.clear();
     scopes.emplace_back(); // global scope
 }
+
 
 
 int CodeManager::get_count_errors(){
@@ -35,9 +45,9 @@ void CodeManager::report_error(int line, int col, const char* fmt, ...)
 
     count_errors += 1;
     if (line >= 0 && col >= 0) {
-        fprintf(stderr, "Semantic error (%d:%d): %s\n", line, col, buffer);
+        fprintf(stderr, "Semantic Error[%d:%d]: %s\n", line, col, buffer);
     } else {
-        fprintf(stderr, "Semantic error: %s\n", buffer);
+        fprintf(stderr, "Semantic Error: %s\n", buffer);
     }
 }
 
@@ -56,15 +66,16 @@ bool CodeManager::declare_variable(Ast_Declaration* decl)
     CM_Scope &scope = scopes.back();
 
     for (auto &sym : scope) {
-        if (sym.name == decl->identifier->name) {
-            if (!decl->initializer)
-                report_error(decl->line_number, decl->character_number, "Variable '%s' already declared", decl->identifier->name);
-                return false;
+        if (strcmp(sym.name, decl->identifier->name) == 0) {
+            //if (!decl->initializer)
+            report_error(decl->line_number, decl->character_number, "Variable '%s' already declared", decl->identifier->name);
+            return false;
         }
     }
 
     CM_Symbol sym;
-    sym.name = decl->identifier->name;
+    sym.name = pool_strdup(ast_pool, decl->identifier->name);
+    // sym.name = decl->identifier->name;
     sym.decl = decl;
     sym.type = decl->declared_type;
     sym.initialized = (decl->initializer != nullptr);
@@ -334,9 +345,7 @@ void CodeManager::resolve_idents_in_expr(Ast_Expression* expr) {
             break;
         }
 
-        default:
-            // TODO: handle more expression kinds when added
-            break;
+        default: break;
     }
 }
 

@@ -3,31 +3,32 @@
 #include <string>
 
 enum TokenType {
+
     TOK_ERROR,
 
-    TOK_PRINT,
+    TOK_PRINT,     // printf  (rightnow we piggyback on C's printf, planning to get rid of type specifier, would happen in code_manager eg.after type inference)
 
-    TOK_IF,
-    TOK_ELSE,
-    TOK_IDENTIFIER, // variable
-    TOK_STRUCT,
-    TOK_MAIN_ENTRY_POINT,
+    TOK_IF,               // if
+    TOK_ELSE,             // else
+    TOK_IDENTIFIER,
+    TOK_STRUCT,           // struct
+    TOK_MAIN_ENTRY_POINT, // main
 
     TOK_NUMBER,
     TOK_FLOAT,
     TOK_STRING,
 
-    TOK_TYPE_INT,
-    TOK_TYPE_FLOAT,
-    TOK_TYPE_STRING,
-    TOK_TYPE_BOOL,
+    TOK_TYPE_INT,       // int
+    TOK_TYPE_FLOAT,     // float
+    TOK_TYPE_STRING,    // string
+    TOK_TYPE_BOOL,      // bool
 
-    TOK_LPAREN,
-    TOK_RPAREN,
-    TOK_LCURLY_PAREN,
-    TOK_RCURLY_PAREN,
-    TOK_LBRACKET,
-    TOK_RBRACKET,
+    TOK_LPAREN,         // (
+    TOK_RPAREN,         // )
+    TOK_LCURLY_PAREN,   // {
+    TOK_RCURLY_PAREN,   // }
+    TOK_LBRACKET,       // [
+    TOK_RBRACKET,       // ]
 
     TOK_COLON,          // :
     TOK_DOUBLECOLON,    // ::
@@ -59,8 +60,6 @@ enum TokenType {
     TOK_KEYWORD_FALSE,
 
     TOK_END_OF_FILE,
-
-    TOK_UNKNOWN  // TODO: we should just exit lexing here with error saying Unkown token or smt
 };
 
 
@@ -116,25 +115,24 @@ inline const char* tokenTypeToString(TokenType type) {
         case TOK_KEYWORD_TRUE: return "TOK_KEYWORD_TRUE";
         case TOK_KEYWORD_FALSE: return "TOK_KEYWORD_FALSE";
         case TOK_END_OF_FILE: return "TOK_END_OF_FILE";
-        case TOK_UNKNOWN: return "TOK_UNKNOWN";
+
         default: return "UNKNOWN_TOKEN";
     }
 }
 
-struct Token {
+struct Token
+{
     TokenType type = TOK_ERROR;
     int row;
     int col;
 
-    bool owns_value = false;
-
-    union {
+    union{
         const char* value;
         unsigned long long int_value;
         float float32_value;
         double float64_value;
 
-        struct {
+        struct{
             unsigned long long count;
             unsigned char* data;
         } string_value;

@@ -75,7 +75,7 @@ main :: () {
     printf("h=%d\n",h);
 
     scopedint := 5.9;
-    scopedint = 21;
+    scopedint = 2;
     printf("scopedint=%f\n",scopedint);
 
     zeroChild: int = 0;

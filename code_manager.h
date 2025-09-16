@@ -19,7 +19,7 @@ struct Ast_Binary;
 struct Ast_If;
 
 struct CM_Symbol {
-    std::string name;
+    const char *name;
     Ast_Declaration* decl = nullptr;
     Ast_Type_Definition* type = nullptr; // explicit or inferred
     bool initialized = false;
@@ -36,6 +36,8 @@ struct CodeManager
     CodeManager(Pool* pool);
 
     int count_errors = 0;
+
+    char *pool_strdup(Pool *pool, const char* str);
 
     void init();
     int get_count_errors();

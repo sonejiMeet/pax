@@ -79,9 +79,9 @@ struct Ast {
 
 struct Ast_Statement : public Ast {
     Ast_Statement(Pool* = nullptr) { type = AST_STATEMENT; }
-    struct Ast_Type_Definition *type_definition = nullptr;
-    struct Ast_Expression *expression = nullptr;
-    struct Ast_Block *block = nullptr;
+    Ast_Type_Definition *type_definition = nullptr;
+    Ast_Expression *expression = nullptr;
+    Ast_Block *block = nullptr;
 };
 
 struct Ast_Expression : public Ast {

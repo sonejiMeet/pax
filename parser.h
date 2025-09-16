@@ -4,7 +4,8 @@
 
 #include "pool.h"
 
-struct Parser {
+struct Parser
+{
     Lexer *lexer;
 
     Pool *pool;
@@ -14,18 +15,16 @@ struct Parser {
 
     Parser(Lexer *l, Pool *pool);
 
-    void parseError(const std::string &message);
-    void reportError(const std::string &message);
-    void expect(TokenType expectedType, const std::string &errorMessage);
-    void Expect(TokenType expectedType, const std::string &errorMessage);
-
-    void logDebug(const std::string &message, const Token *token) const;
     void advance();
+
+    void parseError(const char *message);
+
+    void expect(TokenType expectedType, const char *errorMessage);
+    void Expect(TokenType expectedType, const char *errorMessage);
 
     void synchronize();
     Ast_Block *parseProgram();
 
-private:
     Ast_Expression *parseFactor();
     Ast_Expression *parseTerm();
     Ast_Expression *parseExpression();
