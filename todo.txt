@@ -3,6 +3,7 @@
 
         to be FIXed
 
+clean up port to linux code.
 
 reduce unnesessary allocation in our pool. peekNextToken() in lexer.cpp we could just pop the peeked token from our POOL after we check Token type and same for advance() in parser.cpp calls nextToken which obviously pushes the token into our pool.
 
