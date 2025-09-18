@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>   // uint8_t, uint64_t, etc.
+#include <cstddef>
 
 int isNumeric(char c);
 int isAlpha(char c);

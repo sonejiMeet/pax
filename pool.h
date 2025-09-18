@@ -4,20 +4,35 @@
 #include <cstring>
 #include <cassert>
 
+#ifdef _WIN32
+    #ifdef _DEBUG
+    #define malloc(s) _malloc_dbg(s, _NORMAL_BLOCK, __FILE__, __LINE__)
+    #define free(p) _free_dbg(p, _NORMAL_BLOCK)
+    #endif
+#elif __linux__
+    #include <cstdint>
+
+#endif
+
 #ifdef _DEBUG
 extern long totalNbyte;
 extern long long total_count;
 extern long long total_capacity;
 #endif
 
-#ifdef _DEBUG
-#define malloc(s) _malloc_dbg(s, _NORMAL_BLOCK, __FILE__, __LINE__)
-#define free(p) _free_dbg(p, _NORMAL_BLOCK)
-#endif
+
 
 const size_t POOL_BUCKET_SIZE_DEFAULT = 65536; // 64Kb
 
 struct Pool;
+
+inline void pool_init(Pool *pool);
+inline void *pool_alloc(Pool *pool, size_t size);
+inline void ensure_memory_exists(Pool *pool, size_t size);
+inline void resize_blocks(Pool *pool, size_t block_size);
+inline void cycle_new_block(Pool *pool);
+inline void pool_reset(Pool *pool);
+inline void pool_release(Pool *pool);
 
 template<typename T>
 struct Array
@@ -152,16 +167,6 @@ struct Pool {
     void * (*block_allocator)(int, size_t, size_t, void*, void*, int) = nullptr;
     void *block_allocator_data = nullptr;
 };
-
-
-inline void pool_init(Pool *pool);
-inline void *pool_alloc(Pool *pool, size_t size);
-inline void ensure_memory_exists(Pool *pool, size_t size);
-inline void resize_blocks(Pool *pool, size_t block_size);
-inline void cycle_new_block(Pool *pool);
-inline void pool_reset(Pool *pool);
-inline void pool_release(Pool *pool);
-
 
 inline void pool_init(Pool *pool) {
     pool->current_memblock = nullptr;

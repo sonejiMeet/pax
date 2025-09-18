@@ -288,7 +288,12 @@ void emitBlock(FILE* out, Ast_Block* block, int indent)
 void generate_cpp_code(const char* filename, Ast_Block* program)
 {
     FILE* out = nullptr;
+
+#ifdef _WIN32
     fopen_s(&out, filename, "w");
+#elif __linux
+    out = fopen64(filename, "w");
+#endif
     if (!out) {
         printf("Failed to open file: %s\n", filename);
         return;

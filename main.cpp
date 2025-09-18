@@ -1,6 +1,13 @@
-#ifdef _DEBUG
-#define _CRTDBG_MAP_ALLOC // for mem leaks
-#include <crtdbg.h>
+#ifdef _WIN32
+#include <windows.h>
+    #ifdef _DEBUG
+        #define _CRTDBG_MAP_ALLOC // for mem leaks
+        #include <crtdbg.h>
+
+        #define malloc(s) _malloc_dbg(s, _NORMAL_BLOCK, __FILE__, __LINE__)
+        #define free(p) _free_dbg(p, _NORMAL_BLOCK)
+    #endif
+ 
 #endif
 
 #include "token.h"
@@ -13,13 +20,8 @@
 #include "pool.h"
 
 #include <cstdlib>
-#include <windows.h>
 #include <chrono>
 
-#ifdef _DEBUG
-#define malloc(s) _malloc_dbg(s, _NORMAL_BLOCK, __FILE__, __LINE__)
-#define free(p) _free_dbg(p, _NORMAL_BLOCK)
-#endif
 
   //#define PRINT_LEX
 
@@ -58,15 +60,16 @@ void* default_allocator(int mode, size_t size, size_t old_size,
 
 int main(int argc, char **args) {
 
+#ifdef _WIN32
 #ifdef _DEBUG
     _CrtSetDbgFlag ( _CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF ); // put it at start, when we want to exit(1) early. temporary!!!!!!
 
     //_CrtSetBreakAlloc(182);
-
+#endif
 #endif
 
     if (argc < 2) {
-        fprintf(stderr, "Usage: %s <file>\n", args[0]);
+        fprintf(stderr, "Usage: %s <file>.mylang\n", args[0]);
         return 1;
     }
 
@@ -108,14 +111,26 @@ int main(int argc, char **args) {
     }
 
     char baseName[256];
-    {
-        strncpy_s(baseName, args[1], sizeof(baseName));
-        baseName[sizeof(baseName)-1] = '\0';
-        char* dot = strrchr(baseName, '.');
+    char tempName[256];
+    
+    {   
+        #ifdef _WIN32
+            strncpy_s(baseName, args[1], sizeof(baseName));
+        #elif __linux__
+            strncpy(tempName, args[1], sizeof(tempName));
+        #endif
+        
+        // baseName[sizeof(baseName)-1] = '\0';
+        char* dot = strrchr(tempName, '.');
         if (dot != NULL) {
             *dot = '\0';
         }
-        snprintf(baseName, sizeof(baseName), "%s.cpp", baseName);
+
+        #ifdef _WIN32
+            snprintf(baseName, sizeof(baseName), "%s.cpp", baseName);
+        #elif __linux__
+            snprintf(baseName, sizeof(baseName), "%s.cpp", tempName);
+        #endif
     }
 
     auto end1 = std::chrono::high_resolution_clock::now();
@@ -135,13 +150,22 @@ int main(int argc, char **args) {
 
     {
         auto start2 = std::chrono::high_resolution_clock::now();
-        char command[256];
-        snprintf(command, sizeof(command), "cl.exe /Od /EHsc /nologo %s", baseName);
-        printf("Running C compiler: %s\n", command);
+#ifdef _WIN32
+    char command[256];
+    snprintf(command, sizeof(command), "cl.exe /Od /EHsc /nologo %s", baseName);
+    printf("Running C compiler: %s\n", command);
 
-#ifndef _DEBUG // temporary!!!!
-        runCompiler(command);
+    #ifndef _DEBUG // temporary!!!!
+            runCompiler(command);
+    #endif
+
+#elif __linux__
+    char command[256];
+    snprintf(command, sizeof(command), "g++ -o %s %s", tempName, baseName);
+    printf("Running C compiler: %s\n", command);
+    system(command);
 #endif
+
         auto end2 = std::chrono::high_resolution_clock::now();
         std::chrono::duration<double> elapsed2 = end2 - start2;
         printf("\n\t -Time in c compiler: %.6f seconds\n", elapsed2.count());
@@ -157,7 +181,6 @@ int main(int argc, char **args) {
     printf("\nTotal Time: %.6f seconds\n", elapsed.count());
     printf("DONE. exiting..\n\n");
 
-
 #ifdef _DEBUG
     _CrtMemState state;
     _CrtMemCheckpoint(&state); // snapshot current memory state
@@ -170,6 +193,7 @@ int main(int argc, char **args) {
     return 0;
 }
 
+#ifdef _WIN32
 void runCompiler(char * command){
 
     STARTUPINFOA si;
@@ -191,6 +215,7 @@ void runCompiler(char * command){
     CloseHandle(pi.hProcess);
     CloseHandle(pi.hThread);
 }
+#endif
 
 inline void printLex(FileBuffer buf, Pool *pool){
 

@@ -19,7 +19,11 @@ FileBuffer read_entire_file(const char *path) {
     FileBuffer result;
 
     FILE *f = NULL;
+#ifdef _WIN32
     fopen_s(&f, path, "rb");
+#elif __linux
+    f = fopen64(path, "rb");
+#endif
     if (!f) {
         fprintf(stderr, "Could not open file: %s\n", path);
         return result;
