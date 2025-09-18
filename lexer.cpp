@@ -1,7 +1,9 @@
 #include "lexer.h"
 
-#define malloc(s) _malloc_dbg(s, _NORMAL_BLOCK, __FILE__, __LINE__)
-#define free(p) _free_dbg(p, _NORMAL_BLOCK)
+#ifdef _WIN32
+    #define malloc(s) _malloc_dbg(s, _NORMAL_BLOCK, __FILE__, __LINE__)
+    #define free(p) _free_dbg(p, _NORMAL_BLOCK)
+#endif
 
 #define MAX_NUM_STR_LEN 64
 
