@@ -75,7 +75,7 @@ inline const char* tokenTypeToString(TokenType type) {
         case TOK_MAIN_ENTRY_POINT: return "TOK_MAIN_ENTRY_POINT";
 
         case TOK_TYPE_INT: return "TOK_TYPE_INT";
-        case TOK_TYPE_FLOAT: return "TOK_TYPE_FLOAT,";
+        case TOK_TYPE_FLOAT: return "TOK_TYPE_FLOAT";
         case TOK_TYPE_STRING: return "TOK_TYPE_STRING";
         case TOK_TYPE_BOOL: return "TOK_TYPE_BOOL";
 
