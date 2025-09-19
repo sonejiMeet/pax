@@ -1,3 +1,12 @@
+#include "token.h"
+#include "parser.h"
+#include "ast_printer.h"
+#include "code_manager.h"
+#include "c_converter.h"
+#include "tools.h"
+
+#include "pool.h"
+
 #ifdef _WIN32
 #include <windows.h>
     #ifdef _DEBUG
@@ -7,17 +16,9 @@
         #define malloc(s) _malloc_dbg(s, _NORMAL_BLOCK, __FILE__, __LINE__)
         #define free(p) _free_dbg(p, _NORMAL_BLOCK)
     #endif
- 
+
 #endif
 
-#include "token.h"
-#include "parser.h"
-#include "ast_printer.h"
-#include "code_manager.h"
-#include "c_converter.h"
-#include "tools.h"
-
-#include "pool.h"
 
 #include <cstdlib>
 #include <chrono>
@@ -112,20 +113,25 @@ int main(int argc, char **args) {
 
     char baseName[256];
     char tempName[256];
-    
-    {   
+
+    {
         #ifdef _WIN32
             strncpy_s(baseName, args[1], sizeof(baseName));
         #elif __linux__
             strncpy(tempName, args[1], sizeof(tempName));
         #endif
-        
+
         // baseName[sizeof(baseName)-1] = '\0';
+        #ifdef _WIN32
+        char* dot = strrchr(baseName, '.');
+        #elif __linux__
         char* dot = strrchr(tempName, '.');
+        #endif
         if (dot != NULL) {
             *dot = '\0';
         }
 
+            printf("basename is = %s\n", baseName);
         #ifdef _WIN32
             snprintf(baseName, sizeof(baseName), "%s.cpp", baseName);
         #elif __linux__
