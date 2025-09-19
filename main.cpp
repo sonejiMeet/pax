@@ -35,7 +35,6 @@ long long total_capacity = 0;
 inline void printLex(FileBuffer buf, Pool *pool);
 void runCompiler(char * command);
 
-
 void* default_allocator(int mode, size_t size, size_t old_size,
                         void* old_memory, void* allocator_data, int options) {
     switch(mode) {
@@ -111,32 +110,23 @@ int main(int argc, char **args) {
         }
     }
 
-    char baseName[256];
+    char baseName[256]; // temporary?
     char tempName[256];
 
     {
         #ifdef _WIN32
-            strncpy_s(baseName, args[1], sizeof(baseName));
+            strncpy_s(tempName, args[1], sizeof(tempName));
         #elif __linux__
             strncpy(tempName, args[1], sizeof(tempName));
         #endif
 
-        // baseName[sizeof(baseName)-1] = '\0';
-        #ifdef _WIN32
-        char* dot = strrchr(baseName, '.');
-        #elif __linux__
         char* dot = strrchr(tempName, '.');
-        #endif
         if (dot != NULL) {
             *dot = '\0';
         }
 
-            printf("basename is = %s\n", baseName);
-        #ifdef _WIN32
-            snprintf(baseName, sizeof(baseName), "%s.cpp", baseName);
-        #elif __linux__
-            snprintf(baseName, sizeof(baseName), "%s.cpp", tempName);
-        #endif
+        snprintf(baseName, sizeof(baseName), "%s.cpp", tempName);
+
     }
 
     auto end1 = std::chrono::high_resolution_clock::now();
