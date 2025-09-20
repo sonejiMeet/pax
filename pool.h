@@ -15,14 +15,15 @@
 #endif
 
 #ifdef _DEBUG
-extern long totalNbyte;
-extern long long total_count;
-extern long long total_capacity;
+extern int totalNbyte;
+extern int total_count;
+extern int total_capacity;
 #endif
 
 
 
-const size_t POOL_BUCKET_SIZE_DEFAULT = 65536; // 64Kb
+// const size_t POOL_BUCKET_SIZE_DEFAULT = 65536; // 64 KiB
+const size_t POOL_BUCKET_SIZE_DEFAULT = 128*1024;
 
 struct Pool;
 
@@ -154,7 +155,7 @@ enum Allocator_Mode
 
 struct Pool {
     size_t memblock_size = POOL_BUCKET_SIZE_DEFAULT;
-    size_t alignment = 8;
+    size_t alignment = 1;
 
     BlockList unused_memblocks;
     BlockList used_memblocks;
@@ -189,9 +190,9 @@ inline void *pool_alloc(Pool *pool, size_t size) {
     pool->bytes_left -= size;
 
 #ifdef _DEBUG
-    totalNbyte += size;
+    totalNbyte += (int) size;
     printf("[POOL_ALLOC] %zu bytes %p\n", size, retval);
-    printf("[POOL_ALLOC TOTAL SO FAR] %ld bytes\n", totalNbyte);
+    printf("[POOL_ALLOC TOTAL SO FAR] %d bytes, %f KiB\n", totalNbyte, (float)totalNbyte/1024);
 #endif
 
     return retval;
@@ -243,7 +244,6 @@ inline void cycle_new_block(Pool *pool)
         assert(pool->block_allocator != nullptr);
         new_block = pool->block_allocator(ALLOCATE, pool->memblock_size, 0, nullptr, pool->block_allocator_data, 0);
 
-        // total_count += 1;
 #ifdef _DEBUG
         printf("allocated NEW BLOCK in cycle_new_block\n");
 #endif
