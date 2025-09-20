@@ -27,10 +27,9 @@
   //#define PRINT_LEX
 
 #ifdef _DEBUG
-long totalNbyte = 0;
-long long total_count = 0;
-long long total_capacity = 0;
+int totalNbyte = 0;
 #endif
+int total_malloc = 0;
 
 inline void printLex(FileBuffer buf, Pool *pool);
 void runCompiler(char * command);
@@ -40,6 +39,7 @@ void* default_allocator(int mode, size_t size, size_t old_size,
     switch(mode) {
         case ALLOCATE: {
             void* ptr = calloc(size, 1);
+            total_malloc += 1;
             assert(ptr && "Memeory allocation failed");
             return ptr;
         }
@@ -69,7 +69,7 @@ int main(int argc, char **args) {
 #endif
 
     if (argc < 2) {
-        fprintf(stderr, "Usage: %s <file>.mylang\n", args[0]);
+        printf("Usage: %s <file>.mylang\n", args[0]);
         return 1;
     }
 
@@ -84,17 +84,15 @@ int main(int argc, char **args) {
 
 #ifdef PRINT_LEX
     printLex(buf, &pool);
-#endif // defined PRINT_LEX
 
-
-#ifndef PRINT_LEX
+#else
 
     Lexer lexer((const char*)buf.data, buf.size, &pool);
 
     Parser parser(&lexer, &pool);
 
     Ast_Block* ast = parser.parseProgram();
-     // printAst(ast);
+    // printAst(ast);
 
     free(buf.data);
 
@@ -144,6 +142,8 @@ int main(int argc, char **args) {
         printf("\n\t -Time to ouput c code: %.6f seconds\n\n", elapsed3.count());
     }
 
+
+
     {
         auto start2 = std::chrono::high_resolution_clock::now();
 #ifdef _WIN32
@@ -168,7 +168,6 @@ int main(int argc, char **args) {
     }
 
 #endif // not defined PRINT_LEX
-
     pool_release(&pool);
 
     auto end = std::chrono::high_resolution_clock::now();
@@ -185,7 +184,7 @@ int main(int argc, char **args) {
     _CrtSetReportMode(_CRT_WARN, _CRTDBG_MODE_DEBUG);
 #endif
 
-    // printf("\n\n\nTotal mallocs called %llu\n\n", total_count);
+    printf("\nTotal mallocs called %d\n\n", total_malloc);
     return 0;
 }
 
