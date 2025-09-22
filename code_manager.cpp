@@ -75,7 +75,6 @@ bool CodeManager::declare_variable(Ast_Declaration* decl)
 
     CM_Symbol sym;
     sym.name = pool_strdup(ast_pool, decl->identifier->name);
-    // sym.name = decl->identifier->name;
     sym.decl = decl;
     sym.type = decl->declared_type;
     sym.initialized = (decl->initializer != nullptr);
@@ -405,31 +404,28 @@ Ast_Type_Definition* CodeManager::infer_types_expr(Ast_Expression** expr_ptr) {
 
             Ast_Type_Definition* resultType = AST_NEW(ast_pool, Ast_Type_Definition);
             switch (u->op) {
-            case UNARY_DEREFERENCE:
+            case UNARY_DEREFERENCE: {
                 if (!operandType->pointed_to_type) {
                     report_error(u->line_number, u->character_number,
                         "Cannot dereference non-pointer type");
                     return nullptr;
                 }
-                resultType->builtin_type = TYPE_UNKNOWN;
-                resultType->pointed_to_type = operandType->pointed_to_type;
-                break;
-
+                Ast_Type_Definition* resultType = operandType->pointed_to_type;
+                expr->inferred_type = resultType;
+                return resultType;
+            }
             case UNARY_ADDRESS_OF:
-            case UNARY_REFERENCE:
                 resultType->builtin_type = TYPE_UNKNOWN;
                 resultType->pointed_to_type = operandType;
                 break;
-
-            case UNARY_NEGATE:
-            case UNARY_NOT:
-                // type same as operand
-                resultType = operandType;
-                break;
+            // case UNARY_NEGATE:
+            // case UNARY_NOT:
+            //     // type same as operand
+            //     resultType = operandType;
+            //     break;
 
             default:
-                report_error(u->line_number, u->character_number,
-                    "Unknown unary operator");
+                report_error(u->line_number, u->character_number, "Unknown unary operator");
                 return nullptr;
             }
 
@@ -513,14 +509,15 @@ Ast_Type_Definition* CodeManager::infer_types_expr(Ast_Expression** expr_ptr) {
                                 report_error(lhs_unary->line_number, lhs_unary->character_number,
                                              "Invalid dereference: LHS is not a pointer");
                                 return nullptr;
-                            }
+                            } else {
 
-                            lhsType = pointerType->pointed_to_type;
+                                lhsType = pointerType->pointed_to_type;
 
-                            // Check that the inner type matches RHS
-                            if (!check_that_types_match(lhsType, rhsType)) {
-                                report_error(lhs_unary->line_number, lhs_unary->character_number,
-                                             "Type mismatch: cannot assign value to dereferenced pointer");
+                                // Check that the inner type matches RHS
+                                if (!check_that_types_match(lhsType, rhsType)) {
+                                    report_error(lhs_unary->line_number, lhs_unary->character_number,
+                                                 "Type mismatch: cannot assign value to dereferenced pointer");
+                                }
                             }
                         }
                         else {
@@ -551,7 +548,6 @@ Ast_Type_Definition* CodeManager::infer_types_expr(Ast_Expression** expr_ptr) {
             Ast_Procedure_Call_Expression* call = static_cast<Ast_Procedure_Call_Expression*>(expr);
             // infer argument types
             if (call->arguments) {
-                // for (auto* arg : call->arguments->arguments) {
                 for (int i = 0; i < call->arguments->arguments.count; ++i) {
                     // Ast_Expression* p = arg;
                     Ast_Expression* p = call->arguments->arguments.data[i];
@@ -696,7 +692,7 @@ bool CodeManager::check_that_types_match(Ast_Type_Definition* wanted, Ast_Type_D
         return check_that_types_match(wanted->element_type, have->element_type);
     }
 
-    // --- Handle Pointers / References ---
+    // --- Handle Pointers ---
     if (wanted->pointed_to_type || have->pointed_to_type) {
         // Both must be pointers/references
         if (!wanted->pointed_to_type || !have->pointed_to_type)

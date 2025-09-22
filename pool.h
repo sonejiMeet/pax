@@ -104,12 +104,15 @@ inline void Array<T>::release()
 
 
 // we need to keep track of used, unused, obsolete blocks and need to use malloc seperately where we push starting positions of these blocks
+
+// update this to make it simpler!!!!!!!!!!!!!!
 struct BlockList
 {
     void **data = nullptr;
     long count = 0;
     long capacity = 0;
 };
+
 
 inline void blocklist_push(BlockList *list, void *value)
 {
