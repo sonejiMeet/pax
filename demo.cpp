@@ -20,6 +20,9 @@ void GENERATED_MAIN(){
         int * ligma = &bruh;
         (/*Dereference*/ * ligma = 42);
         int what = /*Dereference*/ * ligma;
+        int * my_pointer = &bruh;
+        (/*Dereference*/ * my_pointer = 47);
+        printf("bruh = %d\n",bruh);
     }
     {
         int aint = 5;
