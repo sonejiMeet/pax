@@ -509,16 +509,26 @@ Ast_Type_Definition* CodeManager::infer_types_expr(Ast_Expression** expr_ptr) {
                                 report_error(lhs_unary->line_number, lhs_unary->character_number,
                                              "Invalid dereference: LHS is not a pointer");
                                 return nullptr;
-                            } else {
+                            }
 
-                                lhsType = pointerType->pointed_to_type;
-
-                                // Check that the inner type matches RHS
-                                if (!check_that_types_match(lhsType, rhsType)) {
+                            if (Ast_Ident* pointer_ident = dynamic_cast<Ast_Ident*>(lhs_unary->operand)) {
+                                CM_Symbol* pointer_sym = lookup_symbol(pointer_ident->name);
+                                if (pointer_sym && !pointer_sym->initialized) {
                                     report_error(lhs_unary->line_number, lhs_unary->character_number,
-                                                 "Type mismatch: cannot assign value to dereferenced pointer");
+                                                 "Cannot dereference uninitialized pointer '%s'",
+                                                 pointer_ident->name ? pointer_ident->name : "");
+                                    return nullptr;
                                 }
                             }
+
+                            lhsType = pointerType->pointed_to_type;
+
+                            // Check that the inner type matches RHS
+                            if (!check_that_types_match(lhsType, rhsType)) {
+                                report_error(lhs_unary->line_number, lhs_unary->character_number,
+                                             "Type mismatch: cannot assign value to dereferenced pointer");
+                            }
+
                         }
                         else {
                             report_error(lhs_unary->line_number, lhs_unary->character_number,

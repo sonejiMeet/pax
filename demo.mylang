@@ -29,13 +29,16 @@ structName :: struct {
 
 main :: () {
 
-    { // simple example of using pointers
+    { // simple example of how to use pointers
         bruh: int = 10;
 
         ligma: ^int = &bruh;   // pointer to a
         *ligma = 42;        // store 42 at a
 
         what: int = *ligma;    // read value from p
+        my_pointer: ^int;
+        *my_pointer = 47;
+        printf("bruh = %d\n", bruh);
     }
 
     {  // more complex example
