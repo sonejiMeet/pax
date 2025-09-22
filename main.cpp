@@ -176,12 +176,14 @@ int main(int argc, char **args) {
     printf("\nTotal Time: %.6f seconds\n", elapsed.count());
     printf("DONE. exiting..\n\n");
 
+#ifdef _WIN32
 #ifdef _DEBUG
     _CrtMemState state;
     _CrtMemCheckpoint(&state); // snapshot current memory state
     _CrtMemDumpStatistics(&state); // print summary
     _CrtMemDumpAllObjectsSince(&state); // detailed list of allocations
     _CrtSetReportMode(_CRT_WARN, _CRTDBG_MODE_DEBUG);
+#endif
 #endif
 
     printf("\nTotal mallocs called %d\n\n", total_malloc);
