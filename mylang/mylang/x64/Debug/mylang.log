@@ -1,22 +1,7 @@
 ﻿  c_converter.cpp
-C:\mylang\pool.h(193,19): warning C4267: '+=': conversion from 'size_t' to 'long', possible loss of data
-  (compiling source file '../c_converter.cpp')
-  
   code_manager.cpp
-C:\mylang\pool.h(193,19): warning C4267: '+=': conversion from 'size_t' to 'long', possible loss of data
-  (compiling source file '../code_manager.cpp')
-  
   lexer.cpp
-C:\mylang\pool.h(193,19): warning C4267: '+=': conversion from 'size_t' to 'long', possible loss of data
-  (compiling source file '../lexer.cpp')
-  
   main.cpp
-C:\mylang\pool.h(193,19): warning C4267: '+=': conversion from 'size_t' to 'long', possible loss of data
-  (compiling source file '../main.cpp')
-  
   parser.cpp
-C:\mylang\pool.h(193,19): warning C4267: '+=': conversion from 'size_t' to 'long', possible loss of data
-  (compiling source file '../parser.cpp')
-  
   Generating Code...
   mylang.vcxproj -> C:\mylang\mylang\x64\Debug\mylang.exe

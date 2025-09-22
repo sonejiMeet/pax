@@ -15,25 +15,33 @@ int idk = 1;
 bool boolean = true;
 
 void GENERATED_MAIN(){
-    int aint = 5;
-    (aint = 10);
-    printf("aint = %d\n",aint);
-    printf("aint = %p\n",&aint);
-    int * pInt = &aint;
-    printf("pInt = %p\n",pInt);
-    int * p_uninit_int = pInt;
-    printf("p_uninit_int = %d\n",/*Dereference*/ * p_uninit_int);
-    (/*Dereference*/ * p_uninit_int = 20);
-    printf("p_uninit_int = %d\n",/*Dereference*/ * p_uninit_int);
-    printf("aint = %d\n",aint);
-    int * rint = &aint;
-    printf("rint = %p\n",rint);
-    (/*Dereference*/ * rint = 30);
-    printf("aint = %d\n",aint);
-    (/*Dereference*/ * p_uninit_int = 40);
-    printf("p_uninit_int = %d\n",/*Dereference*/ * p_uninit_int);
-    printf("aint = %d\n",aint);
-    int arrStaticInt[4];
+    {
+        int bruh = 10;
+        int * ligma = &bruh;
+        (/*Dereference*/ * ligma = 42);
+        int what = /*Dereference*/ * ligma;
+    }
+    {
+        int aint = 5;
+        (aint = 10);
+        printf("aint = %d\n",aint);
+        printf("aint = %p\n",&aint);
+        int * pInt = &aint;
+        printf("pInt = %p\n",pInt);
+        int * p_uninit_int;
+        (p_uninit_int = pInt);
+        printf("p_uninit_int = %d\n",/*Dereference*/ * p_uninit_int);
+        (/*Dereference*/ * p_uninit_int = 20);
+        printf("p_uninit_int = %d\n",/*Dereference*/ * p_uninit_int);
+        printf("aint = %d\n",aint);
+        int * rint = &aint;
+        printf("rint = %p\n",rint);
+        (/*Dereference*/ * rint = 30);
+        printf("aint = %d\n",aint);
+        (/*Dereference*/ * p_uninit_int = 40);
+        printf("p_uninit_int = %d\n",/*Dereference*/ * p_uninit_int);
+        printf("aint = %d\n",aint);
+    }
     int v = 4;
     if((a != b)){
         float x = 2334.340088;

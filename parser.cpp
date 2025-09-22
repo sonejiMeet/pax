@@ -34,10 +34,7 @@ void Parser::advance() {
 }
 
 void Parser::parseError(const char *message) {
-
     printf("\nParsing Error[%d:%d] %s", current->row, current->col, message);
-    // std::cout << "\n" << ": Parsing Error" <<  "[" << current->row << ":" << current->col << "] "  << message
-              // << tokenTypeToString(current->type) << ")";
 
 }
 
@@ -55,10 +52,7 @@ void Parser::expect(TokenType expectedType, const char *errorMessage)
 void Parser::Expect(TokenType expectedType, const char *errorMessage)
 {
     if (current->type != expectedType) {
-
-    printf("\nParsing Error[%d:%d] %s", previous->row, previous->col, errorMessage);
-
-    // std::cout << "\n" << "Parsing Error" <<  "[" << previous->row << ":" << previous->col << "] "  << errorMessage;
+        printf("\nParsing Error[%d:%d] %s", previous->row, previous->col, errorMessage);
 
         exitSuccess = false;
         synchronize();
@@ -88,7 +82,7 @@ void Parser::synchronize()
 // in an expression
 Ast_Expression *Parser::parseFactor()
 {
-    // Handle unary operators first: *, ^, &
+    // Handle unary operators first: *, &
     if (current->type == TOK_STAR) { // dereference
         advance();
         Ast_Unary *node = AST_NEW(pool,Ast_Unary);
@@ -96,17 +90,10 @@ Ast_Expression *Parser::parseFactor()
         node->operand = parseFactor();
         return node;
     }
-    else if (current->type == TOK_CARET) { // address-of
+    else if (current->type == TOK_AMPERSAND) { // address of
         advance();
         Ast_Unary *node = AST_NEW(pool,Ast_Unary);
         node->op = UNARY_ADDRESS_OF;
-        node->operand = parseFactor();
-        return node;
-    }
-    else if (current->type == TOK_AMPERSAND) { // reference
-        advance();
-        Ast_Unary *node = AST_NEW(pool,Ast_Unary);
-        node->op = UNARY_REFERENCE;
         node->operand = parseFactor();
         return node;
     }
@@ -227,30 +214,18 @@ Ast_Type_Definition *Parser::parseTypeSpecifier() {
     Ast_Type_Definition *currentType = nullptr;
 
     while (true) {
-        if (current->type == TOK_CARET || current->type == TOK_STAR) {
-            // Pointer
-            Ast_Type_Definition *pointerType = AST_NEW(pool,Ast_Type_Definition);
+
+        if (current->type == TOK_CARET) {
+            // Pointer type (^int, ^^int, etc.)
+            Ast_Type_Definition *pointerType = AST_NEW(pool, Ast_Type_Definition);
             pointerType->pointed_to_type = nullptr;
-            pointerType->builtin_type = TYPE_UNKNOWN; // in case its pointer symbol, they dont have a builtin type
+            pointerType->builtin_type = TYPE_UNKNOWN;
 
             if (currentType) {
                 pointerType->pointed_to_type = currentType;
             }
 
             currentType = pointerType;
-            advance();
-        }
-        else if (current->type == TOK_AMPERSAND) {
-            // Reference
-            Ast_Type_Definition *refType = AST_NEW(pool,Ast_Type_Definition);
-            refType->pointed_to_type = nullptr;
-            refType->builtin_type = TYPE_UNKNOWN;
-
-            if (currentType) {
-                refType->pointed_to_type = currentType;
-            }
-
-            currentType = refType;
             advance();
         }
         else if (current->type == TOK_LBRACKET) {

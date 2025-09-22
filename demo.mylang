@@ -17,45 +17,74 @@ something := true;
 /* multiline
   comment */
 
-// func :: () -> {
+/*
+func :: () -> {
 
-// }
+}
 
-// structName :: struct {
+structName :: struct {
 
-// }
+}
+*/
 
 main :: () {
-    aint: int = 5;
-    aint = 10;
-    printf("aint = %d\n", aint);
-    printf("aint = %p\n", ^aint);
 
-    pInt : ^int = ^aint; // ^int, val = addr of aint
-    printf("pInt = %p\n", pInt); // should be equal to addr of aint
+    { // simple example of using pointers
+        bruh: int = 10;
 
-    p_uninit_int := pInt; //
-    // p_uninit_int = pInt; // ^int, val of pInt
-    printf("p_uninit_int = %d\n", *p_uninit_int);
+        ligma: ^int = &bruh;   // pointer to a
+        *ligma = 42;        // store 42 at a
 
-    *p_uninit_int = 20; // dereference, so now aint = 20
-    printf("p_uninit_int = %d\n", *p_uninit_int);
-    printf("aint = %d\n", aint);
+        what: int = *ligma;    // read value from p
+    }
 
-    rint: &int = &aint; // reference to int, value = addr of a
-    printf("rint = %p\n", rint);
+    {  // more complex example
+        aint: int = 5;
+        aint = 10;
+        printf("aint = %d\n", aint);
+        printf("aint = %p\n", &aint);
 
-    *rint = 30;      // reference , set value of referenced variable, so value of aint = 30
-    printf("aint = %d\n", aint);
+        pInt : ^int = &aint; // ^int, val = addr of aint
+        printf("pInt = %p\n", pInt); // should be equal to addr of aint
+
+        // p_uninit_int := pInt; //
+        p_uninit_int : ^int;
+        p_uninit_int = pInt; // ^int, val of pInt
+        printf("p_uninit_int = %d\n", *p_uninit_int);
+
+        *p_uninit_int = 20; // dereference, so now aint = 20
+        printf("p_uninit_int = %d\n", *p_uninit_int);
+        printf("aint = %d\n", aint);
+
+        rint: ^int = &aint; // reference to int, value = addr of a
+        printf("rint = %p\n", rint);
+
+        *rint = 30;      // reference , set value of referenced variable, so value of aint = 30
+        printf("aint = %d\n", aint);
 
 
-    *p_uninit_int = 40;
-    printf("p_uninit_int = %d\n", *p_uninit_int);
-    printf("aint = %d\n", aint);
+        *p_uninit_int = 40;
+        printf("p_uninit_int = %d\n", *p_uninit_int);
+        printf("aint = %d\n", aint);
+    }
 
-    // arrInt: []int;
-    arrStaticInt: [4]int;
-    // printf("arrStaticInt[0]", arrStaticInt[0]); // not working
+    // arrStaticInt: [4]int;
+    // printf("arrStaticInt[0]", arrStaticInt[0]); // not working yet
+
+    // { // test case that should fail
+    //     fail : int = 0;
+
+    //     some : ^int = &fail;
+    //     *some = 3.14;
+
+    //     Fail_1: int = some;
+
+    //     Fail_2: ^int = fail;
+
+    //     Fail_3: int = *fail;
+
+    // }
+
     v : int = 4;
     if (a != b) {
         x : float = 2334.34;
@@ -73,7 +102,6 @@ main :: () {
     printf("d=%d\n",d);
     printf("e=%f\n",e);
     printf("h=%d\n",h);
-
 
     scopedint := 5.9;
     scopedint = 2;
