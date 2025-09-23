@@ -22,7 +22,7 @@ void emitExpression(FILE* out, Ast_Expression* expr, int indent)
             switch (lit->value_type) {
                 case LITERAL_NUMBER: fprintf(out, "%lld", lit->integer_value); break;
                 case LITERAL_FLOAT:  fprintf(out, "%f", lit->float_value); break;
-                case LITERAL_STRING: fprintf(out, "\"%s\"", lit->string_value ? lit->string_value : ""); break;
+                case LITERAL_STRING: fprintf(out, "\"%s\"", lit->string_value); break;
                 case LITERAL_TRUE: {
                     char *s = (char *)"true";
                     fprintf(out, "%s",s);
@@ -42,45 +42,37 @@ void emitExpression(FILE* out, Ast_Expression* expr, int indent)
 
             switch (u->op) {
                 case UNARY_ADDRESS_OF:
-                    // ^x -> &x
-                    fprintf(out, "&");
+                    fprintf(out, "/*ADDRESS_OF*/ &");
                     emitExpression(out, u->operand, indent);
                     break;
 
                 case UNARY_DEREFERENCE:
-                    // *x -> *x
-                    fprintf(out, "/*Dereference*/ * ");
+                    fprintf(out, "/*DEREF*/ * ");
                     emitExpression(out, u->operand, indent);
                     break;
 
-                case UNARY_REFERENCE:
-                    // &x -> just output operand (handled as pointer in declaration)
-                    emitExpression(out, u->operand, indent);
-                    break;
+                // case UNARY_NEGATE:
+                //     fprintf(out, "-");
+                //     emitExpression(out, u->operand, indent);
+                //     break;
 
-                case UNARY_NEGATE:
-                    fprintf(out, "-");
-                    emitExpression(out, u->operand, indent);
-                    break;
-
-                case UNARY_NOT:
-                    fprintf(out, "!");
-                    emitExpression(out, u->operand, indent);
-                    break;
+                // case UNARY_NOT:
+                //     fprintf(out, "!");
+                //     emitExpression(out, u->operand, indent);
+                //     break;
             }
             break;
         }
 
         case AST_IDENT: {
             auto* ident = static_cast<Ast_Ident*>(expr);
-            //fprintf(out, "%s", ident->name.c_str());
-            fprintf(out, "%s", ident->name ? ident->name : "");
+            fprintf(out, "%s", ident->name);
             break;
         }
 
         case AST_BINARY: {
             auto* bin = static_cast<Ast_Binary*>(expr);
-            fprintf(out, "("); // we will enclose binary expression in parenthesis to prove our precedence work correctly and we are not just copy pasting expression to c code
+            fprintf(out, "("); // we will enclose binary expression in parenthesis to prove our operator precedence does work correctly and we are not just copy pasting expressions to c code
             emitExpression(out, bin->lhs, indent);
             switch (bin->op) {
                 case BINOP_ADD: fprintf(out, " + "); break;
@@ -90,7 +82,7 @@ void emitExpression(FILE* out, Ast_Expression* expr, int indent)
                 case BINOP_EQ:  fprintf(out, " == "); break;
                 case BINOP_NEQ: fprintf(out, " != "); break;
                 case BINOP_ASSIGN: fprintf(out, " = "); break;
-                default: fprintf(out, " ? "); break;
+                default: fprintf(out, "/*BINOP OP ERROR*/"); break;
             }
             emitExpression(out, bin->rhs, indent);
             fprintf(out, ")");
@@ -99,10 +91,12 @@ void emitExpression(FILE* out, Ast_Expression* expr, int indent)
 
         case AST_PROCEDURE_CALL_EXPRESSION: {
             auto* call = static_cast<Ast_Procedure_Call_Expression*>(expr);
-            fprintf(out, "%s(", call->function->name ? call->function->name : "");
-            if (call->arguments) {
+            fprintf(out, "%s(", call->function->name);
+            if (call->arguments)
+            {
                 bool first = true;
-                    for (int i = 0; i < call->arguments->arguments.count; i++) {
+                for (int i = 0; i < call->arguments->arguments.count; i++)
+                {
                     Ast_Expression* arg = call->arguments->arguments.data[i];
 
                     if (!first) fprintf(out, ",");
@@ -130,24 +124,21 @@ void emitStatement(FILE* out, Ast_Statement* stmt, int indent)
             auto* decl = static_cast<Ast_Declaration*>(stmt);
             indentLine(out, indent);
 
-            // ----- 1. Build C type string -----
-            std::string type_str;
+            std::string type_str;   // Temporary, use pool_alloc
             std::string array_suffix;
             Ast_Type_Definition* type = decl->declared_type;
 
             if (!type) {
-                type_str = "UNKNOWN";
+                type_str = "UNKNOWN TYPE";
             } else {
                 Ast_Type_Definition* base_type = type;
                 int pointer_depth = 0;
 
-                // Walk down the type chain to find the base type
                 while (base_type->pointed_to_type) {
                     base_type = base_type->pointed_to_type;
                     pointer_depth++;
                 }
 
-                // Handle arrays
                 if (type->array_kind == ARRAY_STATIC && type->element_type) {
                     type_str = type->element_type->to_string();
                     array_suffix = "[" + std::to_string(type->static_array_size) + "]";
@@ -155,23 +146,16 @@ void emitStatement(FILE* out, Ast_Statement* stmt, int indent)
                     type_str = base_type->to_string();
                 }
 
-                // Add pointer layers for ^int, ^^int, etc.
+
                 for (int i = 0; i < pointer_depth; ++i) {
                     type_str += " *";
                 }
 
             }
 
-            // ----- 2. Emit variable name and type -----
-            fprintf(
-                out,
-                "%s %s%s",
-                type_str.c_str(),
-                decl->identifier->name ? decl->identifier->name : "",
-                array_suffix.c_str()
-            );
+            //  variable name and type
+            fprintf( out, "%s %s%s", type_str.c_str(), decl->identifier->name, array_suffix.c_str());
 
-            // ----- 3. Emit initializer if present -----
             if (decl->initializer) {
                 fprintf(out, " = ");
                 emitExpression(out, decl->initializer, indent);
@@ -191,13 +175,12 @@ void emitStatement(FILE* out, Ast_Statement* stmt, int indent)
             }
             else if (stmt->block) {
                 indentLine(out, indent);
-                // Scoped block inside statement
                 emitBlock(out, stmt->block, indent);
             }
-            else {
-                indentLine(out, indent);
-                fprintf(out, "; // empty statement\n");
-            }
+            // else { 
+            //     indentLine(out, indent);
+            //     fprintf(out, "/* Reached neither */\n");
+            // }
             break;
         }
 

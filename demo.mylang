@@ -30,18 +30,44 @@ structName :: struct {
 main :: () {
 
     { // simple example of how to use pointers
-        bruh: int = 10;
+        bruh: int = 333;
 
-        ligma: ^int = &bruh;   // pointer to a
-        *ligma = 42;        // store 42 at a
+        ligma: ^int = &bruh;   // reference of bruh
+        *ligma = 420;        // store 42 at the location that ligma points to
 
-        what: int = *ligma;    // read value from p
-        my_pointer: ^int;
-        *my_pointer = 47;
+        what: int = *ligma;    // dereference ligma (get value at address ligma points to)
+        printf("what = %d\n", what);
         printf("bruh = %d\n", bruh);
     }
 
+    { // pointer depths
+        printf("\n");
+        what: int = 999;
+        printf("what = %d\n", what);
+
+        ligma: ^int = &what;   // reference of bruh
+        *ligma = 68;        // store 42 at the location that ligma points to
+
+        what1: int = *ligma;    // dereference ligma (get value at address ligma points to)
+        printf("what1 = %d\n", what1);
+        printf("what = %d\n", what);
+
+        whatever : ^^int = &ligma;
+        **whatever = 82;
+        printf("what = %d\n", what);
+
+        whatever2 : ^^^int = &whatever;
+        ***whatever2 = **whatever;
+        printf("what = %d\n", what);
+
+        ***whatever2 = 96;
+        printf("what = %d\n", what);
+
+    }
+
     {  // more complex example
+        printf("\n");
+
         aint: int = 5;
         aint = 10;
         printf("aint = %d\n", aint);
@@ -62,7 +88,7 @@ main :: () {
         rint: ^int = &aint; // reference to int, value = addr of a
         printf("rint = %p\n", rint);
 
-        *rint = 30;      // reference , set value of referenced variable, so value of aint = 30
+        *rint = 30;      // dereference , so value of aint = 30
         printf("aint = %d\n", aint);
 
 
@@ -71,30 +97,38 @@ main :: () {
         printf("aint = %d\n", aint);
     }
 
-    // arrStaticInt: [4]int;
+    arrStaticInt: [4]int;
     // printf("arrStaticInt[0]", arrStaticInt[0]); // not working yet
 
-    // { // test case that should fail
-    //     fail : int = 0;
+/*
+    { // test cases that should fail
+        fail : int = 0;
 
-    //     some : ^int = &fail;
-    //     *some = 3.14;
+        some : ^int = &fail;
+        *some = 3.14; // fail because you can't store float number at ^int
 
-    //     Fail_1: int = some;
+        Fail_1: int = some;  // fail because type mismatch
 
-    //     Fail_2: ^int = fail;
+        Fail_2: ^int = fail;  // also type mismatch
 
-    //     Fail_3: int = *fail;
+        Fail_3: int = *fail; // cannot dereference a non pointer type
 
-    // }
+        my_pointer: ^int;
+        *my_pointer = 47;  // and cannot dereference uninitialized pointer
+
+
+    }
+*/
+    printf("\n");
 
     v : int = 4;
     if (a != b) {
         x : float = 2334.34;
         printf("x's value = %f\n", x);
         {
-            block_inside_if := 0;
+            block_inside_if := 3.1;
         }
+        block_inside_if := 0;
     }
     else {
         printf("a == b\n");

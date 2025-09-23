@@ -449,14 +449,12 @@ Ast_Procedure_Call_Expression *Parser::parseCall()
 
 // Ast_Struct_Description *Parser::parseStructDefinition()
 // {
-//     std::string structName = current->value;
-//     advance();
-
+//     char *structName = current->value;
 //     advance();
 //     advance();
-
-
+//     advance();
 // }
+
 Ast_Statement *Parser::parseStatement()
 {
 

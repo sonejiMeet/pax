@@ -16,42 +16,63 @@ bool boolean = true;
 
 void GENERATED_MAIN(){
     {
-        int bruh = 10;
-        int * ligma = &bruh;
-        (/*Dereference*/ * ligma = 42);
-        int what = /*Dereference*/ * ligma;
-        int * my_pointer = &bruh;
-        (/*Dereference*/ * my_pointer = 47);
+        int bruh = 333;
+        int * ligma = /*ADDRESS_OF*/ &bruh;
+        (/*DEREF*/ * ligma = 420);
+        int what = /*DEREF*/ * ligma;
+        printf("what = %d\n",what);
         printf("bruh = %d\n",bruh);
     }
     {
+        printf("\n");
+        int what = 999;
+        printf("what = %d\n",what);
+        int * ligma = /*ADDRESS_OF*/ &what;
+        (/*DEREF*/ * ligma = 68);
+        int what1 = /*DEREF*/ * ligma;
+        printf("what1 = %d\n",what1);
+        printf("what = %d\n",what);
+        int * * whatever = /*ADDRESS_OF*/ &ligma;
+        (/*DEREF*/ * /*DEREF*/ * whatever = 82);
+        printf("what = %d\n",what);
+        int * * * whatever2 = /*ADDRESS_OF*/ &whatever;
+        (/*DEREF*/ * /*DEREF*/ * /*DEREF*/ * whatever2 = /*DEREF*/ * /*DEREF*/ * whatever);
+        printf("what = %d\n",what);
+        (/*DEREF*/ * /*DEREF*/ * /*DEREF*/ * whatever2 = 96);
+        printf("what = %d\n",what);
+    }
+    {
+        printf("\n");
         int aint = 5;
         (aint = 10);
         printf("aint = %d\n",aint);
-        printf("aint = %p\n",&aint);
-        int * pInt = &aint;
+        printf("aint = %p\n",/*ADDRESS_OF*/ &aint);
+        int * pInt = /*ADDRESS_OF*/ &aint;
         printf("pInt = %p\n",pInt);
         int * p_uninit_int;
         (p_uninit_int = pInt);
-        printf("p_uninit_int = %d\n",/*Dereference*/ * p_uninit_int);
-        (/*Dereference*/ * p_uninit_int = 20);
-        printf("p_uninit_int = %d\n",/*Dereference*/ * p_uninit_int);
+        printf("p_uninit_int = %d\n",/*DEREF*/ * p_uninit_int);
+        (/*DEREF*/ * p_uninit_int = 20);
+        printf("p_uninit_int = %d\n",/*DEREF*/ * p_uninit_int);
         printf("aint = %d\n",aint);
-        int * rint = &aint;
+        int * rint = /*ADDRESS_OF*/ &aint;
         printf("rint = %p\n",rint);
-        (/*Dereference*/ * rint = 30);
+        (/*DEREF*/ * rint = 30);
         printf("aint = %d\n",aint);
-        (/*Dereference*/ * p_uninit_int = 40);
-        printf("p_uninit_int = %d\n",/*Dereference*/ * p_uninit_int);
+        (/*DEREF*/ * p_uninit_int = 40);
+        printf("p_uninit_int = %d\n",/*DEREF*/ * p_uninit_int);
         printf("aint = %d\n",aint);
     }
+    int arrStaticInt[4];
+    printf("\n");
     int v = 4;
     if((a != b)){
         float x = 2334.340088;
         printf("x's value = %f\n",x);
         {
-            int block_inside_if = 0;
+            float block_inside_if = 3.100000;
         }
+        int block_inside_if = 0;
     }
     else {
         printf("a == b\n");

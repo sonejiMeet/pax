@@ -63,8 +63,8 @@ Token *Lexer::makeFloatToken(TokenType type, float val, int row, int col)
 }
 
 
-inline void Lexer::lexerError(const std::string& message, int row, int col) {
-    printf("\nLexer Error [%d:%d] %s", row, col, message.c_str());
+inline void Lexer::lexerError(const char *message, int row, int col) {
+    printf("\nLexer Error [%d:%d] %s", row, col, message);
     exit(1);
 }
 
