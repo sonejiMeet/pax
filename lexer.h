@@ -33,7 +33,7 @@ struct Lexer
 
     char* pool_strdup(Pool* pool, const char* str);
 
-    inline void lexerError(const std::string& message, int row, int col);
+    inline void lexerError(const char *message, int row, int col);
 
     inline char get_and_advance() {
         char c = Source[Pos];

@@ -1,24 +1,12 @@
 #pragma once
-#include <string>
-#include <vector>
+#include <vector> // Temporary
 
 #include "ast.h"
 
 #include "pool.h"
 
-struct Ast_Block;
-struct Ast_Statement;
-struct Ast_Expression;
-struct Ast_Declaration;
-struct Ast_Ident;
-struct Ast_Type_Definition;
-struct Ast_Procedure_Call_Expression;
-struct Ast_Comma_Seperated_Args;
-struct Ast_Literal;
-struct Ast_Binary;
-struct Ast_If;
-
-struct CM_Symbol {
+struct CM_Symbol
+{
     const char *name;
     Ast_Declaration* decl = nullptr;
     Ast_Type_Definition* type = nullptr; // explicit or inferred
@@ -30,7 +18,7 @@ using CM_Scope = std::vector<CM_Symbol>;
 
 struct CodeManager
 {
-    std::vector<CM_Scope> scopes;
+    std::vector<CM_Scope> scopes; // Temporary must replace with Array<>
 
     Pool* ast_pool;
     CodeManager(Pool* pool);
@@ -41,31 +29,30 @@ struct CodeManager
 
     void init();
     int get_count_errors();
+
+    void report_error(int line, int col, const char* fmt, ...);
+
     void push_scope();
     void pop_scope();
 
-    // symbol operations
-    bool declare_variable(Ast_Declaration* decl); // returns false on redeclare
-    CM_Symbol* lookup_symbol(const std::string& name); // searches scopes (innermost first)
 
-    CM_Symbol* lookup_symbol_current_scope(const std::string& name);
-    void mark_initialized(const std::string& name);
+    bool declare_variable(Ast_Declaration* decl);
+    CM_Symbol* lookup_symbol(const char *name);
 
-    // resolution & inference passes
-    void resolve_idents(Ast_Block* block); // resolution pass (undeclared idents)
+    CM_Symbol* lookup_symbol_current_scope(const char *name);
+    void mark_initialized(const char *name);
+
+    void resolve_idents(Ast_Block* block);
     void resolve_idents_in_declaration(Ast_Declaration* decl);
     void resolve_idents_in_expr(Ast_Expression* expr);
 
     Ast_Type_Definition* make_builtin_type(Ast_Builtin_Type t);
 
-    // type inference/checking
+
     Ast_Type_Definition* infer_types_expr(Ast_Expression** expr_ptr);
     void infer_types_decl(Ast_Declaration* decl);
     void infer_types_block(Ast_Block* block);
 
-    // helpers
-    void report_error(int line, int col, const char* fmt, ...);
-    bool check_that_types_match(Ast_Type_Definition* wanted, Ast_Type_Definition* have);
-    bool is_integer_type(Ast_Type_Definition* type);
+    bool check_that_types_match(Ast_Type_Definition* wanted, Ast_Type_Definition* have, bool is_pointer = false);
 
 };
