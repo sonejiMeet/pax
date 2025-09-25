@@ -4,6 +4,8 @@
 #include <cstring>
 #include <cassert>
 
+#include <cstdint> // uintptr_t
+
 #ifdef _DEBUG
 extern long totalNbyte;
 extern long long total_count;
