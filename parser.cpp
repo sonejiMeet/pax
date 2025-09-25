@@ -137,11 +137,17 @@ Ast_Expression *Parser::parseFactor()
     }
     else if (current->type == TOK_IDENTIFIER)
     {
-        Ast_Ident *node = AST_NEW(pool,Ast_Ident);
-        node->name = current->value;
+        Token *lookahead = lexer->peekNextToken();
+        if(lookahead->type == TOK_LPAREN){
+            return parseCall();
+        } else {
 
-        advance();
-        return node;
+            Ast_Ident *node = AST_NEW(pool,Ast_Ident);
+            node->name = current->value;
+
+            advance();
+            return node;
+        }
     }
     else if (current->type == TOK_LPAREN)
     {
@@ -376,6 +382,7 @@ Ast_If *Parser::parseIfStatement(){
     return ifNode;
 
 }
+
 Ast_Block *Parser::parseBlockStatement(bool scoped_block) {
     expect(TOK_LCURLY_PAREN, "Expected '{' to start a block statement.");
 
@@ -421,12 +428,9 @@ Ast_Procedure_Call_Expression *Parser::parseCall()
             Ast_Expression *arg = parseExpression();
             argsNode->arguments.push_back(arg);
 
-            if (current->type != TOK_RPAREN && current->type != TOK_COMMA){
-                parseError("Expected ',' in function call arguments.");
-            }
-            if (current->type == TOK_COMMA)
-            {
+            if(current->type == TOK_COMMA){
                 advance();
+
                 if(current->type == TOK_RPAREN)
                 {
                     parseError("Expected argument after ',' in function call");
@@ -455,6 +459,83 @@ Ast_Procedure_Call_Expression *Parser::parseCall()
 //     advance();
 // }
 
+Ast_Declaration* Parser::parseFunctionDeclaration(bool is_local) {
+    // Expect function name
+    if (current->type != TOK_IDENTIFIER) {
+        parseError("Expected function name at start of declaration");
+        return nullptr;
+    }
+
+    Ast_Declaration* func_decl = AST_NEW(pool, Ast_Declaration);
+    func_decl->identifier = AST_NEW(pool, Ast_Ident);
+    func_decl->identifier->name = current->value;
+    func_decl->is_function = true;
+    func_decl->is_local_function = is_local;
+    advance(); // consume function name
+
+    // Expect '::'
+    expect(TOK_DOUBLECOLON, "Expected '::' after function name");
+
+    // --- Parse parameter list ---
+    expect(TOK_LPAREN, "Expected '(' to start parameter list");
+
+    if (current->type != TOK_RPAREN) {
+        while (true) {
+            // Parameter name
+            if (current->type != TOK_IDENTIFIER) {
+                parseError("Expected parameter name");
+                return nullptr;
+            }
+
+            Ast_Declaration* param = AST_NEW(pool, Ast_Declaration);
+            param->identifier = AST_NEW(pool, Ast_Ident);
+            param->identifier->name = current->value;
+            advance(); // consume param name
+
+            expect(TOK_COLON, "Expected ':' after parameter name");
+
+            // Parameter type
+            param->declared_type = parseTypeSpecifier();
+            if (!param->declared_type) {
+                parseError("Invalid parameter type");
+                return nullptr;
+            }
+
+            func_decl->parameters.push_back(param);
+
+            if (current->type != TOK_COMMA)
+                break;
+            advance(); // consume comma
+        }
+    }
+
+    expect(TOK_RPAREN, "Expected ')' after parameter list");
+
+    // --- Optional return type ---
+    if (current->type == TOK_ARROW) {
+        advance(); // consume '->'
+        func_decl->return_type = parseTypeSpecifier();
+    } else {
+        // Default return type is void
+        func_decl->return_type = AST_NEW(pool, Ast_Type_Definition);
+        func_decl->return_type->builtin_type = TYPE_VOID;
+    }
+
+    // --- Body or prototype ---
+    if (current->type == TOK_LCURLY_PAREN) {
+        // Function with a body
+        func_decl->is_function_body = true;
+        func_decl->my_scope = parseBlockStatement(); // parse the body as a block
+    } else {
+        // Function prototype
+        func_decl->is_function_header = true;
+        expect(TOK_SEMICOLON, "Expected ';' after function prototype");
+    }
+
+    return func_decl;
+}
+
+
 Ast_Statement *Parser::parseStatement()
 {
 
@@ -470,6 +551,7 @@ Ast_Statement *Parser::parseStatement()
                 }
                 else {
                     // parse function def
+                    return parseFunctionDeclaration(/*is_local=*/false);
                 }
             }
             else if (next->type == TOK_ASSIGN) {
@@ -492,12 +574,34 @@ Ast_Statement *Parser::parseStatement()
                 stmt->expression = assignExpr;
                 return stmt;
             }
+            else if(next->type == TOK_LPAREN){
+                Ast_Procedure_Call_Expression *expr = parseCall();
+
+                Expect(TOK_SEMICOLON, "Expected ';' after printf call.");
+
+                Ast_Statement *stmt = AST_NEW(pool,Ast_Statement);
+                stmt->expression = expr;
+                return stmt;
+            }
             else {
                 Ast_Declaration *decl = parseVarDeclaration();
                 return decl;
             }
         }
+        case TOK_RETURN: {
+            advance(); // consume 'return'
 
+            Ast_Statement* stmt = AST_NEW(pool, Ast_Statement);
+            stmt->is_return = true;
+
+            // Optional return value
+            if (current->type != TOK_SEMICOLON) {
+                stmt->expression = parseExpression();
+            }
+
+            expect(TOK_SEMICOLON, "Expected ';' after return statement.");
+            return stmt;
+        }
         case TOK_STAR:
         case TOK_CARET:
         case TOK_AMPERSAND: {
@@ -604,7 +708,10 @@ Ast_Block *Parser::parseProgram()
                 program->statements.push_back(static_cast<Ast_Statement*>(decl));
             }
             else if(next->type == TOK_DOUBLECOLON) {
-                Ast_Statement *stmt = parseStatement();
+                // Ast_Statement *stmt = parseStatement();
+                // **function declaration or definition**
+                Ast_Declaration *funcDecl = parseFunctionDeclaration(/*is_local=*/false);
+                program->statements.push_back(static_cast<Ast_Statement*>(funcDecl));
             }
             else {
                 parseError("Top-level executable statements not allowed. Only declarations and main.");

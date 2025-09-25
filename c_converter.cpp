@@ -114,6 +114,46 @@ void emitExpression(FILE* out, Ast_Expression* expr, int indent)
     }
 }
 
+
+void type_to_c_string(FILE *out, Ast_Type_Definition* type, Ast_Declaration *decl, bool need_semicolon, int indent) {
+    if (!type) return;
+
+    std::string type_str;
+    std::string array_suffix;
+    Ast_Type_Definition* base_type = type;
+    int pointer_depth = 0;
+
+
+    while (base_type->pointed_to_type) {
+        base_type = base_type->pointed_to_type;
+        pointer_depth++;
+    }
+
+
+    if (type->array_kind == ARRAY_STATIC && type->element_type) {
+        type_str = type->element_type->to_string();
+        array_suffix = "[" + std::to_string(type->static_array_size) + "]";
+
+    } else {
+        type_str = base_type->to_string();
+    }
+
+    for (int i = 0; i < pointer_depth; ++i) {
+        type_str += " *";
+    }
+
+    fprintf( out, "%s %s%s", type_str.c_str(), decl->identifier->name, array_suffix.c_str());
+
+     if (decl->initializer) {
+        fprintf(out, " = ");
+        emitExpression(out, decl->initializer, indent);
+     }
+
+    if(need_semicolon == true)
+        fprintf(out, ";\n");
+
+}
+
 void emitStatement(FILE* out, Ast_Statement* stmt, int indent)
 {
     if (!stmt) return;
@@ -121,54 +161,54 @@ void emitStatement(FILE* out, Ast_Statement* stmt, int indent)
     switch (stmt->type) {
 
         case AST_DECLARATION: {
+
             auto* decl = static_cast<Ast_Declaration*>(stmt);
+
+            if (decl->is_function) {
+                fprintf(out, "\n");
+                indentLine(out, indent);
+
+                // emit return type
+                type_to_c_string(out, decl->return_type, decl, false, indent);
+
+                fprintf(out, " (");
+
+                // emit params
+                for (int i = 0; i < decl->parameters.count; ++i) {
+                    auto* param = decl->parameters.data[i];
+
+                    type_to_c_string(out, param->declared_type, param, false, indent);
+
+                    if (i + 1 < decl->parameters.count)
+                        fprintf(out, ", ");
+                }
+
+                fprintf(out, ")");
+
+                if (decl->is_function_body && decl->my_scope) {
+                    fprintf(out, " ");
+                    emitBlock(out, decl->my_scope, indent);
+                    fprintf(out, "\n");
+                } else {
+                    fprintf(out, ";\n");
+                }
+
+                break;
+            }
+
             indentLine(out, indent);
 
-            std::string type_str;   // Temporary, use pool_alloc
-            std::string array_suffix;
-            Ast_Type_Definition* type = decl->declared_type;
+            type_to_c_string(out, decl->declared_type, decl, true, indent);
 
-            if (!type) {
-                type_str = "UNKNOWN TYPE";
-            } else {
-                Ast_Type_Definition* base_type = type;
-                int pointer_depth = 0;
-
-                while (base_type->pointed_to_type) {
-                    base_type = base_type->pointed_to_type;
-                    pointer_depth++;
-                }
-
-                if (type->array_kind == ARRAY_STATIC && type->element_type) {
-                    type_str = type->element_type->to_string();
-                    array_suffix = "[" + std::to_string(type->static_array_size) + "]";
-                } else {
-                    type_str = base_type->to_string();
-                }
-
-
-                for (int i = 0; i < pointer_depth; ++i) {
-                    type_str += " *";
-                }
-
-            }
-
-            //  variable name and type
-            fprintf( out, "%s %s%s", type_str.c_str(), decl->identifier->name, array_suffix.c_str());
-
-            if (decl->initializer) {
-                fprintf(out, " = ");
-                emitExpression(out, decl->initializer, indent);
-            }
-
-            fprintf(out, ";\n");
             break;
         }
-
 
         case AST_STATEMENT: {
             if (stmt->expression) {
                 indentLine(out, indent);
+                if(stmt->is_return == true){
+                    fprintf(out, "return ");
+                }
                 emitExpression(out, stmt->expression, indent);
 
                 fprintf(out, ";\n");
@@ -177,7 +217,7 @@ void emitStatement(FILE* out, Ast_Statement* stmt, int indent)
                 indentLine(out, indent);
                 emitBlock(out, stmt->block, indent);
             }
-            // else { 
+            // else {
             //     indentLine(out, indent);
             //     fprintf(out, "/* Reached neither */\n");
             // }

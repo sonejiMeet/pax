@@ -208,6 +208,7 @@ Token *Lexer::identifierToken(char first, int row, int col)
     else if (strcmp(ident, "string") == 0) type = TOK_TYPE_STRING;
     else if (strcmp(ident, "struct") == 0) type = TOK_STRUCT;
 
+    else if (strcmp(ident, "return") == 0) type = TOK_RETURN;
 
     Token *t = makeToken(type, ident, row, col);
 
@@ -245,7 +246,9 @@ Token *Lexer::nextToken()
         case ',': return makeToken(TOK_COMMA, ",", sRow, sCol);
         case '\'':return makeToken(TOK_SINGLEQOUTE, "'", sRow, sCol);
         case '+': return makeToken(TOK_PLUS, "+", sRow, sCol);
-        case '-': return makeToken(TOK_MINUS, "-", sRow, sCol);
+        case '-':
+            if (match_and_advance('>')) return makeToken(TOK_ARROW, "->", sRow, sCol);
+            return makeToken(TOK_MINUS, "-", sRow, sCol);
         case '*':
             return makeToken(TOK_STAR, "*", sRow, sCol);
 

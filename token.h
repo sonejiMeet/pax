@@ -13,6 +13,7 @@ enum TokenType {
     TOK_IDENTIFIER,
     TOK_STRUCT,           // struct
     TOK_MAIN_ENTRY_POINT, // main
+    TOK_RETURN,         // return
 
     TOK_NUMBER,
     TOK_FLOAT,
@@ -52,6 +53,8 @@ enum TokenType {
     TOK_LESS_EQUAL,     // <=
     TOK_GREATER_EQUAL,  // >=
 
+    TOK_ARROW,          // ->
+
     TOK_COMMENT,
     TOK_L_MULTILINE_COMMENT, // /*
     TOK_R_MULTILINE_COMMENT, // */
@@ -73,6 +76,7 @@ inline const char* tokenTypeToString(TokenType type) {
         case TOK_IDENTIFIER: return "TOK_IDENTIFIER";
         case TOK_STRUCT: return "TOK_STRUCT";
         case TOK_MAIN_ENTRY_POINT: return "TOK_MAIN_ENTRY_POINT";
+        case TOK_RETURN: return "TOK_RETURN";
 
         case TOK_TYPE_INT: return "TOK_TYPE_INT";
         case TOK_TYPE_FLOAT: return "TOK_TYPE_FLOAT";
@@ -109,6 +113,8 @@ inline const char* tokenTypeToString(TokenType type) {
         case TOK_GREATER: return "TOK_GREATER";
         case TOK_LESS_EQUAL: return "TOK_LESS_EQUAL";
         case TOK_GREATER_EQUAL: return "TOK_GREATER_EQUAL";
+        case TOK_ARROW: return "TOK_ARROW";
+
         case TOK_COMMENT: return "TOK_COMMENT";
         case TOK_L_MULTILINE_COMMENT: return "TOK_L_MULTILINE_COMMENT";
         case TOK_R_MULTILINE_COMMENT: return "TOK_R_MULTILINE_COMMENT";

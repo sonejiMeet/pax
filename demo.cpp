@@ -11,10 +11,28 @@ float e = ((2 / 4) * 5);
 int h = 1;
 int num = (2 * (5 - h));
 bool something = true;
+
+int func (int * aa) {
+    printf("Address of aa = %p\n",aa);
+    int something = (/*DEREF*/ * aa * 2);
+    (/*DEREF*/ * aa = 699);
+    int * ss = aa;
+    printf("Address of ss = %p\n",ss);
+    (/*DEREF*/ * ss = (/*DEREF*/ * ss + 2));
+    return something;
+}
+
 int idk = 1;
 bool boolean = true;
 
 void GENERATED_MAIN(){
+    {
+        int f = 10;
+        printf("Address of f = %p\n",/*ADDRESS_OF*/ &f);
+        int af = func(/*ADDRESS_OF*/ &f);
+        printf("f is equal to: %d\n",f);
+        printf("af is equal to: %d\n",af);
+    }
     {
         int bruh = 333;
         int * ligma = /*ADDRESS_OF*/ &bruh;
