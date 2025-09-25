@@ -35,6 +35,8 @@ struct Parser
     Ast_Procedure_Call_Expression *parseCall();
 
     Ast_Struct_Description *parseStructDefinition();
+
+    Ast_Declaration* parseFunctionDeclaration(bool is_local = false);
     Ast_Statement *parseStatement();
 
 

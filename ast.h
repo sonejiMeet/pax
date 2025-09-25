@@ -10,7 +10,6 @@ struct Ast;
 struct Ast_Statement;
 struct Ast_Expression;
 struct Ast_Comma_Separated_Args;
-struct Ast_Function;
 
 struct Ast_Literal;
 struct Ast_Ident;
@@ -82,6 +81,7 @@ struct Ast_Statement : public Ast {
     Ast_Type_Definition *type_definition = nullptr;
     Ast_Expression *expression = nullptr;
     Ast_Block *block = nullptr;
+    bool is_return = false;
 };
 
 struct Ast_Expression : public Ast {
@@ -90,27 +90,28 @@ struct Ast_Expression : public Ast {
 };
 
 struct Ast_Declaration : public Ast_Statement {
-    Ast_Declaration(Pool* = nullptr) { type = AST_DECLARATION; }
+    Ast_Declaration(Pool* p) :parameters(p) { type = AST_DECLARATION; }
 
     Ast_Type_Definition *declared_type = nullptr;
     Ast_Ident *identifier = nullptr;
     Ast_Expression *initializer = nullptr;
+
+    Ast_Block *my_scope = nullptr;
+
+    // --- Function-specific fields ---
+    bool is_function = false;               // This declaration is a function
+    bool is_function_header = false;        // Function prototype (no body)
+    bool is_function_body = false;          // Function with body
+    bool is_local_function = false;         // Function declared inside another function
+
+    Array<Ast_Declaration*> parameters;     // function parameters
+    Ast_Type_Definition* return_type = nullptr; // return type
+
 };
 
 struct Ast_Comma_Separated_Args : public Ast_Expression {
     Ast_Comma_Separated_Args(Pool * p) :arguments(p) { type = AST_COMMA_SEPARATED_ARGS; }
     Array<Ast_Expression *> arguments;
-};
-
-struct Ast_Function : public Ast_Statement {
-    Ast_Function(Pool* p) : params(p) { type = AST_STATEMENT; }
-
-    const char* name = nullptr;
-
-    Array<Ast_Declaration*> params;
-    Ast_Block* body = nullptr;
-    bool is_entry_point = false; // only true if 'main'
-
 };
 
 enum Value_Type {
@@ -167,9 +168,8 @@ struct Ast_Binary : public Ast_Expression {
 enum Ast_Unary_Op {
     UNARY_NEGATE,      // -x
     UNARY_NOT,         // !x
-    UNARY_ADDRESS_OF,  // ^x  (address-of)
-    UNARY_DEREFERENCE,  // *x  (pointer dereference)
-    UNARY_REFERENCE,
+    UNARY_ADDRESS_OF,  // &x
+    UNARY_DEREFERENCE,  // *x
 };
 
 struct Ast_Unary : Ast_Expression {
@@ -255,7 +255,7 @@ struct Ast_Type_Definition : public Ast {
             case TYPE_STRUCT:
                 base = struct_def ? struct_def->name : "unknown struct";
                 break;
-            default: base =  "unknown";
+            default: base =  "unknown type broo";
         }
 
         return base;

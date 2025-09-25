@@ -17,17 +17,34 @@ something := true;
 /* multiline
   comment */
 
-/*
-func :: () -> {
 
+// structName :: struct {
+
+// }
+
+func :: (aa: ^int) -> int {
+
+    printf("Address of aa = %p\n", aa);
+    something : int = *aa * 2;
+    *aa = 699;
+    ss : ^int = aa;
+    printf("Address of ss = %p\n", ss);
+
+    *ss = *ss + 2;
+    return something;
 }
-
-structName :: struct {
-
-}
-*/
 
 main :: () {
+
+    {
+        f := 10;
+        printf("Address of f = %p\n", &f);
+
+        af := func(&f);
+
+        printf("f is equal to: %d\n", f);
+        printf("af is equal to: %d\n", af);
+    }
 
     { // simple example of how to use pointers
         bruh: int = 333;

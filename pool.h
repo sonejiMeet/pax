@@ -4,36 +4,20 @@
 #include <cstring>
 #include <cassert>
 
-#ifdef _WIN32
-    #ifdef _DEBUG
-    #define malloc(s) _malloc_dbg(s, _NORMAL_BLOCK, __FILE__, __LINE__)
-    #define free(p) _free_dbg(p, _NORMAL_BLOCK)
-    #endif
-#elif __linux__
-    #include <cstdint>
-
+#ifdef _DEBUG
+extern long totalNbyte;
+extern long long total_count;
+extern long long total_capacity;
 #endif
 
 #ifdef _DEBUG
-extern int totalNbyte;
-extern int total_count;
-extern int total_capacity;
+#define malloc(s) _malloc_dbg(s, _NORMAL_BLOCK, __FILE__, __LINE__)
+#define free(p) _free_dbg(p, _NORMAL_BLOCK)
 #endif
 
-
-
-// const size_t POOL_BUCKET_SIZE_DEFAULT = 65536; // 64 KiB
-const size_t POOL_BUCKET_SIZE_DEFAULT = 128*1024;
+const size_t POOL_BUCKET_SIZE_DEFAULT = 65536; // 64Kb
 
 struct Pool;
-
-inline void pool_init(Pool *pool);
-inline void *pool_alloc(Pool *pool, size_t size);
-inline void ensure_memory_exists(Pool *pool, size_t size);
-inline void resize_blocks(Pool *pool, size_t block_size);
-inline void cycle_new_block(Pool *pool);
-inline void pool_reset(Pool *pool);
-inline void pool_release(Pool *pool);
 
 template<typename T>
 struct Array
@@ -104,15 +88,12 @@ inline void Array<T>::release()
 
 
 // we need to keep track of used, unused, obsolete blocks and need to use malloc seperately where we push starting positions of these blocks
-
-// update this to make it simpler!!!!!!!!!!!!!!
 struct BlockList
 {
     void **data = nullptr;
     long count = 0;
     long capacity = 0;
 };
-
 
 inline void blocklist_push(BlockList *list, void *value)
 {
@@ -158,7 +139,7 @@ enum Allocator_Mode
 
 struct Pool {
     size_t memblock_size = POOL_BUCKET_SIZE_DEFAULT;
-    size_t alignment = 1;
+    size_t alignment = 8;
 
     BlockList unused_memblocks;
     BlockList used_memblocks;
@@ -171,6 +152,16 @@ struct Pool {
     void * (*block_allocator)(int, size_t, size_t, void*, void*, int) = nullptr;
     void *block_allocator_data = nullptr;
 };
+
+
+inline void pool_init(Pool *pool);
+inline void *pool_alloc(Pool *pool, size_t size);
+inline void ensure_memory_exists(Pool *pool, size_t size);
+inline void resize_blocks(Pool *pool, size_t block_size);
+inline void cycle_new_block(Pool *pool);
+inline void pool_reset(Pool *pool);
+inline void pool_release(Pool *pool);
+
 
 inline void pool_init(Pool *pool) {
     pool->current_memblock = nullptr;
@@ -193,9 +184,9 @@ inline void *pool_alloc(Pool *pool, size_t size) {
     pool->bytes_left -= size;
 
 #ifdef _DEBUG
-    totalNbyte += (int) size;
+    totalNbyte += size;
     printf("[POOL_ALLOC] %zu bytes %p\n", size, retval);
-    printf("[POOL_ALLOC TOTAL SO FAR] %d bytes, %f KiB\n", totalNbyte, (float)totalNbyte/1024);
+    printf("[POOL_ALLOC TOTAL SO FAR] %ld bytes\n", totalNbyte);
 #endif
 
     return retval;
@@ -247,6 +238,7 @@ inline void cycle_new_block(Pool *pool)
         assert(pool->block_allocator != nullptr);
         new_block = pool->block_allocator(ALLOCATE, pool->memblock_size, 0, nullptr, pool->block_allocator_data, 0);
 
+        // total_count += 1;
 #ifdef _DEBUG
         printf("allocated NEW BLOCK in cycle_new_block\n");
 #endif

@@ -7,7 +7,7 @@
 High priority: negative numbers can't be assigned yet
 High priority: Fix floating point precision
 
-mid priority: impliment struct and function defintion
+mid priority: impliment struct
 
 low-mid priority (not sure its a concern for now) reduce unnesessary allocation in our pool. peekNextToken() in lexer.cpp we could just pop the peeked token from our POOL after we check Token type and same for advance() in parser.cpp calls nextToken which obviously pushes the token into our pool.
 
@@ -26,6 +26,7 @@ emit #line directives so the compiler and debugger know the real source file and
 
 
 
+DONE: implement function defintion
 DONE: high priority: fix pointers, https://jai.community/t/pointers/123/1
 
 DONE: clean up port to linux code.
@@ -53,6 +54,7 @@ What should work?
 - multiple function return values
 - simple new operator that just does malloc, maybe its possible to 0 initialize by default (using calloc) and not if explicitly told by programmer.
 - no need to forward declaring  functions/structs. it would be automatically done in .cpp
+  -> If we encounter a function that isn't declared yet we could put it into a queue and come back to resolve it when we eventually find its declaration in the current scope
 
 Check things for correctness and proof of concept
 - should obey operator precedence (pemdas eg.)
