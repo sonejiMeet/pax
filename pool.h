@@ -4,12 +4,12 @@
 #include <cstring>
 #include <cassert>
 
-#include <cstdint> // uintptr_t
+// #include <cstdint> // uintptr_t
 
 #ifdef _DEBUG
-extern long totalNbyte;
-extern long long total_count;
-extern long long total_capacity;
+extern int totalNbyte;
+extern int total_count;
+extern int total_capacity;
 #endif
 
 #ifdef _DEBUG
@@ -17,9 +17,18 @@ extern long long total_capacity;
 #define free(p) _free_dbg(p, _NORMAL_BLOCK)
 #endif
 
-const size_t POOL_BUCKET_SIZE_DEFAULT = 65536; // 64Kb
+// const size_t POOL_BUCKET_SIZE_DEFAULT = 65536; // 64Kb
+const size_t POOL_BUCKET_SIZE_DEFAULT = 128*1024;
 
 struct Pool;
+
+inline void pool_init(Pool *pool);
+inline void *pool_alloc(Pool *pool, size_t size);
+inline void ensure_memory_exists(Pool *pool, size_t size);
+inline void resize_blocks(Pool *pool, size_t block_size);
+inline void cycle_new_block(Pool *pool);
+inline void pool_reset(Pool *pool);
+inline void pool_release(Pool *pool);
 
 template<typename T>
 struct Array
@@ -156,13 +165,6 @@ struct Pool {
 };
 
 
-inline void pool_init(Pool *pool);
-inline void *pool_alloc(Pool *pool, size_t size);
-inline void ensure_memory_exists(Pool *pool, size_t size);
-inline void resize_blocks(Pool *pool, size_t block_size);
-inline void cycle_new_block(Pool *pool);
-inline void pool_reset(Pool *pool);
-inline void pool_release(Pool *pool);
 
 
 inline void pool_init(Pool *pool) {
@@ -186,9 +188,9 @@ inline void *pool_alloc(Pool *pool, size_t size) {
     pool->bytes_left -= size;
 
 #ifdef _DEBUG
-    totalNbyte += size;
+    totalNbyte += (int) size;
     printf("[POOL_ALLOC] %zu bytes %p\n", size, retval);
-    printf("[POOL_ALLOC TOTAL SO FAR] %ld bytes\n", totalNbyte);
+    printf("[POOL_ALLOC TOTAL SO FAR] %d bytes, %f KiB\n", totalNbyte, (float)totalNbyte/1024);
 #endif
 
     return retval;
