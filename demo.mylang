@@ -37,7 +37,7 @@ func :: (aa: ^int) -> int {
 main :: () {
 
     {
-        f := 10;
+        f := 100;
         printf("Address of f = %p\n", &f);
 
         af := func(&f);
