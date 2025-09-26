@@ -349,7 +349,7 @@ void CodeManager::resolve_idents_in_expr(Ast_Expression* expr)
             Ast_Procedure_Call_Expression* call =
                 static_cast<Ast_Procedure_Call_Expression*>(expr);
 
-            if (call->function && call->function->type == AST_IDENT)
+            if (call->function)
             {
                 Ast_Ident* fn = static_cast<Ast_Ident*>(call->function);
 
@@ -414,34 +414,34 @@ void CodeManager::resolve_idents_in_expr(Ast_Expression* expr)
 }
 
 
-Ast_Type_Definition* CodeManager::make_builtin_type(Ast_Builtin_Type t) {
-    Ast_Type_Definition* out = AST_NEW(ast_pool, Ast_Type_Definition);
+Ast_Type_Definition  *CodeManager::make_builtin_type(Ast_Builtin_Type t) {
+    Ast_Type_Definition *out = AST_NEW(ast_pool, Ast_Type_Definition);
     out->builtin_type = t;
     return out;
 }
 
-Ast_Type_Definition* CodeManager::infer_types_expr(Ast_Expression** expr_ptr)
+Ast_Type_Definition *CodeManager::infer_types_expr(Ast_Expression** expr_ptr)
 {
     if (!expr_ptr || !*expr_ptr) return nullptr;
-    Ast_Expression* expr = *expr_ptr;
+    Ast_Expression *expr = *expr_ptr;
 
     switch (expr->type) {
         case AST_LITERAL: {
-            Ast_Literal* lit = static_cast<Ast_Literal*>(expr);
+            Ast_Literal *lit = static_cast<Ast_Literal *>(expr);
             switch(lit->value_type){
-                case LITERAL_NUMBER: return make_builtin_type(TYPE_INT); break;
-                case LITERAL_FLOAT: return make_builtin_type(TYPE_FLOAT); break;
-                case LITERAL_STRING: return make_builtin_type(TYPE_STRING); break;
+                case LITERAL_NUMBER: return make_builtin_type(TYPE_INT);
+                case LITERAL_FLOAT: return make_builtin_type(TYPE_FLOAT);
+                case LITERAL_STRING: return make_builtin_type(TYPE_STRING);
                 case LITERAL_TRUE:
-                case LITERAL_FALSE: return make_builtin_type(TYPE_BOOL); break;
+                case LITERAL_FALSE: return make_builtin_type(TYPE_BOOL);
                 default: return nullptr;
             }
             break;
         }
 
         case AST_IDENT: {
-            Ast_Ident* id = static_cast<Ast_Ident*>(expr);
-            CM_Symbol* s = lookup_symbol(id->name);
+            Ast_Ident *id = static_cast<Ast_Ident *>(expr);
+            CM_Symbol *s = lookup_symbol(id->name);
 
             if (s->decl)
             {
@@ -457,10 +457,10 @@ Ast_Type_Definition* CodeManager::infer_types_expr(Ast_Expression** expr_ptr)
         }
 
         case AST_UNARY: {
-            Ast_Unary* u = static_cast<Ast_Unary*>(expr);
+            Ast_Unary *u = static_cast<Ast_Unary *>(expr);
             if (!u->operand) return nullptr;
 
-            Ast_Type_Definition* operandType = infer_types_expr(&u->operand);
+            Ast_Type_Definition *operandType = infer_types_expr(&u->operand);
             if (!operandType) {
                 report_error(u->line_number, u->character_number,
                     "Could not determine type of operand for unary expression");
@@ -501,9 +501,9 @@ Ast_Type_Definition* CodeManager::infer_types_expr(Ast_Expression** expr_ptr)
 
         case AST_BINARY: {
 
-            Ast_Binary* b = static_cast<Ast_Binary*>(expr);
-            Ast_Type_Definition* lt = infer_types_expr(&b->lhs);
-            Ast_Type_Definition* rt = infer_types_expr(&b->rhs);
+            Ast_Binary *b = static_cast<Ast_Binary *>(expr);
+            Ast_Type_Definition *lt = infer_types_expr(&b->lhs);
+            Ast_Type_Definition *rt = infer_types_expr(&b->rhs);
 
             switch (b->op) {
                 case BINOP_ADD:
@@ -529,18 +529,18 @@ Ast_Type_Definition* CodeManager::infer_types_expr(Ast_Expression** expr_ptr)
                     return make_builtin_type(TYPE_BOOL);
                 }
                 case BINOP_ASSIGN: {
-                    Ast_Type_Definition* rhsType = infer_types_expr(&b->rhs);
+                    Ast_Type_Definition *rhsType = infer_types_expr(&b->rhs);
                     if (!rhsType) {
                         report_error(b->line_number, b->character_number,
                                      "Right-hand side of assignment has unknown type");
                         return nullptr;
                     }
 
-                    Ast_Type_Definition* lhsType = nullptr;
+                    Ast_Type_Definition *lhsType = nullptr;
 
-                    if (Ast_Ident* lhs_ident = dynamic_cast<Ast_Ident*>(b->lhs))
+                    if (Ast_Ident *lhs_ident = dynamic_cast<Ast_Ident *>(b->lhs))
                     {
-                        CM_Symbol* sym = lookup_symbol(lhs_ident->name);
+                        CM_Symbol *sym = lookup_symbol(lhs_ident->name);
                         if (!sym)
                         {
                             report_error(lhs_ident->line_number, lhs_ident->character_number,
@@ -564,11 +564,11 @@ Ast_Type_Definition* CodeManager::infer_types_expr(Ast_Expression** expr_ptr)
                     }
 
                     // lhs is a dereference
-                    else if (Ast_Unary* lhs_unary = dynamic_cast<Ast_Unary*>(b->lhs))
+                    else if (Ast_Unary *lhs_unary = dynamic_cast<Ast_Unary *>(b->lhs))
                     {
                         if (lhs_unary->op == UNARY_DEREFERENCE)
                         {
-                            Ast_Type_Definition* pointerType = infer_types_expr(&lhs_unary->operand);
+                            Ast_Type_Definition *pointerType = infer_types_expr(&lhs_unary->operand);
 
                             if (!pointerType || !pointerType->pointed_to_type)
                             {
@@ -577,9 +577,9 @@ Ast_Type_Definition* CodeManager::infer_types_expr(Ast_Expression** expr_ptr)
                                 return nullptr;
                             }
 
-                            if (Ast_Ident* pointer_ident = dynamic_cast<Ast_Ident*>(lhs_unary->operand))
+                            if (Ast_Ident *pointer_ident = dynamic_cast<Ast_Ident *>(lhs_unary->operand))
                             {
-                                CM_Symbol* pointer_sym = lookup_symbol(pointer_ident->name);
+                                CM_Symbol *pointer_sym = lookup_symbol(pointer_ident->name);
 
                                 bool is_var_param = is_function_parameter(pointer_ident->name); // HACK think of a better way
                                 if (pointer_sym && !pointer_sym->initialized && !is_var_param) {
@@ -619,14 +619,14 @@ Ast_Type_Definition* CodeManager::infer_types_expr(Ast_Expression** expr_ptr)
         }
 
         case AST_PROCEDURE_CALL_EXPRESSION: {
-            Ast_Procedure_Call_Expression* call = static_cast<Ast_Procedure_Call_Expression*>(expr);
+            Ast_Procedure_Call_Expression *call = static_cast<Ast_Procedure_Call_Expression *>(expr);
 
-            Ast_Type_Definition* return_type = nullptr;
+            Ast_Type_Definition *return_type = nullptr;
 
-            if (call->function && call->function->type == AST_IDENT) {
-                Ast_Ident* fn = static_cast<Ast_Ident*>(call->function);
+            if (call->function) {
+                Ast_Ident *fn = static_cast<Ast_Ident *>(call->function);
                 if (fn->name && strcmp(fn->name, "printf") != 0) { // Allow builtins
-                    CM_Symbol* sym = lookup_symbol(fn->name);
+                    CM_Symbol *sym = lookup_symbol(fn->name);
                     if (sym && sym->is_function) {
                         return_type = sym->type; // Function's return type
                         // Ensure return type matches declared type
@@ -678,8 +678,8 @@ void CodeManager::infer_types_decl(Ast_Declaration* decl) {
     if (!decl) return;
 
     if (decl->initializer) {
-        Ast_Expression* init_expr = decl->initializer;
-        Ast_Type_Definition* init_type = infer_types_expr(&init_expr);
+        Ast_Expression *init_expr = decl->initializer;
+        Ast_Type_Definition *init_type = infer_types_expr(&init_expr);
 
         if(!init_type) {
             report_error(decl->line_number, decl->character_number, "Could not infer type for variable %s from intitializer.",decl->identifier->name);
@@ -703,7 +703,7 @@ void CodeManager::infer_types_decl(Ast_Declaration* decl) {
         } else {
             // not declared with type so infer it through initializer's type instead
             decl->declared_type = init_type;
-            CM_Symbol* sym = lookup_symbol(decl->identifier->name);
+            CM_Symbol *sym = lookup_symbol(decl->identifier->name);
             if(sym) sym->type = init_type;
         }
     }
@@ -716,12 +716,12 @@ void CodeManager::infer_types_block(Ast_Block* block)
 
     for (int i = 0; i < block->statements.count; i++) {
 
-        Ast_Statement* stmt = block->statements.data[i];
+        Ast_Statement *stmt = block->statements.data[i];
 
         if (!stmt) continue;
 
         if (stmt->type == AST_DECLARATION) {
-            Ast_Declaration* decl = static_cast<Ast_Declaration*>(stmt);
+            Ast_Declaration *decl = static_cast<Ast_Declaration*>(stmt);
 
             if(decl->is_function) {
                 if (decl->my_scope && decl->is_function_body) {
@@ -738,7 +738,7 @@ void CodeManager::infer_types_block(Ast_Block* block)
                 infer_types_decl(decl);
 
                 // declare variable in current scope (already done by resolve pass, but ensure symbol exists)
-                CM_Symbol* s = lookup_symbol(decl->identifier ? decl->identifier->name : "");
+                CM_Symbol *s = lookup_symbol(decl->identifier ? decl->identifier->name : "");
                 if (!s) {
                     // if declaration wasn't declared (maybe resolved incorrectly), declare it now
                     declare_variable(decl);
@@ -746,7 +746,7 @@ void CodeManager::infer_types_block(Ast_Block* block)
             }
 
         } else if (stmt->expression) {
-            Ast_Expression* expr = stmt->expression;
+            Ast_Expression *expr = stmt->expression;
             infer_types_expr(&expr);
         } else if (stmt->block) {
             push_scope();
@@ -754,9 +754,9 @@ void CodeManager::infer_types_block(Ast_Block* block)
             pop_scope();
         }
          if (stmt->type == AST_IF) {
-            Ast_If* ifn = static_cast<Ast_If*>(stmt);
+            Ast_If *ifn = static_cast<Ast_If *>(stmt);
             if (ifn->condition) {
-                Ast_Expression* cond = ifn->condition;
+                Ast_Expression *cond = ifn->condition;
                 infer_types_expr(&cond);
             }
             if (ifn->then_block) {
@@ -774,7 +774,7 @@ void CodeManager::infer_types_block(Ast_Block* block)
     }
 }
 
-bool CodeManager::check_that_types_match(Ast_Type_Definition* wanted, Ast_Type_Definition* have, bool is_pointer)
+bool CodeManager::check_that_types_match(Ast_Type_Definition *wanted, Ast_Type_Definition* have, bool is_pointer)
 {
     if (!wanted || !have) return false;
 

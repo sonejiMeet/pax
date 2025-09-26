@@ -3,6 +3,7 @@
 
         to be FIXed
 
+mid priority: add a way to not have to forward declare functions, If we encounter a function that isn't declared yet we could put it into a queue and come back to resolve it when we eventually find its declaration in the current scope
 
 High priority: negative numbers can't be assigned yet
 High priority: Fix floating point precision

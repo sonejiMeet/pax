@@ -1,7 +1,4 @@
 #pragma once
-#include <cstdio>
-#include <cstdlib>
-#include <cstring>
 
 #include <cassert>
 
@@ -16,11 +13,8 @@
 #endif
 
 #ifdef _DEBUG
-extern int totalNbyte;
-extern int total_count;
-extern int total_capacity;
+    extern int totalNbyte;
 #endif
-
 
 
 // const size_t POOL_BUCKET_SIZE_DEFAULT = 65536; // 64 KiB

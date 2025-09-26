@@ -150,9 +150,9 @@ int main(int argc, char **args) {
     snprintf(command, sizeof(command), "cl.exe /Od /EHsc /nologo %s", baseName);
     printf("Running C compiler: %s\n", command);
 
-    #ifndef _DEBUG // temporary!!!!
+    //#ifndef _DEBUG // temporary!!!!
             runCompiler(command);
-    #endif
+    //#endif
 
 #elif __linux__
     char command[256];

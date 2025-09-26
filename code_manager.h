@@ -68,9 +68,15 @@ struct CM_Symbol {
     Ast_Type_Definition* type = nullptr; // For variables (type) or functions (return type)
     bool initialized = false; // For variables
     bool inferred = false;
+
     Array<Ast_Declaration*> parameters; // For function parameters
     bool is_function = false; // Indicates if this symbol is a function
     bool is_function_body = false; // True if function has a body, false for prototype
+};
+
+struct CM_Unresolved_Func {
+
+
 };
 
 using CM_Scope = std::vector<CM_Symbol>;
