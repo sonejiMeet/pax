@@ -1,6 +1,7 @@
 #pragma once
 
-#include <cassert>
+#include <string.h>
+#include <assert.h>
 
 #ifdef _WIN32
     #ifdef _DEBUG
@@ -8,7 +9,7 @@
     #define free(p) _free_dbg(p, _NORMAL_BLOCK)
     #endif
 #elif __linux__
-    #include <cstdint>
+    #include <stdint.h>
 
 #endif
 
