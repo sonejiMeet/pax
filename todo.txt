@@ -3,10 +3,12 @@
 
         to be FIXed
 
-mid priority: add a way to not have to forward declare functions, If we encounter a function that isn't declared yet we could put it into a queue and come back to resolve it when we eventually find its declaration in the current scope
+high priority: fix proper C output convertion for functions declared inside functions. Our parser and code_manager both resolve and infer correctly. Just find a way to output forward declarations in C code correctly. 
 
-High priority: negative numbers can't be assigned yet
-High priority: Fix floating point precision
+high priority: Fix return types mismatch. check if the function declaration has return type and whether the is_return statement exists in function declaration. This part should be done during resolving. Then in inferring we should check whether the return type and return statement match types.
+
+Mid-High priority: negative numbers can't be assigned yet
+Mid-High priority: Fix floating point precision
 
 mid priority: impliment struct
 
@@ -26,6 +28,9 @@ Emit Debug Information
 emit #line directives so the compiler and debugger know the real source file and line.
 
 
+
+
+DONE:  add a way to not have to forward declare functions, If we encounter a function that isn't declared yet we could put it into a queue and come back to resolve it when we eventually find its declaration in the current scope
 
 DONE: implement function defintion
 DONE: high priority: fix pointers, https://jai.community/t/pointers/123/1

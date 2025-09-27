@@ -141,6 +141,9 @@
     <ClCompile Include="..\parser.cpp" />
     <ClCompile Include="..\tools.cpp" />
   </ItemGroup>
+  <ItemGroup>
+    <Natvis Include="Array.natvis" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

@@ -107,6 +107,8 @@ struct Ast_Declaration : public Ast_Statement {
     Array<Ast_Declaration*> parameters;     // function parameters
     Ast_Type_Definition* return_type = nullptr; // return type
 
+    bool has_return_statement = false;
+
 };
 
 struct Ast_Comma_Separated_Args : public Ast_Expression {

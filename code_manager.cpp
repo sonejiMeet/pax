@@ -153,72 +153,104 @@ void CodeManager::mark_initialized(const char *name)
     if (s) s->initialized = true;
 }
 
-void CodeManager::resolve_idents(Ast_Block* block)
-{
+
+void CodeManager::resolve_idents(Ast_Block* block) {
     if (!block) return;
 
-    for (int i = 0; i < block->statements.count; i++) {
-        Ast_Statement* stmt = block->statements.data[i];
+    // If this is the global scope (scopes.size() == 1), do a two-pass approach
+    if (scopes.size() == 1) {
+        // First pass: Process all declarations to populate symbol table
+        for (int i = 0; i < block->statements.count; i++) {
+            Ast_Statement* stmt = block->statements.data[i];
+            if (!stmt) continue;
 
-        if (!stmt) continue;
+            if (stmt->type != AST_DECLARATION) {
+                if(stmt->block && stmt->block->is_entry_point == false) {
+                    report_error(stmt->line_number, stmt->character_number,
+                             "Non-declaration statements are not allowed in global scope");
 
-        if (stmt->type == AST_DECLARATION) {
+                }
+                continue;
+            }
+
             Ast_Declaration* decl = static_cast<Ast_Declaration*>(stmt);
-
-            if(decl->is_function) {
+            if (decl->is_function) {
                 resolve_idents_in_declaration(decl);
                 declare_function(decl);
-                if (decl->my_scope && decl->is_function_body) {
-                    push_scope();
-                    // declare params in the function's scope
-                    for (int i = 0; i < decl->parameters.count; ++i) {
-                        declare_variable(decl->parameters.data[i]);
-                    }
-                    resolve_idents(decl->my_scope); // Resolve the function body
-                    pop_scope();
-                }
             } else {
-                // first resolve initializer expressions (they may refer to earlier variables)
                 resolve_idents_in_declaration(decl);
-                // then declare the variable which are in current scope
                 declare_variable(decl);
             }
-            continue;
-
         }
 
-        if (stmt->type == AST_IF) {
-            Ast_If* ifn = static_cast<Ast_If*>(stmt);
-            if (ifn->condition) resolve_idents_in_expr(ifn->condition);
+        // Second pass: Resolve function bodies
+        for (int i = 0; i < block->statements.count; i++) {
+            Ast_Statement* stmt = block->statements.data[i];
+            if (!stmt || stmt->type != AST_DECLARATION) continue;
 
-            if (ifn->then_block) {
+            Ast_Declaration* decl = static_cast<Ast_Declaration*>(stmt);
+            if (decl->is_function && decl->my_scope && decl->is_function_body) {
                 push_scope();
-                resolve_idents(ifn->then_block);
+                for (int j = 0; j < decl->parameters.count; ++j) {
+                    declare_variable(decl->parameters.data[j]);
+                }
+                resolve_idents(decl->my_scope);
                 pop_scope();
             }
-
-            if (ifn->else_block) {
-                push_scope();
-                resolve_idents(ifn->else_block);
-                pop_scope();
-            }
-            // continue;
         }
+    } else {
+        // Non-global scope: Single pass
+        for (int i = 0; i < block->statements.count; i++) {
+            Ast_Statement* stmt = block->statements.data[i];
+            if (!stmt) continue;
 
-        // Generic statement may hold expression or nested block
-        if (stmt->expression) {
-            resolve_idents_in_expr(stmt->expression);
-        } else if (stmt->block) {
+            if (stmt->type == AST_DECLARATION) {
+                Ast_Declaration* decl = static_cast<Ast_Declaration*>(stmt);
+                if (decl->is_function) {
+                    resolve_idents_in_declaration(decl);
+                    declare_function(decl);
+                    if (decl->my_scope && decl->is_function_body) {
+                        push_scope();
+                        for (int j = 0; j < decl->parameters.count; ++j) {
+                            declare_variable(decl->parameters.data[j]);
+                        }
+                        resolve_idents(decl->my_scope);
+                        pop_scope();
+                    }
+                } else {
+                    resolve_idents_in_declaration(decl);
+                    declare_variable(decl);
+                }
+                continue;
+            }
 
-            if(stmt->block->is_scoped_block)
-                push_scope();
+            if (stmt->type == AST_IF) {
+                Ast_If* ifn = static_cast<Ast_If*>(stmt);
+                if (ifn->condition) resolve_idents_in_expr(ifn->condition);
+                if (ifn->then_block) {
+                    push_scope();
+                    resolve_idents(ifn->then_block);
+                    pop_scope();
+                }
+                if (ifn->else_block) {
+                    push_scope();
+                    resolve_idents(ifn->else_block);
+                    pop_scope();
+                }
+            }
 
-            resolve_idents(stmt->block);
-
-            if(stmt->block->is_scoped_block)
-                pop_scope();
+            if (stmt->expression) {
+                resolve_idents_in_expr(stmt->expression);
+            } else if (stmt->block) {
+                if (stmt->block->is_scoped_block)
+                    push_scope();
+                resolve_idents(stmt->block);
+                if (stmt->block->is_scoped_block)
+                    pop_scope();
+            }
         }
     }
+    resolve_unresolved_calls();
 }
 
 void CodeManager::resolve_idents_in_declaration(Ast_Declaration* decl)
@@ -358,12 +390,19 @@ void CodeManager::resolve_idents_in_expr(Ast_Expression* expr)
 
                     CM_Symbol* sym = lookup_symbol(fn->name);
                     if (!sym) {
-                        report_error(fn->line_number, fn->character_number,
-                                     "Call to undeclared function '%s'", fn->name);
+                        // report_error(fn->line_number, fn->character_number,
+                        //              "Call to undeclared function '%s'", fn->name);
+
+                        CM_Unresolved_Call unresolved;
+                        unresolved.call = call;
+                        unresolved.line_number = fn->line_number;
+                        unresolved.character_number = fn->character_number;
+                        unresolved_calls.push_back(unresolved);
                     } else if (!sym->is_function) {
                         report_error(fn->line_number, fn->character_number,
                                      "'%s' is not a function", fn->name);
                     } else {
+                        printf("inside parameter count\n");
                         // Check parameter count
                         int call_arg_count = call->arguments ? call->arguments->arguments.count : 0;
                         int decl_arg_count = sym->parameters.count;
@@ -413,12 +452,73 @@ void CodeManager::resolve_idents_in_expr(Ast_Expression* expr)
     }
 }
 
+void CodeManager::resolve_unresolved_calls() {
+    std::vector<CM_Unresolved_Call> still_unresolved;
+
+    for (const auto& unresolved : unresolved_calls) {
+        Ast_Procedure_Call_Expression* call = unresolved.call;
+        Ast_Ident* fn = static_cast<Ast_Ident*>(call->function);
+        CM_Symbol* sym = lookup_symbol(fn->name);
+
+        if (!sym) {
+            still_unresolved.push_back(unresolved);
+            continue;
+        }
+
+        if (!sym->is_function) {
+            report_error(unresolved.line_number, unresolved.character_number,
+                         "'%s' is not a function", fn->name);
+            continue;
+        }
+
+        if (call->arguments) {
+            for (int i = 0; i < call->arguments->arguments.count; ++i) {
+                Ast_Expression* arg = call->arguments->arguments.data[i];
+                resolve_idents_in_expr(arg);
+            }
+        }
+
+        int call_arg_count = call->arguments ? call->arguments->arguments.count : 0;
+        int decl_arg_count = sym->parameters.count;
+        if (call_arg_count != decl_arg_count) {
+            report_error(unresolved.line_number, unresolved.character_number,
+                         "Function '%s' expects %d arguments, but %d were provided",
+                         fn->name, decl_arg_count, call_arg_count);
+            continue;
+        }
+
+        if (call->arguments) {
+            for (int i = 0; i < call_arg_count; ++i) {
+                Ast_Expression* arg = call->arguments->arguments.data[i];
+                Ast_Type_Definition* arg_type = infer_types_expr(&arg);
+                Ast_Type_Definition* param_type = sym->parameters.data[i]->declared_type;
+                if (!check_that_types_match(param_type, arg_type)) {
+                    report_error(unresolved.line_number, unresolved.character_number,
+                                 "Type mismatch for argument %d in call to '%s'",
+                                 i + 1, fn->name);
+                }
+            }
+        }
+    }
+
+    unresolved_calls = still_unresolved;
+
+    if (scopes.size() == 1 && !unresolved_calls.empty()) {
+        for (const auto& unresolved : unresolved_calls) {
+            Ast_Ident* fn = static_cast<Ast_Ident*>(unresolved.call->function);
+            report_error(unresolved.line_number, unresolved.character_number,
+                         "Call to undeclared function '%s'", fn->name);
+        }
+        unresolved_calls.clear();
+    }
+}
 
 Ast_Type_Definition  *CodeManager::make_builtin_type(Ast_Builtin_Type t) {
     Ast_Type_Definition *out = AST_NEW(ast_pool, Ast_Type_Definition);
     out->builtin_type = t;
     return out;
 }
+
 
 Ast_Type_Definition *CodeManager::infer_types_expr(Ast_Expression** expr_ptr)
 {
