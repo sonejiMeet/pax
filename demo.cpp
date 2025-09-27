@@ -11,6 +11,8 @@ float e = ((2 / 4) * 5);
 int h = 1;
 int num = (2 * (5 - h));
 bool something = true;
+int idk = 1;
+bool boolean = true;
 
 int func (int * aa) {
     printf("Address of aa = %p\n",aa);
@@ -22,17 +24,13 @@ int func (int * aa) {
     return something;
 }
 
-int idk = 1;
-bool boolean = true;
 
 void GENERATED_MAIN(){
-    {
-        int f = 100;
-        printf("Address of f = %p\n",/*ADDRESS_OF*/ &f);
-        int af = func(/*ADDRESS_OF*/ &f);
-        printf("f is equal to: %d\n",f);
-        printf("af is equal to: %d\n",af);
-    }
+    int f = 100;
+    printf("Address of f = %p\n",/*ADDRESS_OF*/ &f);
+    int af = func(/*ADDRESS_OF*/ &f);
+    printf("f is equal to: %d\n",f);
+    printf("af is equal to: %d\n",af);
     {
         int bruh = 333;
         int * ligma = /*ADDRESS_OF*/ &bruh;
@@ -113,6 +111,9 @@ void GENERATED_MAIN(){
             int secondChild = 0;
         }
     }
+    (idk = 293824);
+    printf("\nidk = %d\n",idk);
+    printf("\n");
 }
 
 int main(int argc, char **argv){

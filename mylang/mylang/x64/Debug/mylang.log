@@ -1,7 +1,2 @@
-﻿  c_converter.cpp
-  code_manager.cpp
-  lexer.cpp
-  main.cpp
-  parser.cpp
-  Generating Code...
+﻿  code_manager.cpp
   mylang.vcxproj -> C:\mylang\mylang\x64\Debug\mylang.exe

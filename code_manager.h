@@ -74,17 +74,20 @@ struct CM_Symbol {
     bool is_function_body = false; // True if function has a body, false for prototype
 };
 
-struct CM_Unresolved_Func {
-
-
+struct CM_Unresolved_Call {
+    Ast_Procedure_Call_Expression* call;
+    int line_number;
+    int character_number;
 };
 
 using CM_Scope = std::vector<CM_Symbol>;
 
 struct CodeManager {
     std::vector<CM_Scope> scopes; // Temporary must replace with Array<>
+    std::vector<CM_Unresolved_Call> unresolved_calls;
     Pool *ast_pool;
     CodeManager(Pool *pool);
+
 
     int count_errors = 0;
 
@@ -106,6 +109,7 @@ struct CodeManager {
     void resolve_idents(Ast_Block *block);
     void resolve_idents_in_declaration(Ast_Declaration *decl);
     void resolve_idents_in_expr(Ast_Expression *expr);
+    void resolve_unresolved_calls();
 
     Ast_Type_Definition* make_builtin_type(Ast_Builtin_Type t);
     Ast_Type_Definition* infer_types_expr(Ast_Expression **expr_ptr);

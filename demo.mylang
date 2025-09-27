@@ -22,21 +22,11 @@ something := true;
 
 // }
 
-func :: (aa: ^int) -> int {
-
-    printf("Address of aa = %p\n", aa);
-    something : int = *aa * 2;
-    *aa = 699;
-    ss : ^int = aa;
-    printf("Address of ss = %p\n", ss);
-
-    *ss = *ss + 2;
-    return something;
-}
 
 main :: () {
 
-    {
+
+    // {
         f := 100;
         printf("Address of f = %p\n", &f);
 
@@ -44,7 +34,7 @@ main :: () {
 
         printf("f is equal to: %d\n", f);
         printf("af is equal to: %d\n", af);
-    }
+    // }
 
     { // simple example of how to use pointers
         bruh: int = 333;
@@ -171,7 +161,29 @@ main :: () {
         }
     }
 
+    idk = 293824;
+    printf("\nidk = %d\n", idk);
+
+    printf("\n");
 }
+
 idk : int = 1;
 
 boolean: bool = true;
+
+
+func :: (aa: ^int) -> int {
+
+    // func1 :: () {  // this wont output proper C code yet
+    //     printf("inside func1\n");
+    // }
+    printf("Address of aa = %p\n", aa);
+    something : int = *aa * 2;
+
+    *aa = 699;
+    ss : ^int = aa;
+    printf("Address of ss = %p\n", ss);
+
+    *ss = *ss + 2;
+    return something;
+}

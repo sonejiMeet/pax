@@ -152,6 +152,8 @@ enum Allocator_Mode
     FREE_ALL
 };
 
+using Block_Allocator = void* (int, size_t, size_t, void*, void*, int);
+
 struct Pool {
     size_t memblock_size = POOL_BUCKET_SIZE_DEFAULT;
     size_t alignment = 1;
@@ -164,7 +166,7 @@ struct Pool {
     void *current_pos = nullptr;
     size_t bytes_left = 0;
 
-    void * (*block_allocator)(int, size_t, size_t, void*, void*, int) = nullptr;
+    Block_Allocator *block_allocator = nullptr;
     void *block_allocator_data = nullptr;
 };
 
