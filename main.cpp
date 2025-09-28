@@ -99,6 +99,7 @@ int main(int argc, char **args) {
     {
         CodeManager cm(&pool);
         cm.resolve_idents(ast); // resolve identifiers and populate symbol table/scopes
+        cm.resolve_unresolved_calls();
         cm.infer_types_block(ast); // run type inference / checking
 
         if (cm.get_count_errors() != 0) {

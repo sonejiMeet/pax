@@ -155,7 +155,6 @@ void CodeManager::mark_initialized(const char *name)
     if (s) s->initialized = true;
 }
 
-// Helper function to check if a block contains a return statement (Ast_Declaration with is_return = true)
 bool CodeManager::has_return_statement(Ast_Block* block) {
     if (!block) return false;
 
@@ -163,11 +162,8 @@ bool CodeManager::has_return_statement(Ast_Block* block) {
         Ast_Statement* stmt = block->statements.data[i];
         if (!stmt) continue;
 
-        if (stmt->type == AST_STATEMENT) {
-            Ast_Declaration* decl = static_cast<Ast_Declaration*>(stmt);
-            if (decl->is_return) {
-                return true;
-            }
+        if (stmt->is_return) {
+            return true;
         } else if (stmt->type == AST_IF) {
             Ast_If* ifn = static_cast<Ast_If*>(stmt);
             if (ifn->then_block && has_return_statement(ifn->then_block)) {
@@ -176,7 +172,7 @@ bool CodeManager::has_return_statement(Ast_Block* block) {
             if (ifn->else_block && has_return_statement(ifn->else_block)) {
                 return true;
             }
-        } else if (stmt->block) {
+        } else if (stmt->block && stmt->block->is_scoped_block) {
             if (has_return_statement(stmt->block)) {
                 return true;
             }
@@ -184,20 +180,16 @@ bool CodeManager::has_return_statement(Ast_Block* block) {
     }
     return false;
 }
-
-
 void CodeManager::resolve_idents(Ast_Block* block) {
     if (!block) return;
 
-    // If this is the global scope (scopes.size() == 1), do a two-pass approach
     if (scopes.size() == 1) {
-        // First pass: Process all declarations to populate symbol table
         for (int i = 0; i < block->statements.count; i++) {
             Ast_Statement* stmt = block->statements.data[i];
             if (!stmt) continue;
 
             if (stmt->type != AST_DECLARATION) {
-                if(stmt->block && stmt->block->is_entry_point == false) {
+                if(stmt->block && stmt->block->is_entry_point == false && !stmt->block->is_scoped_block) {
                     report_error(stmt->line_number, stmt->character_number,
                              "Non-declaration statements are not allowed in global scope");
 
@@ -207,11 +199,10 @@ void CodeManager::resolve_idents(Ast_Block* block) {
 
             Ast_Declaration* decl = static_cast<Ast_Declaration*>(stmt);
             if (decl->is_function) {
-                resolve_idents_in_declaration(decl);
                 declare_function(decl);
 
-                if (decl->is_function_body) { // ADDED THIS
-                    if (!decl->return_type || decl->return_type->builtin_type == TYPE_UNKNOWN) {
+                if (decl->is_function_body) {
+                    if (!decl->return_type) {
                         report_error(decl->line_number, decl->character_number,
                                      "Function '%s' must specify a return type", decl->identifier->name);
                     } else if (decl->return_type->builtin_type != TYPE_VOID && decl->my_scope) {
@@ -223,24 +214,52 @@ void CodeManager::resolve_idents(Ast_Block* block) {
                     }
                 }
             } else {
-                resolve_idents_in_declaration(decl);
                 declare_variable(decl);
             }
         }
 
-        // Second pass: Resolve function bodies
+        // Second pass: Resolve initializers, function bodies, and expressions
         for (int i = 0; i < block->statements.count; i++) {
             Ast_Statement* stmt = block->statements.data[i];
-            if (!stmt || stmt->type != AST_DECLARATION) continue;
+            if (!stmt) continue;
 
-            Ast_Declaration* decl = static_cast<Ast_Declaration*>(stmt);
-            if (decl->is_function && decl->my_scope && decl->is_function_body) {
-                push_scope();
-                for (int j = 0; j < decl->parameters.count; ++j) {
-                    declare_variable(decl->parameters.data[j]);
+            if (stmt->is_return) {
+                resolve_idents_in_expr(stmt->expression);
+                continue;
+            }
+
+            if (stmt->type == AST_DECLARATION) {
+                Ast_Declaration* decl = static_cast<Ast_Declaration*>(stmt);
+                resolve_idents_in_declaration(decl);
+                if (decl->is_function && decl->my_scope && decl->is_function_body) {
+                    push_scope();
+                    for (int j = 0; j < decl->parameters.count; ++j) {
+                        declare_variable(decl->parameters.data[j]);
+                    }
+                    resolve_idents(decl->my_scope);
+                    pop_scope();
                 }
-                resolve_idents(decl->my_scope);
-                pop_scope();
+            } else if (stmt->type == AST_IF) {
+                Ast_If* ifn = static_cast<Ast_If*>(stmt);
+                if (ifn->condition) resolve_idents_in_expr(ifn->condition);
+                if (ifn->then_block) {
+                    push_scope();
+                    resolve_idents(ifn->then_block);
+                    pop_scope();
+                }
+                if (ifn->else_block) {
+                    push_scope();
+                    resolve_idents(ifn->else_block);
+                    pop_scope();
+                }
+            } else if (stmt->expression) {
+                resolve_idents_in_expr(stmt->expression);
+            } else if (stmt->block) {
+                if (stmt->block->is_scoped_block)
+                    push_scope();
+                resolve_idents(stmt->block);
+                if (stmt->block->is_scoped_block)
+                    pop_scope();
             }
         }
     } else {
@@ -251,16 +270,16 @@ void CodeManager::resolve_idents(Ast_Block* block) {
 
             if (stmt->is_return) {
                 // Handle return statements
-                if (stmt->expression) {
+                // if (stmt->expression) {
                     resolve_idents_in_expr(stmt->expression);
-                }
+                // }
                 continue;
             }
 
             if (stmt->type == AST_DECLARATION) {
                 Ast_Declaration* decl = static_cast<Ast_Declaration*>(stmt);
                 if (decl->is_function) {
-                    resolve_idents_in_declaration(decl);
+                    // resolve_idents_in_declaration(decl);
                     declare_function(decl);
                     if (decl->my_scope && decl->is_function_body) {
                         push_scope();
@@ -290,9 +309,7 @@ void CodeManager::resolve_idents(Ast_Block* block) {
                     resolve_idents(ifn->else_block);
                     pop_scope();
                 }
-            }
-
-            if (stmt->expression) {
+            } else if (stmt->expression) {
                 resolve_idents_in_expr(stmt->expression);
             } else if (stmt->block) {
                 if (stmt->block->is_scoped_block)
@@ -303,7 +320,6 @@ void CodeManager::resolve_idents(Ast_Block* block) {
             }
         }
     }
-    resolve_unresolved_calls();
 }
 
 void CodeManager::resolve_idents_in_declaration(Ast_Declaration* decl)
@@ -455,7 +471,6 @@ void CodeManager::resolve_idents_in_expr(Ast_Expression* expr)
                         report_error(fn->line_number, fn->character_number,
                                      "'%s' is not a function", fn->name);
                     } else {
-                        printf("inside parameter count\n");
                         // Check parameter count
                         int call_arg_count = call->arguments ? call->arguments->arguments.count : 0;
                         int decl_arg_count = sym->parameters.count;
@@ -577,7 +592,7 @@ Ast_Type_Definition  *CodeManager::make_builtin_type(Ast_Builtin_Type t) {
 void CodeManager::infer_types_return(Ast_Statement* ret, Ast_Declaration* func_decl) {
     if (!ret || !func_decl) return;
 
-    Ast_Type_Definition* func_return_type = func_decl->return_type;
+    Ast_Type_Definition* func_return_type = func_decl->return_type ? func_decl->return_type : make_builtin_type(TYPE_VOID);
 
     if (!ret->expression && func_return_type->builtin_type != TYPE_VOID) {
         report_error(ret->line_number, ret->character_number,
@@ -911,9 +926,10 @@ void CodeManager::infer_types_decl(Ast_Declaration* decl) {
 }
 
 
-void CodeManager::infer_types_block(Ast_Block* block)
+void CodeManager::infer_types_block(Ast_Block* block, Ast_Declaration *my_func)
 {
-    if (!block) return;
+    // if (!block) return;
+    assert(block);
 
     for (int i = 0; i < block->statements.count; i++) {
 
@@ -922,19 +938,9 @@ void CodeManager::infer_types_block(Ast_Block* block)
         if (!stmt) continue;
 
         if (stmt->is_return) {
-                // Find the enclosing function declaration
-                CM_Symbol* func_sym = nullptr;
-                for (int j = (int)scopes.size() - 1; j >= 0; --j) {
-                    for (auto& sym : scopes[j]) {
-                        if (sym.is_function && sym.is_function_body) {
-                            func_sym = &sym;
-                            break;
-                        }
-                    }
-                    if (func_sym) break;
-                }
-                if (func_sym && func_sym->decl) {
-                    infer_types_return(stmt, func_sym->decl);
+                assert(my_func);
+                if (my_func) {
+                    infer_types_return(stmt, my_func);
                 } else {
                     report_error(stmt->line_number, stmt->character_number,
                                  "Return statement outside of function body");
@@ -949,7 +955,7 @@ void CodeManager::infer_types_block(Ast_Block* block)
                         for (int j = 0; j < decl->parameters.count; ++j) {
                             declare_variable(decl->parameters.data[j]);
                         }
-                        infer_types_block(decl->my_scope); // Infer types in function body
+                        infer_types_block(decl->my_scope, decl); // Infer types in function body
                         pop_scope();
                     }
 
@@ -977,12 +983,12 @@ void CodeManager::infer_types_block(Ast_Block* block)
                 }
                 if (ifn->then_block) {
                     push_scope();
-                    infer_types_block(ifn->then_block);
+                    infer_types_block(ifn->then_block, my_func);
                     pop_scope();
                 }
                 if (ifn->else_block) {
                     push_scope();
-                    infer_types_block(ifn->else_block);
+                    infer_types_block(ifn->else_block, my_func);
                     pop_scope();
                 }
             }

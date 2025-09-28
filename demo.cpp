@@ -14,7 +14,7 @@ bool something = true;
 int idk = 1;
 bool boolean = true;
 
-int func (int * aa) {
+int func (int * aa, int sssd) {
     printf("Address of aa = %p\n",aa);
     int something = (/*DEREF*/ * aa * 2);
     (/*DEREF*/ * aa = 699);
@@ -25,12 +25,29 @@ int func (int * aa) {
 }
 
 
+bool func1 () {
+    int f = 100;
+    func(/*ADDRESS_OF*/ &f,a);
+    printf("f inside func1 is equal to: %d\n",f);
+    printf("f inside func1 is equal to: %p\n",/*ADDRESS_OF*/ &f);
+    return true;
+}
+
+
 void GENERATED_MAIN(){
     {
         int f = 100;
         printf("Address of f = %p\n",/*ADDRESS_OF*/ &f);
-        func(/*ADDRESS_OF*/ &f);
-        printf("f is equal to: %d\n",f);
+        int af = func(/*ADDRESS_OF*/ &f,a);
+        bool ret2 = func1();
+        printf("f = %d\n",f);
+        printf("af =  %d\n",af);
+        if((ret2 == false)){
+            printf("ret2 == false\n");
+        }
+        if((ret2 == true)){
+            printf("ret2 == true\n");
+        }
     }
     {
         int bruh = 333;
@@ -116,6 +133,7 @@ void GENERATED_MAIN(){
     }
     (idk = 293824);
     printf("\nidk = %d\n",idk);
+    (boolean = false);
     printf("\n");
 }
 
