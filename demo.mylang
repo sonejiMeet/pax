@@ -24,6 +24,7 @@ something := true;
 
 // func :: (aa: ^int) -> int;
 
+
 main :: () {
 
 
@@ -31,10 +32,17 @@ main :: () {
         f := 100;
         printf("Address of f = %p\n", &f);
 
-        func(&f);
+        af := func(&f, a);
 
-        printf("f is equal to: %d\n", f);
-        // printf("af is equal to: %d\n", af);
+        ret2 := func1();
+        printf("f = %d\n", f);
+        printf("af =  %d\n", af);
+        if(ret2 == false) {
+            printf("ret2 == false\n");
+        }
+        if(ret2 == true) {
+            printf("ret2 == true\n");
+        }
     }
 
     { // simple example of how to use pointers
@@ -169,6 +177,7 @@ main :: () {
     idk = 293824;
     printf("\nidk = %d\n", idk);
 
+    boolean = false;
     printf("\n");
 }
 
@@ -177,7 +186,8 @@ idk : int = 1;
 boolean: bool = true;
 
 
-func :: (aa: ^int) -> int {
+
+func :: (aa: ^int, sssd: int) -> int {
 
     // func1 :: () -> float {  // this wont output proper C code yet
     //     printf("inside func1\n");
@@ -199,4 +209,16 @@ func :: (aa: ^int) -> int {
 
     *ss = *ss + 2;
     return something;
+}
+
+
+func1 :: () -> bool{
+    f := 100;
+    func(&f, a);
+    printf("f inside func1 is equal to: %d\n", f);
+    printf("f inside func1 is equal to: %p\n", &f);
+    // if(f == 100) {
+    //     return true; // Inconsistent not all control paths return a value
+    // }
+    return true;
 }
