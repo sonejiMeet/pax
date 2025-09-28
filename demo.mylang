@@ -22,19 +22,20 @@ something := true;
 
 // }
 
+// func :: (aa: ^int) -> int;
 
 main :: () {
 
 
-    // {
+    {
         f := 100;
         printf("Address of f = %p\n", &f);
 
-        af := func(&f);
+        func(&f);
 
         printf("f is equal to: %d\n", f);
-        printf("af is equal to: %d\n", af);
-    // }
+        // printf("af is equal to: %d\n", af);
+    }
 
     { // simple example of how to use pointers
         bruh: int = 333;
@@ -45,6 +46,8 @@ main :: () {
         what: int = *ligma;    // dereference ligma (get value at address ligma points to)
         printf("what = %d\n", what);
         printf("bruh = %d\n", bruh);
+
+        // what = *ligma;
     }
 
     { // pointer depths
@@ -155,9 +158,11 @@ main :: () {
     {
         g := 5;
         g = 3;
-        firstChild: int = 0;
+        firstChild := 0;
+        firstChild = 22;
         {
-            secondChild: int = 0;
+            secondChild := 0;
+            secondChild = 335;
         }
     }
 
@@ -174,11 +179,19 @@ boolean: bool = true;
 
 func :: (aa: ^int) -> int {
 
-    // func1 :: () {  // this wont output proper C code yet
+    // func1 :: () -> float {  // this wont output proper C code yet
     //     printf("inside func1\n");
+    //     return 1.0;
+
+    //     func2 :: () -> int {
+    //         return 224;
+    //     }
+
+    //     asodad := func2();
+
     // }
     printf("Address of aa = %p\n", aa);
-    something : int = *aa * 2;
+    something := *aa * 2;
 
     *aa = 699;
     ss : ^int = aa;

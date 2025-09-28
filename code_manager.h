@@ -72,6 +72,7 @@ struct CM_Symbol {
     Array<Ast_Declaration*> parameters; // For function parameters
     bool is_function = false; // Indicates if this symbol is a function
     bool is_function_body = false; // True if function has a body, false for prototype
+
 };
 
 struct CM_Unresolved_Call {
@@ -106,15 +107,21 @@ struct CodeManager {
     CM_Symbol* lookup_symbol_current_scope(const char *name);
     void mark_initialized(const char *name);
 
+    bool has_return_statement(Ast_Block* block);
     void resolve_idents(Ast_Block *block);
     void resolve_idents_in_declaration(Ast_Declaration *decl);
     void resolve_idents_in_expr(Ast_Expression *expr);
     void resolve_unresolved_calls();
 
+
     Ast_Type_Definition* make_builtin_type(Ast_Builtin_Type t);
+
+    void infer_types_return(Ast_Statement* ret, Ast_Declaration* func_decl);
     Ast_Type_Definition* infer_types_expr(Ast_Expression **expr_ptr);
     void infer_types_decl(Ast_Declaration *decl);
     void infer_types_block(Ast_Block *block);
+
+
 
     bool check_that_types_match(Ast_Type_Definition* wanted, Ast_Type_Definition* have, bool is_pointer = false);
 };
