@@ -103,14 +103,16 @@ bool CodeManager::declare_variable(Ast_Declaration* decl)
 bool CodeManager::declare_function(Ast_Declaration* decl) {
     if (!decl || !decl->is_function || !decl->identifier) return false;
 
+    if (decl->is_function_header) return false;
     CM_Scope &scope = scopes.back();
 
     // checks if function are duplicate declaration stricly by the function name, so in the future it will change this is just here temporarily. (obviously we want to check for same types as well as the function name because we will allow functions with same names but different types but not same name and same types. Just like C.)
     for (auto &sym : scope) {
         if (strcmp(sym.name, decl->identifier->name) == 0) {
-            report_error(decl->line_number, decl->character_number,
-                         "Function '%s' already declared in this scope", decl->identifier->name);
-            return false;
+            if(decl->is_function_body) {
+                report_error(decl->line_number, decl->character_number, "Function '%s' already declared in this scope", decl->identifier->name);
+                return false;
+            }
         }
     }
 
@@ -153,6 +155,36 @@ void CodeManager::mark_initialized(const char *name)
     if (s) s->initialized = true;
 }
 
+// Helper function to check if a block contains a return statement (Ast_Declaration with is_return = true)
+bool CodeManager::has_return_statement(Ast_Block* block) {
+    if (!block) return false;
+
+    for (int i = 0; i < block->statements.count; ++i) {
+        Ast_Statement* stmt = block->statements.data[i];
+        if (!stmt) continue;
+
+        if (stmt->type == AST_STATEMENT) {
+            Ast_Declaration* decl = static_cast<Ast_Declaration*>(stmt);
+            if (decl->is_return) {
+                return true;
+            }
+        } else if (stmt->type == AST_IF) {
+            Ast_If* ifn = static_cast<Ast_If*>(stmt);
+            if (ifn->then_block && has_return_statement(ifn->then_block)) {
+                return true;
+            }
+            if (ifn->else_block && has_return_statement(ifn->else_block)) {
+                return true;
+            }
+        } else if (stmt->block) {
+            if (has_return_statement(stmt->block)) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
 
 void CodeManager::resolve_idents(Ast_Block* block) {
     if (!block) return;
@@ -177,6 +209,19 @@ void CodeManager::resolve_idents(Ast_Block* block) {
             if (decl->is_function) {
                 resolve_idents_in_declaration(decl);
                 declare_function(decl);
+
+                if (decl->is_function_body) { // ADDED THIS
+                    if (!decl->return_type || decl->return_type->builtin_type == TYPE_UNKNOWN) {
+                        report_error(decl->line_number, decl->character_number,
+                                     "Function '%s' must specify a return type", decl->identifier->name);
+                    } else if (decl->return_type->builtin_type != TYPE_VOID && decl->my_scope) {
+                        if (!has_return_statement(decl->my_scope)) {
+                            report_error(decl->line_number, decl->character_number,
+                                         "Non-void function '%s' must contain a return statement",
+                                         decl->identifier->name);
+                        }
+                    }
+                }
             } else {
                 resolve_idents_in_declaration(decl);
                 declare_variable(decl);
@@ -203,6 +248,14 @@ void CodeManager::resolve_idents(Ast_Block* block) {
         for (int i = 0; i < block->statements.count; i++) {
             Ast_Statement* stmt = block->statements.data[i];
             if (!stmt) continue;
+
+            if (stmt->is_return) {
+                // Handle return statements
+                if (stmt->expression) {
+                    resolve_idents_in_expr(stmt->expression);
+                }
+                continue;
+            }
 
             if (stmt->type == AST_DECLARATION) {
                 Ast_Declaration* decl = static_cast<Ast_Declaration*>(stmt);
@@ -520,6 +573,53 @@ Ast_Type_Definition  *CodeManager::make_builtin_type(Ast_Builtin_Type t) {
 }
 
 
+// Helper function to infer types for return statements and check against function return type
+void CodeManager::infer_types_return(Ast_Statement* ret, Ast_Declaration* func_decl) {
+    if (!ret || !func_decl) return;
+
+    Ast_Type_Definition* func_return_type = func_decl->return_type;
+
+    if (!ret->expression && func_return_type->builtin_type != TYPE_VOID) {
+        report_error(ret->line_number, ret->character_number,
+                     "Return statement in function '%s' must return a value of type %s",
+                     func_decl->identifier->name,
+                     func_return_type->builtin_type == TYPE_INT ? "int" :
+                     func_return_type->builtin_type == TYPE_FLOAT ? "float" :
+                     func_return_type->builtin_type == TYPE_BOOL ? "bool" : "unknown");
+        return;
+    }
+
+    if (ret->expression && func_return_type->builtin_type == TYPE_VOID) {
+        report_error(ret->line_number, ret->character_number,
+                     "Void function '%s' cannot return a value",
+                     func_decl->identifier->name);
+        return;
+    }
+
+    if (ret->expression) {
+        Ast_Type_Definition* return_expr_type = infer_types_expr(&ret->expression);
+        if (!return_expr_type) {
+            report_error(ret->line_number, ret->character_number,
+                         "Could not infer type of return expression in function '%s'",
+                         func_decl->identifier->name);
+            return;
+        }
+
+        if (!check_that_types_match(func_return_type, return_expr_type)) {
+            report_error(ret->line_number, ret->character_number,
+                         "Return type mismatch in function '%s': expected %s, got %s",
+                         func_decl->identifier->name,
+                         func_return_type->builtin_type == TYPE_INT ? "int" :
+                         func_return_type->builtin_type == TYPE_FLOAT ? "float" :
+                         func_return_type->builtin_type == TYPE_BOOL ? "bool" : "void",
+                         return_expr_type->builtin_type == TYPE_INT ? "int" :
+                         return_expr_type->builtin_type == TYPE_FLOAT ? "float" :
+                         return_expr_type->builtin_type == TYPE_BOOL ? "bool" : "unknown");
+        }
+    }
+}
+
+
 Ast_Type_Definition *CodeManager::infer_types_expr(Ast_Expression** expr_ptr)
 {
     if (!expr_ptr || !*expr_ptr) return nullptr;
@@ -541,9 +641,10 @@ Ast_Type_Definition *CodeManager::infer_types_expr(Ast_Expression** expr_ptr)
 
         case AST_IDENT: {
             Ast_Ident *id = static_cast<Ast_Ident *>(expr);
-            CM_Symbol *s = lookup_symbol(id->name);
+            CM_Symbol *s = lookup_symbol(id->name); /* = lookup_symbol_current_scope(id->name);*/
+            // if(!s) s = lookup_symbol(id->name);
 
-            if (s->decl)
+            if (s && s->decl)
             {
                 if (s->is_function) {
                     return s->type;
@@ -782,7 +883,7 @@ void CodeManager::infer_types_decl(Ast_Declaration* decl) {
         Ast_Type_Definition *init_type = infer_types_expr(&init_expr);
 
         if(!init_type) {
-            report_error(decl->line_number, decl->character_number, "Could not infer type for variable %s from intitializer.",decl->identifier->name);
+            report_error(decl->line_number, decl->character_number, "Could not infer type for variable '%s' from intitializer.",decl->identifier->name);
             return;
         }
 
@@ -820,59 +921,75 @@ void CodeManager::infer_types_block(Ast_Block* block)
 
         if (!stmt) continue;
 
-        if (stmt->type == AST_DECLARATION) {
-            Ast_Declaration *decl = static_cast<Ast_Declaration*>(stmt);
-
-            if(decl->is_function) {
-                if (decl->my_scope && decl->is_function_body) {
-                    push_scope();
-
-                    for (int j = 0; j < decl->parameters.count; ++j) {
-                        declare_variable(decl->parameters.data[j]);
+        if (stmt->is_return) {
+                // Find the enclosing function declaration
+                CM_Symbol* func_sym = nullptr;
+                for (int j = (int)scopes.size() - 1; j >= 0; --j) {
+                    for (auto& sym : scopes[j]) {
+                        if (sym.is_function && sym.is_function_body) {
+                            func_sym = &sym;
+                            break;
+                        }
                     }
-                    infer_types_block(decl->my_scope); // Infer types in function body
+                    if (func_sym) break;
+                }
+                if (func_sym && func_sym->decl) {
+                    infer_types_return(stmt, func_sym->decl);
+                } else {
+                    report_error(stmt->line_number, stmt->character_number,
+                                 "Return statement outside of function body");
+                }
+            } else if (stmt->type == AST_DECLARATION) {
+                Ast_Declaration *decl = static_cast<Ast_Declaration*>(stmt);
+
+                if(decl->is_function) {
+                    if (decl->my_scope && decl->is_function_body) {
+                        push_scope();
+
+                        for (int j = 0; j < decl->parameters.count; ++j) {
+                            declare_variable(decl->parameters.data[j]);
+                        }
+                        infer_types_block(decl->my_scope); // Infer types in function body
+                        pop_scope();
+                    }
+
+                } else {
+                    infer_types_decl(decl);
+
+                    CM_Symbol* s = lookup_symbol_current_scope(decl->identifier ? decl->identifier->name : "");
+                    if (!s) {
+                        declare_variable(decl);
+                    }
+                }
+
+            } else if (stmt->expression) {
+                Ast_Expression *expr = stmt->expression;
+                infer_types_expr(&expr);
+            } else if (stmt->block) {
+                push_scope();
+                infer_types_block(stmt->block);
+                pop_scope();
+            } else if (stmt->type == AST_IF) {
+                Ast_If *ifn = static_cast<Ast_If *>(stmt);
+                if (ifn->condition) {
+                    Ast_Expression *cond = ifn->condition;
+                    infer_types_expr(&cond);
+                }
+                if (ifn->then_block) {
+                    push_scope();
+                    infer_types_block(ifn->then_block);
                     pop_scope();
                 }
-
-            } else {
-                infer_types_decl(decl);
-
-                // declare variable in current scope (already done by resolve pass, but ensure symbol exists)
-                CM_Symbol *s = lookup_symbol(decl->identifier ? decl->identifier->name : "");
-                if (!s) {
-                    // if declaration wasn't declared (maybe resolved incorrectly), declare it now
-                    declare_variable(decl);
+                if (ifn->else_block) {
+                    push_scope();
+                    infer_types_block(ifn->else_block);
+                    pop_scope();
                 }
             }
-
-        } else if (stmt->expression) {
-            Ast_Expression *expr = stmt->expression;
-            infer_types_expr(&expr);
-        } else if (stmt->block) {
-            push_scope();
-            infer_types_block(stmt->block);
-            pop_scope();
-        }
-         if (stmt->type == AST_IF) {
-            Ast_If *ifn = static_cast<Ast_If *>(stmt);
-            if (ifn->condition) {
-                Ast_Expression *cond = ifn->condition;
-                infer_types_expr(&cond);
-            }
-            if (ifn->then_block) {
-                push_scope();
-                infer_types_block(ifn->then_block);
-                pop_scope();
-            }
-            if (ifn->else_block) {
-                push_scope();
-                infer_types_block(ifn->else_block);
-                pop_scope();
-            }
-        }
 
     }
 }
+
 
 bool CodeManager::check_that_types_match(Ast_Type_Definition *wanted, Ast_Type_Definition* have, bool is_pointer)
 {

@@ -3,7 +3,33 @@
 
         to be FIXed
 
-high priority: fix proper C output convertion for functions declared inside functions. Our parser and code_manager both resolve and infer correctly. Just find a way to output forward declarations in C code correctly. 
+high priority: fix proper C output convertion for functions declared inside functions. Our parser and code_manager both resolve and infer correctly. Just find a way to output forward declarations in C code correctly.
+EXAMPLE:
+
+func :: (aa: ^int) -> int {
+    func1 :: () -> float {  // this wont output proper C code yet
+        printf("inside func1\n");
+        return 1.0;
+        func2 :: () -> int {
+            return 224;
+        }
+        asodad := func2();
+    }
+}
+
+// This kind of the idea on how function declarations inside other functions would look like from C's perspective.
+
+int func2(){
+}
+float func1 () {
+    printf("inside func1\n");
+    return 1.0;
+    int asodad = func2();
+}
+int func (int * aa) {
+    float f = func1();
+}
+
 
 high priority: Fix return types mismatch. check if the function declaration has return type and whether the is_return statement exists in function declaration. This part should be done during resolving. Then in inferring we should check whether the return type and return statement match types.
 

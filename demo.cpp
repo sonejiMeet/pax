@@ -26,11 +26,12 @@ int func (int * aa) {
 
 
 void GENERATED_MAIN(){
-    int f = 100;
-    printf("Address of f = %p\n",/*ADDRESS_OF*/ &f);
-    int af = func(/*ADDRESS_OF*/ &f);
-    printf("f is equal to: %d\n",f);
-    printf("af is equal to: %d\n",af);
+    {
+        int f = 100;
+        printf("Address of f = %p\n",/*ADDRESS_OF*/ &f);
+        func(/*ADDRESS_OF*/ &f);
+        printf("f is equal to: %d\n",f);
+    }
     {
         int bruh = 333;
         int * ligma = /*ADDRESS_OF*/ &bruh;
@@ -107,8 +108,10 @@ void GENERATED_MAIN(){
         int g = 5;
         (g = 3);
         int firstChild = 0;
+        (firstChild = 22);
         {
             int secondChild = 0;
+            (secondChild = 335);
         }
     }
     (idk = 293824);

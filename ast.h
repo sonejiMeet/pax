@@ -105,9 +105,7 @@ struct Ast_Declaration : public Ast_Statement {
     bool is_local_function = false;         // Function declared inside another function
 
     Array<Ast_Declaration*> parameters;     // function parameters
-    Ast_Type_Definition* return_type = nullptr; // return type
-
-    bool has_return_statement = false;
+    Ast_Type_Definition* return_type = nullptr; // return type can be int, float, bool, or even struct
 
 };
 
