@@ -23,10 +23,39 @@ something := true;
 // }
 
 // func :: (aa: ^int) -> int;
+cc : float = (3 * 4 + 5) / 2.0;
+dd : float = 6 / 3.0 + 2 * 7;
+ee : float = 10 - 4 / 2.0 + 3 * 5;
+ff : float = 1 + 2 * 3 - 4.0 / 5;
+gg : float = (7 * 8 + 9) / (10 - 2.0);
+hh :float = 5 * 2 + 3 * 4 / 2.0;
 
+func1 :: () -> bool{
+    f := -100;
+    func(&f, a);
+    printf("f inside func1 is equal to: %d\n", f);
+    printf("f inside func1 is equal to: %p\n", &f);
+    if(f != 100) {
+        f = 2;
+        return true;
+    }
+    else {
+        return false;
+    }
+    //
+    // return true;
+}
 
 main :: () {
 
+    numa := -2;
+    printf("numa= %d\n", numa);
+    printf("cc =%f\n",cc );
+    printf("dd =%f\n",dd );
+    printf("ee =%f\n",ee );
+    printf("ff =%f\n", ff);
+    printf("gg =%f\n",gg );
+    printf("hh =%f\n", hh);
 
     {
         f := 100;
@@ -54,33 +83,6 @@ main :: () {
         what: int = *ligma;    // dereference ligma (get value at address ligma points to)
         printf("what = %d\n", what);
         printf("bruh = %d\n", bruh);
-
-        // what = *ligma;
-    }
-
-    { // pointer depths
-        printf("\n");
-        what: int = 999;
-        printf("what = %d\n", what);
-
-        ligma: ^int = &what;   // reference of bruh
-        *ligma = 68;        // store 42 at the location that ligma points to
-
-        what1: int = *ligma;    // dereference ligma (get value at address ligma points to)
-        printf("what1 = %d\n", what1);
-        printf("what = %d\n", what);
-
-        whatever : ^^int = &ligma;
-        **whatever = 82;
-        printf("what = %d\n", what);
-
-        whatever2 : ^^^int = &whatever;
-        ***whatever2 = **whatever;
-        printf("what = %d\n", what);
-
-        ***whatever2 = 96;
-        printf("what = %d\n", what);
-
     }
 
     {  // more complex example
@@ -115,6 +117,31 @@ main :: () {
         printf("aint = %d\n", aint);
     }
 
+    { // pointer depths
+        printf("\n");
+        what: int = 999;
+        printf("what = %d\n", what);
+
+        ligma: ^int = &what;   // reference of bruh
+        *ligma = 68;        // store 42 at the location that ligma points to
+
+        what1: int = *ligma;    // dereference ligma (get value at address ligma points to)
+        printf("what1 = %d\n", what1);
+        printf("what = %d\n", what);
+
+        whatever : ^^int = &ligma;
+        **whatever = 82;
+        printf("what = %d\n", what);
+
+        whatever2 : ^^^int = &whatever;
+        ***whatever2 = **whatever;
+        printf("what = %d\n", what);
+
+        ***whatever2 = 96;
+        printf("what = %d\n", what);
+
+    }
+
     arrStaticInt: [4]int;
     // printf("arrStaticInt[0]", arrStaticInt[0]); // not working yet
 
@@ -137,6 +164,23 @@ main :: () {
 
     }
 */
+
+
+    { // some tests with unary operators
+        me:= 5;
+        mee:= &me;
+        meee : int = *mee**mee;
+        printf("meee = %d\n", meee);
+
+        m2 := &mee;
+        m3 : int = **m2+**m2;
+        printf("m3 = %d\n", m3);
+
+        printf("me = %p\n", &me);
+        printf("mee = %p\n", mee);
+        printf("m2 = %p\n", *m2);
+    }
+
     printf("\n");
 
     v : int = 4;
@@ -186,7 +230,6 @@ idk : int = 1;
 boolean: bool = true;
 
 
-
 func :: (aa: ^int, sssd: int) -> int {
 
     // func1 :: () -> float {  // this wont output proper C code yet
@@ -211,14 +254,3 @@ func :: (aa: ^int, sssd: int) -> int {
     return something;
 }
 
-
-func1 :: () -> bool{
-    f := 100;
-    func(&f, a);
-    printf("f inside func1 is equal to: %d\n", f);
-    printf("f inside func1 is equal to: %p\n", &f);
-    // if(f == 100) {
-    //     return true; // Inconsistent not all control paths return a value
-    // }
-    return true;
-}

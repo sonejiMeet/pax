@@ -23,6 +23,12 @@ struct CM_Unresolved_Call {
     int character_number;
 };
 
+// Struct to hold both check results from a single traversal
+struct ReturnCheckResult {
+    bool has_return;  // True if at least one return statement exists
+    bool all_paths_return;  // True if all execution paths return
+};
+
 using CM_Scope = std::vector<CM_Symbol>;
 
 struct CodeManager {
@@ -49,12 +55,18 @@ struct CodeManager {
     CM_Symbol* lookup_symbol_current_scope(const char *name);
     void mark_initialized(const char *name);
 
+    ReturnCheckResult checkReturnPaths(Ast_Block* block);
+    void checkFunctionReturns(Ast_Declaration* decl);
     bool has_return_statement(Ast_Block* block);
+    bool all_paths_return(Ast_Block *block);
+
     void resolve_idents(Ast_Block *block);
     void resolve_idents_in_declaration(Ast_Declaration *decl);
     void resolve_idents_in_expr(Ast_Expression *expr);
     void resolve_unresolved_calls();
 
+
+    char *type_to_string(Ast_Type_Definition* type);
 
     Ast_Type_Definition* make_builtin_type(Ast_Builtin_Type t);
 

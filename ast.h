@@ -244,7 +244,7 @@ struct Ast_Type_Definition : public Ast {
     bool is_reference = false;
     Ast_Struct_Description *struct_def = nullptr;
 
-    std::string to_string() const {
+    std::string to_string() const { // Temporary replace with char *
         std::string base;
         switch (builtin_type) {
             case TYPE_INT:    base = "int"; break;
