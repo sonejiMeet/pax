@@ -35,6 +35,7 @@ void Parser::advance() {
 
 void Parser::parseError(const char *message) {
     printf("\nParsing Error[%d:%d] %s", current->row, current->col, message);
+    exitSuccess = false;
 
 }
 
@@ -97,8 +98,29 @@ Ast_Expression *Parser::parseFactor()
         node->operand = parseFactor();
         return node;
     }
-
-    if (current->type == TOK_NUMBER)
+    else if (current->type == TOK_MINUS) {
+        Token *lookahead = lexer->peekNextToken();
+        if (lookahead->type == TOK_MINUS) {
+            parseError("Consecutive unary minus operators are not allowed.");
+        }
+        advance();
+        Ast_Unary *node = AST_NEW(pool, Ast_Unary);
+        node->op = UNARY_NEGATE;
+        node->operand = parseFactor();
+        return node;
+    }
+    else if (current->type == TOK_EXCLAMATION_MARK) {
+        Token *lookahead = lexer->peekNextToken();
+        if (lookahead->type == TOK_EXCLAMATION_MARK) {
+            parseError("Consecutive unary exclamation mark operators are not allowed.");
+        }
+        advance();
+        Ast_Unary *node = AST_NEW(pool, Ast_Unary);
+        node->op = UNARY_NOT;
+        node->operand = parseFactor();
+        return node;
+    }
+    else if (current->type == TOK_NUMBER)
     {
 
         Ast_Literal *node = AST_NEW(pool,Ast_Literal);

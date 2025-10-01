@@ -34,7 +34,6 @@ int func (int * aa) {
 
 
 
-Mid-High priority: negative numbers can't be assigned yet
 Mid-High priority: Fix floating point precision
 
 mid priority: impliment struct
@@ -56,6 +55,7 @@ emit #line directives so the compiler and debugger know the real source file and
 
 
 
+DONE: Mid-High priority: negative numbers can't be assigned yet
 DONE: high priority: Fix return types mismatch. check if the function declaration has return type and whether the is_return statement exists in function declaration.
 
 DONE:  add a way to not have to forward declare functions, If we encounter a function that isn't declared yet we could put it into a queue and come back to resolve it when we eventually find its declaration in the current scope

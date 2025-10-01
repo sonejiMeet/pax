@@ -44,6 +44,7 @@ enum TokenType {
     TOK_SLASH,          // /
     TOK_CARET,          // ^
     TOK_AMPERSAND,      // &
+    TOK_EXCLAMATION_MARK, // !
 
     TOK_ASSIGN,         // =
     TOK_EQUAL,          // ==
@@ -105,6 +106,7 @@ inline const char* tokenTypeToString(TokenType type) {
         case TOK_SLASH: return "TOK_SLASH";
         case TOK_CARET: return "TOK_CARET";
         case TOK_AMPERSAND: return "TOK_AMPERSAND";
+        case TOK_EXCLAMATION_MARK: return "TOK_EXCLAMATION_MARK";
 
         case TOK_ASSIGN: return "TOK_ASSIGN";
         case TOK_EQUAL: return "TOK_EQUAL";

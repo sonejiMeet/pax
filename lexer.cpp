@@ -257,6 +257,7 @@ Token *Lexer::nextToken()
             return makeToken(TOK_ASSIGN, "=", sRow, sCol);
         case '!':
             if (match_and_advance('=')) return makeToken(TOK_NOT_EQUAL, "!=", sRow, sCol);
+            return makeToken(TOK_EXCLAMATION_MARK, "!", sRow, sCol);
             break;
         case '<':
             if (match_and_advance('=')) return makeToken(TOK_LESS_EQUAL, "<=", sRow, sCol);

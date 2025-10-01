@@ -3,6 +3,10 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+/*GLOBAL FUNCTION DECLARATIONS*/
+bool func1(void);
+int func(int * aa, int sssd);
+
 int a = (((1 + ((2 * 3) * 4)) + 5) / 2);
 int b = (4 + (5 * 2));
 int c = ((5 * 2) + 4);
@@ -11,6 +15,27 @@ float e = ((2 / 4) * 5);
 int h = 1;
 int num = (2 * (5 - h));
 bool something = true;
+float cc = (((3 * 4) + 5) / 2.000000);
+float dd = ((6 / 3.000000) + (2 * 7));
+float ee = ((10 - (4 / 2.000000)) + (3 * 5));
+float ff = ((1 + (2 * 3)) - (4.000000 / 5));
+float gg = (((7 * 8) + 9) / (10 - 2.000000));
+float hh = ((5 * 2) + ((3 * 4) / 2.000000));
+
+bool func1 () {
+    int f = -100;
+    func(/*ADDRESS_OF*/ &f,a);
+    printf("f inside func1 is equal to: %d\n",f);
+    printf("f inside func1 is equal to: %p\n",/*ADDRESS_OF*/ &f);
+    if((f != 100)){
+        (f = 2);
+        return true;
+    }
+    else {
+        return false;
+    }
+}
+
 int idk = 1;
 bool boolean = true;
 
@@ -25,16 +50,15 @@ int func (int * aa, int sssd) {
 }
 
 
-bool func1 () {
-    int f = 100;
-    func(/*ADDRESS_OF*/ &f,a);
-    printf("f inside func1 is equal to: %d\n",f);
-    printf("f inside func1 is equal to: %p\n",/*ADDRESS_OF*/ &f);
-    return true;
-}
-
-
 void GENERATED_MAIN(){
+    int numa = -2;
+    printf("numa= %d\n",numa);
+    printf("cc =%f\n",cc);
+    printf("dd =%f\n",dd);
+    printf("ee =%f\n",ee);
+    printf("ff =%f\n",ff);
+    printf("gg =%f\n",gg);
+    printf("hh =%f\n",hh);
     {
         int f = 100;
         printf("Address of f = %p\n",/*ADDRESS_OF*/ &f);
@@ -59,24 +83,6 @@ void GENERATED_MAIN(){
     }
     {
         printf("\n");
-        int what = 999;
-        printf("what = %d\n",what);
-        int * ligma = /*ADDRESS_OF*/ &what;
-        (/*DEREF*/ * ligma = 68);
-        int what1 = /*DEREF*/ * ligma;
-        printf("what1 = %d\n",what1);
-        printf("what = %d\n",what);
-        int * * whatever = /*ADDRESS_OF*/ &ligma;
-        (/*DEREF*/ * /*DEREF*/ * whatever = 82);
-        printf("what = %d\n",what);
-        int * * * whatever2 = /*ADDRESS_OF*/ &whatever;
-        (/*DEREF*/ * /*DEREF*/ * /*DEREF*/ * whatever2 = /*DEREF*/ * /*DEREF*/ * whatever);
-        printf("what = %d\n",what);
-        (/*DEREF*/ * /*DEREF*/ * /*DEREF*/ * whatever2 = 96);
-        printf("what = %d\n",what);
-    }
-    {
-        printf("\n");
         int aint = 5;
         (aint = 10);
         printf("aint = %d\n",aint);
@@ -97,7 +103,37 @@ void GENERATED_MAIN(){
         printf("p_uninit_int = %d\n",/*DEREF*/ * p_uninit_int);
         printf("aint = %d\n",aint);
     }
+    {
+        printf("\n");
+        int what = 999;
+        printf("what = %d\n",what);
+        int * ligma = /*ADDRESS_OF*/ &what;
+        (/*DEREF*/ * ligma = 68);
+        int what1 = /*DEREF*/ * ligma;
+        printf("what1 = %d\n",what1);
+        printf("what = %d\n",what);
+        int * * whatever = /*ADDRESS_OF*/ &ligma;
+        (/*DEREF*/ * /*DEREF*/ * whatever = 82);
+        printf("what = %d\n",what);
+        int * * * whatever2 = /*ADDRESS_OF*/ &whatever;
+        (/*DEREF*/ * /*DEREF*/ * /*DEREF*/ * whatever2 = /*DEREF*/ * /*DEREF*/ * whatever);
+        printf("what = %d\n",what);
+        (/*DEREF*/ * /*DEREF*/ * /*DEREF*/ * whatever2 = 96);
+        printf("what = %d\n",what);
+    }
     int arrStaticInt[4];
+    {
+        int me = 5;
+        int * mee = /*ADDRESS_OF*/ &me;
+        int meee = (/*DEREF*/ * mee * /*DEREF*/ * mee);
+        printf("meee = %d\n",meee);
+        int * * m2 = /*ADDRESS_OF*/ &mee;
+        int m3 = (/*DEREF*/ * /*DEREF*/ * m2 + /*DEREF*/ * /*DEREF*/ * m2);
+        printf("m3 = %d\n",m3);
+        printf("me = %p\n",/*ADDRESS_OF*/ &me);
+        printf("mee = %p\n",mee);
+        printf("m2 = %p\n",/*DEREF*/ * m2);
+    }
     printf("\n");
     int v = 4;
     if((a != b)){

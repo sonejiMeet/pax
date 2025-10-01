@@ -1,11 +1,11 @@
 #include "ast.h"
 #include <cstdio>
 #include <string>
-
+#include <vector>
 void emitStatement(FILE* out, Ast_Statement* stmt, int indent = 0);
 void emitExpression(FILE* out, Ast_Expression* expr, int indent = 0);
 void emitBlock(FILE* out, Ast_Block* block, int indent = 0);
-
+void emitFunctionPrototype(FILE* out, Ast_Declaration* decl, int indent);
 void indentLine(FILE* out, int indent)
 {
     for (int i = 0; i < indent; ++i)
@@ -51,15 +51,15 @@ void emitExpression(FILE* out, Ast_Expression* expr, int indent)
                     emitExpression(out, u->operand, indent);
                     break;
 
-                // case UNARY_NEGATE:
-                //     fprintf(out, "-");
-                //     emitExpression(out, u->operand, indent);
-                //     break;
+                case UNARY_NEGATE:
+                    fprintf(out, "-");
+                    emitExpression(out, u->operand, indent);
+                    break;
 
-                // case UNARY_NOT:
-                //     fprintf(out, "!");
-                //     emitExpression(out, u->operand, indent);
-                //     break;
+                case UNARY_NOT:
+                    fprintf(out, "!");
+                    emitExpression(out, u->operand, indent);
+                    break;
             }
             break;
         }
@@ -153,6 +153,24 @@ void type_to_c_string(FILE *out, Ast_Type_Definition* type, Ast_Declaration *dec
         fprintf(out, ";\n");
 
 }
+
+void emitFunctionPrototype(FILE* out, Ast_Declaration* decl, int indent) {
+    if (!decl || !decl->is_function || !decl->identifier) return;
+
+    indentLine(out, indent);
+    type_to_c_string(out, decl->return_type, decl, false, indent);
+    fprintf(out, "(");
+    for (int i = 0; i < decl->parameters.count; ++i) {
+        auto* param = decl->parameters.data[i];
+        if (i > 0) fprintf(out, ", ");
+        type_to_c_string(out, param->declared_type, param, false, indent);
+    }
+    if (decl->parameters.count == 0) {
+        fprintf(out, "void");
+    }
+    fprintf(out, ");\n");
+}
+
 
 void emitStatement(FILE* out, Ast_Statement* stmt, int indent)
 {
@@ -283,6 +301,23 @@ void generate_cpp_code(const char* filename, Ast_Block* program)
     fprintf(out, "#include <stdlib.h>\n");
     fprintf(out, "#include <stdio.h>\n\n");
 
+    std::vector<Ast_Declaration*> functions; // TEMPORARY
+    for (int i = 0; i < program->statements.count; i++) {
+        Ast_Statement* stmt = program->statements.data[i];
+        if (!stmt) continue;
+        if (stmt->type == AST_DECLARATION) {
+            Ast_Declaration* decl = static_cast<Ast_Declaration*>(stmt);
+            if (decl->is_function && decl->is_function_body) {
+                functions.push_back(decl);
+            }
+        }
+    }
+
+    fprintf(out, "/*GLOBAL FUNCTION DECLARATIONS*/\n");
+    for (Ast_Declaration* decl : functions) {
+        emitFunctionPrototype(out, decl, 0);
+    }
+    fprintf(out, "\n");
     for (int i = 0; i < program->statements.count; i++) {
         Ast_Statement* stmt = program->statements.data[i];
 

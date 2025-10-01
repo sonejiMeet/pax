@@ -155,31 +155,104 @@ void CodeManager::mark_initialized(const char *name)
     if (s) s->initialized = true;
 }
 
-bool CodeManager::has_return_statement(Ast_Block* block) {
-    if (!block) return false;
+// bool CodeManager::has_return_statement(Ast_Block* block) {
+//     if (!block) return false;
 
-    for (int i = 0; i < block->statements.count; ++i) {
+//     for (int i = 0; i < block->statements.count; ++i) {
+//         Ast_Statement* stmt = block->statements.data[i];
+//         if (!stmt) continue;
+
+//         if (stmt->is_return) {
+//             return true;
+//         } else if (stmt->type == AST_IF) {
+//             Ast_If* ifn = static_cast<Ast_If*>(stmt);
+//             if (ifn->then_block && has_return_statement(ifn->then_block)) {
+//                 return true;
+//             }
+//             if (ifn->else_block && has_return_statement(ifn->else_block)) {
+//                 return true;
+//             }
+//         } else if (stmt->block && stmt->block->is_scoped_block) {
+//             if (has_return_statement(stmt->block)) {
+//                 return true;
+//             }
+//         }
+//     }
+//     return false;
+// }
+ReturnCheckResult CodeManager::checkReturnPaths(Ast_Block* block) {
+    ReturnCheckResult result = {false, false};  // Default: no returns, some path falls through
+    if (!block) return result;
+
+    bool fallthrough = true;  // Tracks if any path reaches the end without returning
+
+    for (size_t i = 0; i < block->statements.count; ++i) {
         Ast_Statement* stmt = block->statements.data[i];
         if (!stmt) continue;
 
+        if (!fallthrough) {
+            // Unreachable code after a guaranteed return; skip
+            continue;
+        }
+
         if (stmt->is_return) {
-            return true;
+            result.has_return = true;
+            fallthrough = false;
+            break;  // All paths from this return are covered
         } else if (stmt->type == AST_IF) {
             Ast_If* ifn = static_cast<Ast_If*>(stmt);
-            if (ifn->then_block && has_return_statement(ifn->then_block)) {
-                return true;
-            }
-            if (ifn->else_block && has_return_statement(ifn->else_block)) {
-                return true;
+            ReturnCheckResult badResult = {false, false};
+            ReturnCheckResult then_result = ifn->then_block ? checkReturnPaths(ifn->then_block) : badResult;
+            ReturnCheckResult else_result = ifn->else_block ? checkReturnPaths(ifn->else_block) : badResult;
+
+            // Update has_return: true if either branch has a return
+            result.has_return |= then_result.has_return || else_result.has_return;
+
+            // All paths return only if both branches return (if else exists)
+            if (then_result.all_paths_return && else_result.all_paths_return) {
+                fallthrough = false;
+                break;
             }
         } else if (stmt->block && stmt->block->is_scoped_block) {
-            if (has_return_statement(stmt->block)) {
-                return true;
+            // Recurse into scoped blocks (e.g., while, for, compound)
+            ReturnCheckResult block_result = checkReturnPaths(stmt->block);
+            result.has_return |= block_result.has_return;
+            if (block_result.all_paths_return) {
+                fallthrough = false;
+                break;
             }
         }
+        // Other statements (e.g., assignments) allow fallthrough
     }
-    return false;
+
+    result.all_paths_return = !fallthrough;
+    return result;
 }
+
+// Semantic analysis check for function return statements
+void CodeManager::checkFunctionReturns(Ast_Declaration* decl) {
+    if (decl->return_type->builtin_type == TYPE_VOID) {
+        return;
+    }
+
+    ReturnCheckResult result = checkReturnPaths(decl->my_scope);
+
+    // Check for complete absence of return statements
+    if (!result.has_return) {
+        report_error(decl->line_number, decl->character_number,
+                     "Non-void function '%s' must have a return statement",
+                     decl->identifier->name);
+        return;  // No need to check all-paths if no returns exist
+    }
+
+    // Check if all paths return a value
+    if (!result.all_paths_return) {
+        report_error(decl->line_number, decl->character_number,
+                     "Not all paths return a value in non-void function '%s'",
+                     decl->identifier->name);
+    }
+}
+
 void CodeManager::resolve_idents(Ast_Block* block) {
     if (!block) return;
 
@@ -206,11 +279,12 @@ void CodeManager::resolve_idents(Ast_Block* block) {
                         report_error(decl->line_number, decl->character_number,
                                      "Function '%s' must specify a return type", decl->identifier->name);
                     } else if (decl->return_type->builtin_type != TYPE_VOID && decl->my_scope) {
-                        if (!has_return_statement(decl->my_scope)) {
-                            report_error(decl->line_number, decl->character_number,
-                                         "Non-void function '%s' must contain a return statement",
-                                         decl->identifier->name);
-                        }
+                        // if (!has_return_statement(decl->my_scope)) {
+                        //     report_error(decl->line_number, decl->character_number,
+                        //                  "Non-void function '%s' must contain a return statement",
+                        //                  decl->identifier->name);
+                        // }
+                        checkFunctionReturns(decl);
                     }
                 }
             } else {
@@ -487,8 +561,8 @@ void CodeManager::resolve_idents_in_expr(Ast_Expression* expr)
                                 Ast_Type_Definition* param_type = sym->parameters.data[i]->declared_type;
                                 if (!check_that_types_match(param_type, arg_type)) {
                                     report_error(fn->line_number, fn->character_number,
-                                                 "Type mismatch for argument %d in call to '%s'",
-                                                 i + 1, fn->name);
+                                                 "Type mismatch for argument %d in call to '%s'. Wanted '%s', Have '%s'",
+                                                 i + 1, fn->name,type_to_string(param_type), type_to_string(arg_type));
                                 }
                             }
                         }
@@ -580,6 +654,44 @@ void CodeManager::resolve_unresolved_calls() {
         unresolved_calls.clear();
     }
 }
+
+char* CodeManager::type_to_string(Ast_Type_Definition* type) {
+
+// part of code pasted from c_converter
+
+    if (!type) {
+        return pool_strdup(ast_pool, "unknown");
+    }
+
+    Ast_Type_Definition* base_type = type;
+    int pointer_depth = 0;
+    while (base_type->pointed_to_type) {
+        base_type = base_type->pointed_to_type;
+        pointer_depth++;
+    }
+
+    std::string type_str;  // Temporary replace with char *
+
+    for (int i = 0; i < pointer_depth; ++i) {
+        type_str = "^";
+    }
+
+    if (type->is_reference) {
+        type_str = "&";
+    }
+
+    if (type->array_kind == ARRAY_STATIC && type->element_type) {
+
+        char* element_str = type_to_string(type->element_type);
+        type_str += element_str;
+        type_str += "[" + std::to_string(type->static_array_size) + "]";
+    } else {
+        type_str += base_type->to_string();
+    }
+
+    return pool_strdup(ast_pool, type_str.c_str());
+}
+
 
 Ast_Type_Definition  *CodeManager::make_builtin_type(Ast_Builtin_Type t) {
     Ast_Type_Definition *out = AST_NEW(ast_pool, Ast_Type_Definition);
@@ -700,11 +812,11 @@ Ast_Type_Definition *CodeManager::infer_types_expr(Ast_Expression** expr_ptr)
                 resultType->builtin_type = TYPE_UNKNOWN;
                 resultType->pointed_to_type = operandType;
                 break;
-            // case UNARY_NEGATE:
-            // case UNARY_NOT:
-            //     // type same as operand
-            //     resultType = operandType;
-            //     break;
+            case UNARY_NEGATE:
+            case UNARY_NOT:
+                // type same as operand
+                resultType = operandType;
+                break;
 
             default:
                 report_error(u->line_number, u->character_number, "Unknown unary operator");
