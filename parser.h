@@ -9,11 +9,11 @@ struct Parser
     Lexer *lexer;
 
     Pool *pool;
-
+    Def_Type *_type;
     Token *current = nullptr;
     Token *previous = nullptr;
 
-    Parser(Lexer *l, Pool *pool);
+    Parser(Lexer *l, Pool *pool, Def_Type *type);
 
     void advance();
 

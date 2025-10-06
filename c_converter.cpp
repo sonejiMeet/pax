@@ -2,6 +2,28 @@
 #include <cstdio>
 #include <string>
 #include <vector>
+
+
+extern const Def_Type *_type;
+
+
+const char *BOILTERPLATE_TOP =
+    "/* GENERATED FILE */\n\n"
+    "#include <stdlib.h>\n"
+    "#include <stdio.h>\n"
+    "typedef unsigned long long u64;\n"
+    "typedef unsigned int       u32;\n"
+    "typedef unsigned short     u16;\n"
+    "typedef unsigned char      u8;\n"
+    "typedef long long  s64;\n"
+    "typedef int        s32;\n"
+    "typedef short      s16;\n"
+    "typedef char       s8;\n"
+    // "typedef float      float32;\n"
+    "typedef double     float64;\n"
+    "\n"
+;
+
 void emitStatement(FILE* out, Ast_Statement* stmt, int indent = 0);
 void emitExpression(FILE* out, Ast_Expression* expr, int indent = 0);
 void emitBlock(FILE* out, Ast_Block* block, int indent = 0);
@@ -131,11 +153,11 @@ void type_to_c_string(FILE *out, Ast_Type_Definition* type, Ast_Declaration *dec
 
 
     if (type->array_kind == ARRAY_STATIC && type->element_type) {
-        type_str = type->element_type->to_string();
+        type_str = type->element_type->to_string(*_type);
         array_suffix = "[" + std::to_string(type->static_array_size) + "]";
 
     } else {
-        type_str = base_type->to_string();
+        type_str = base_type->to_string(*_type);
     }
 
     for (int i = 0; i < pointer_depth; ++i) {
@@ -297,9 +319,7 @@ void generate_cpp_code(const char* filename, Ast_Block* program)
         return;
     }
 
-    fprintf(out, "/* GENERATED FILE */\n\n");
-    fprintf(out, "#include <stdlib.h>\n");
-    fprintf(out, "#include <stdio.h>\n\n");
+    fprintf(out, "%s", BOILTERPLATE_TOP);
 
     std::vector<Ast_Declaration*> functions; // TEMPORARY
     for (int i = 0; i < program->statements.count; i++) {
@@ -313,11 +333,14 @@ void generate_cpp_code(const char* filename, Ast_Block* program)
         }
     }
 
-    fprintf(out, "/*GLOBAL FUNCTION DECLARATIONS*/\n");
+    fprintf(out, "/*GLOBAL FUNCTION FORWARD DECLARATIONS*/\n");
     for (Ast_Declaration* decl : functions) {
         emitFunctionPrototype(out, decl, 0);
     }
     fprintf(out, "\n");
+
+
+    // Normal declarations
     for (int i = 0; i < program->statements.count; i++) {
         Ast_Statement* stmt = program->statements.data[i];
 

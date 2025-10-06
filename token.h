@@ -19,10 +19,10 @@ enum TokenType {
     TOK_FLOAT,
     TOK_STRING,
 
-    TOK_TYPE_INT,       // int
-    TOK_TYPE_FLOAT,     // float
-    TOK_TYPE_STRING,    // string
-    TOK_TYPE_BOOL,      // bool
+    // TOK_TYPE_INT,       // int
+    // TOK_TYPE_FLOAT,     // float
+    // TOK_TYPE_STRING,    // string
+    // TOK_TYPE_BOOL,      // bool
 
     TOK_LPAREN,         // (
     TOK_RPAREN,         // )
@@ -79,10 +79,10 @@ inline const char* tokenTypeToString(TokenType type) {
         case TOK_MAIN_ENTRY_POINT: return "TOK_MAIN_ENTRY_POINT";
         case TOK_RETURN: return "TOK_RETURN";
 
-        case TOK_TYPE_INT: return "TOK_TYPE_INT";
-        case TOK_TYPE_FLOAT: return "TOK_TYPE_FLOAT";
-        case TOK_TYPE_STRING: return "TOK_TYPE_STRING";
-        case TOK_TYPE_BOOL: return "TOK_TYPE_BOOL";
+        // case TOK_TYPE_INT: return "TOK_TYPE_INT";
+        // case TOK_TYPE_FLOAT: return "TOK_TYPE_FLOAT";
+        // case TOK_TYPE_STRING: return "TOK_TYPE_STRING";
+        // case TOK_TYPE_BOOL: return "TOK_TYPE_BOOL";
 
         case TOK_NUMBER: return "TOK_NUMBER";
         case TOK_FLOAT: return "TOK_FLOAT";

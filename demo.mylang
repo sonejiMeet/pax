@@ -1,4 +1,5 @@
 
+// assfdfdf : s64;
 a := (1+2*3*4+5)/2;
 
 b := 4 + 5 * 2;
@@ -8,7 +9,6 @@ e : float = 2/4 * 5;
 
 h := 1;
 num: int = 2 * (5 - h);
-
 
 // single line comment
 
@@ -31,7 +31,7 @@ gg : float = (7 * 8 + 9) / (10 - 2.0);
 hh :float = 5 * 2 + 3 * 4 / 2.0;
 
 func1 :: () -> bool{
-    f := -100;
+    f :int= -100;
     func(&f, a);
     printf("f inside func1 is equal to: %d\n", f);
     printf("f inside func1 is equal to: %p\n", &f);
@@ -46,6 +46,7 @@ func1 :: () -> bool{
     // return true;
 }
 
+
 main :: () {
 
     numa := -2;
@@ -58,7 +59,7 @@ main :: () {
     printf("hh =%f\n", hh);
 
     {
-        f := 100;
+        f :int= 100;
         printf("Address of f = %p\n", &f);
 
         af := func(&f, a);
@@ -202,8 +203,8 @@ main :: () {
     printf("e=%f\n",e);
     printf("h=%d\n",h);
 
-    scopedint := 5.9;
-    scopedint = 2;
+    scopedint := 5.0;
+    scopedint = 2.0;
     printf("scopedint=%f\n",scopedint);
 
     zeroChild: int = 0;

@@ -25,8 +25,8 @@ Token *Lexer::makeToken(TokenType type, const char *value, int row, int col) {
     Token *t = (Token*)pool_alloc(lex_pool, sizeof(Token));
     t->type = type;
     if (type == TOK_IDENTIFIER || type == TOK_PRINT || type == TOK_IF || type == TOK_STRUCT
-        || type == TOK_TYPE_INT || type == TOK_TYPE_FLOAT || type == TOK_TYPE_STRING
-        || type == TOK_TYPE_BOOL || type == TOK_KEYWORD_TRUE || type == TOK_KEYWORD_FALSE)
+        /*|| type == TOK_TYPE_INT || type == TOK_TYPE_FLOAT || type == TOK_TYPE_STRING
+        || type == TOK_TYPE_BOOL*/ || type == TOK_KEYWORD_TRUE || type == TOK_KEYWORD_FALSE)
     {
 
         t->value = pool_strdup(lex_pool, value);
@@ -194,18 +194,19 @@ Token *Lexer::identifierToken(char first, int row, int col)
 
     // printf("ident: %s\n", ident);
 
+    // Temporary replace this with hashmap later
     if (strcmp(ident, "printf") == 0) type = TOK_PRINT;
     else if (strcmp(ident, "if") == 0) type = TOK_IF;
     else if (strcmp(ident, "else") == 0) type = TOK_ELSE;
     else if (strcmp(ident, "main") == 0) type = TOK_MAIN_ENTRY_POINT;
-    else if (strcmp(ident, "int") == 0) type = TOK_TYPE_INT;
-    else if (strcmp(ident, "bool") == 0) type = TOK_TYPE_BOOL;
+    // else if (strcmp(ident, "int") == 0) type = TOK_TYPE_INT;
+    // else if (strcmp(ident, "bool") == 0) type = TOK_TYPE_BOOL;
     else if (strcmp(ident, "true") == 0) type = TOK_KEYWORD_TRUE;
 
-    else if (strcmp(ident, "float") == 0) type = TOK_TYPE_FLOAT;
+    // else if (strcmp(ident, "float") == 0) type = TOK_TYPE_FLOAT;
     else if (strcmp(ident, "false") == 0) type = TOK_KEYWORD_FALSE;
 
-    else if (strcmp(ident, "string") == 0) type = TOK_TYPE_STRING;
+    // else if (strcmp(ident, "string") == 0) type = TOK_TYPE_STRING;
     else if (strcmp(ident, "struct") == 0) type = TOK_STRUCT;
 
     else if (strcmp(ident, "return") == 0) type = TOK_RETURN;

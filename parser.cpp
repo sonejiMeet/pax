@@ -24,8 +24,9 @@ bool exitSuccess = true;
 }())
 
 
-Parser::Parser(Lexer *l, Pool *p) : lexer(l), pool(p) {
+Parser::Parser(Lexer *l, Pool *p, Def_Type *type) : lexer(l), pool(p) {
     current = lexer->nextToken();
+    _type = type;
 }
 
 void Parser::advance() {
@@ -246,8 +247,9 @@ Ast_Type_Definition *Parser::parseTypeSpecifier() {
         if (current->type == TOK_CARET) {
             // Pointer type (^int, ^^int, etc.)
             Ast_Type_Definition *pointerType = AST_NEW(pool, Ast_Type_Definition);
-            pointerType->pointed_to_type = nullptr;
-            pointerType->builtin_type = TYPE_UNKNOWN;
+            pointerType->pointed_to_type = _type->type_def_dummy;
+            // pointerType->builtin_type = TYPE_UNKNOWN;
+            // pointerType = _type->type_def_dummy;
 
             if (currentType) {
                 pointerType->pointed_to_type = currentType;
@@ -262,7 +264,6 @@ Ast_Type_Definition *Parser::parseTypeSpecifier() {
 
             Ast_Type_Definition *arrayType = AST_NEW(pool,Ast_Type_Definition);
             arrayType->element_type = nullptr;
-            arrayType->builtin_type = TYPE_UNKNOWN;
 
             if (current->type == TOK_NUMBER) {
                 // Static array
@@ -288,21 +289,45 @@ Ast_Type_Definition *Parser::parseTypeSpecifier() {
     }
 
     // Now expect the base type
-    Ast_Type_Definition *baseType = AST_NEW(pool,Ast_Type_Definition);
+    // Ast_Type_Definition *baseType = AST_NEW(pool,Ast_Type_Definition);
 
-    if (current->type == TOK_TYPE_INT)
-        baseType->builtin_type = TYPE_INT;
-    else if (current->type == TOK_TYPE_FLOAT)
-        baseType->builtin_type = TYPE_FLOAT;
-    else if (current->type == TOK_TYPE_STRING)
-        baseType->builtin_type = TYPE_STRING;
-    else if (current->type == TOK_TYPE_BOOL)
-        baseType->builtin_type = TYPE_BOOL;
+    Ast_Type_Definition *baseType = nullptr;
+
+
+    // Temporary replace this with hashmap later
+    if (strcmp(current->value, "int") == 0) baseType = _type->type_def_int;
+    else if (strcmp(current->value, "s8") == 0) baseType = _type->type_def_s8;
+    else if (strcmp(current->value, "s16") == 0) baseType = _type->type_def_s16;
+    else if (strcmp(current->value, "s32") == 0) baseType = _type->type_def_s32;
+    else if (strcmp(current->value, "s64") == 0) baseType = _type->type_def_s64;
+    else if (strcmp(current->value, "u8") == 0) baseType = _type->type_def_u8;
+    else if (strcmp(current->value, "u16") == 0) baseType = _type->type_def_u16;
+    else if (strcmp(current->value, "u32") == 0) baseType = _type->type_def_u32;
+    else if (strcmp(current->value, "u64") == 0) baseType = _type->type_def_u64;
+    else if (strcmp(current->value, "float") == 0) baseType = _type->type_def_float;
+    else if (strcmp(current->value, "float32") == 0) baseType = _type->type_def_float32;
+    else if (strcmp(current->value, "float64") == 0) baseType = _type->type_def_float64;
+    else if (strcmp(current->value, "void") == 0) baseType = _type->type_def_void;
+    else if (strcmp(current->value, "bool") == 0) baseType = _type->type_def_bool;
+    else if (strcmp(current->value, "string") == 0) baseType = _type->type_def_string;
     else {
         parseError("Expected a base type (e.g 'int', 'float', 'string', 'bool')");
         synchronize();
-        return nullptr;
+    return nullptr;
     }
+    // if (current->type == TOK_TYPE_INT)
+    //     baseType->builtin_type = TYPE_INT;
+    // else if (current->type == TOK_TYPE_FLOAT)
+    //     baseType->builtin_type = TYPE_FLOAT;
+    // else if (current->type == TOK_TYPE_STRING)
+    //     baseType->builtin_type = TYPE_STRING;
+    // else if (current->type == TOK_TYPE_BOOL)
+    //     baseType->builtin_type = TYPE_BOOL;
+    // else {
+    //     parseError("Expected a base type (e.g 'int', 'float', 'string', 'bool')");
+    //     synchronize();
+    //     return nullptr;
+    // }
 
     advance();
 
@@ -312,7 +337,7 @@ Ast_Type_Definition *Parser::parseTypeSpecifier() {
 
     Ast_Type_Definition *iter = currentType;
     while (true) {
-        if (iter->array_kind == ARRAY_NONE && iter->pointed_to_type == nullptr) {
+        if (iter->array_kind == ARRAY_NONE && iter->pointed_to_type == _type->type_def_dummy /*nullptr*/) {
             iter->pointed_to_type = baseType;
             break;
         }
@@ -540,7 +565,9 @@ Ast_Declaration* Parser::parseFunctionDeclaration(bool is_local) {
     } else {
         // Default return type is void
         func_decl->return_type = AST_NEW(pool, Ast_Type_Definition);
-        func_decl->return_type->builtin_type = TYPE_VOID;
+        // func_decl->return_type->builtin_type = TYPE_VOID;
+        func_decl->return_type = _type->type_def_void;
+
     }
 
     // --- Body or prototype ---
