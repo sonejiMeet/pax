@@ -23,7 +23,7 @@ something := true;
 // }
 
 // func :: (aa: ^int) -> int;
-cc : float = (3 * 4 + 5) / 2.0;
+cc := (3 * 4 + 5) / 2.0;
 dd : float = 6 / 3.0 + 2 * 7;
 ee : float = 10 - 4 / 2.0 + 3 * 5;
 ff : float = 1 + 2 * 3 - 4.0 / 5;

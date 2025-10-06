@@ -38,12 +38,17 @@ struct CodeManager {
     Def_Type *_type;
 
     CodeManager(Pool *pool, Def_Type *type);
+    Ast_Literal *make_integer_literal(long long value);
 
     int count_errors = 0;
 
     char *pool_strdup(Pool *pool, const char* str);
     int get_count_errors();
-    void report_error(int line, int col, const char *fmt, ...);
+
+    template <typename T>
+    void report_error(T type, const char *fmt, ...);
+    void report_error(int row, int col, const char* fmt, ...);
+
     void push_scope();
     void pop_scope();
 
@@ -51,6 +56,7 @@ struct CodeManager {
 
     bool declare_variable(Ast_Declaration *decl);
     bool declare_function(Ast_Declaration *decl); // New method for function declarations
+
 
     template <typename T>  // Temporary we want to simplify where this is used to get rid of this
     T* ast_static_cast(Ast* node, Ast_Type type) {
