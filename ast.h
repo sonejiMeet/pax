@@ -71,6 +71,7 @@ struct Ast {
     // const char *file_name = nullptr;
 };
 
+
 struct Ast_Statement : public Ast {
     Ast_Statement(Pool* = nullptr) { type = AST_STATEMENT; }
     Ast_Type_Definition *type_definition = nullptr;
@@ -214,7 +215,7 @@ struct Ast_Struct_Description : public Ast_Expression {
 
 struct Def_Type {
 
- Ast_Type_Definition *type_def_dummy ; // cause we dont want nullptr initialized
+ Ast_Type_Definition *type_def_dummy;
  Ast_Type_Definition *type_def_int;
  Ast_Type_Definition *type_def_s8;
  Ast_Type_Definition *type_def_s16;

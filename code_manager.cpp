@@ -14,6 +14,14 @@ CodeManager::CodeManager(Pool* pool, Def_Type *type) : ast_pool(pool) {
     scopes.emplace_back(); // global scope
     _type = type;
 }
+
+Ast_Literal *CodeManager::make_integer_literal(long long value){
+    Ast_Literal *literal = AST_NEW(ast_pool, Ast_Literal);
+    literal->value_type = LITERAL_NUMBER;
+    literal->integer_value = value;
+    return literal;
+}
+
 char *CodeManager::pool_strdup(Pool* pool, const char* str) {
     size_t len = strlen(str) + 1;
     char* p = (char*)pool_alloc(pool, len);
@@ -27,7 +35,8 @@ int CodeManager::get_count_errors(){
     return count_errors;
 }
 
-void CodeManager::report_error(int line, int col, const char* fmt, ...)  // Temporary we inherit Ast so dont need to pass line and col implicitly change it
+template<typename T>
+void CodeManager::report_error(T type, const char* fmt, ...)  // Temporary we inherit Ast so dont need to pass line and col implicitly change it
 {
     constexpr size_t BUFFER_SIZE = 512;
     char buffer[BUFFER_SIZE];
@@ -38,8 +47,29 @@ void CodeManager::report_error(int line, int col, const char* fmt, ...)  // Temp
     va_end(args);
 
     count_errors += 1;
-    if (line >= 0 && col >= 0) {
-        fprintf(stderr, "Semantic Error[%d:%d]: %s\n", line, col, buffer);
+
+    Ast *ast = static_cast<Ast *>(type);
+    if (ast->line_number >= 0 && ast->character_number >= 0) {
+        fprintf(stderr, "Semantic Error[%d:%d]: %s\n", ast->line_number, ast->character_number, buffer);
+    } else {
+        fprintf(stderr, "Semantic Error: %s\n", buffer);
+    }
+}
+
+void CodeManager::report_error(int row, int col, const char* fmt, ...)
+{
+    constexpr size_t BUFFER_SIZE = 512;
+    char buffer[BUFFER_SIZE];
+
+    va_list args;
+    va_start(args, fmt);
+    vsnprintf(buffer, BUFFER_SIZE, fmt, args);
+    va_end(args);
+
+    count_errors += 1;
+
+    if (row >= 0 && col >= 0) {
+        fprintf(stderr, "Semantic Error[%d:%d]: %s\n", row, col, buffer);
     } else {
         fprintf(stderr, "Semantic Error: %s\n", buffer);
     }
@@ -87,7 +117,7 @@ bool CodeManager::declare_variable(Ast_Declaration* decl)
     for (auto &sym : scope) {
         if (strcmp(sym.name, decl->identifier->name) == 0) {
             //if (!decl->initializer)
-            report_error(decl->line_number, decl->character_number, "Variable '%s' already declared", decl->identifier->name);
+            report_error(decl, "Variable '%s' already declared", decl->identifier->name);
             return false;
         }
     }
@@ -111,7 +141,7 @@ bool CodeManager::declare_function(Ast_Declaration* decl) {
     for (auto &sym : scope) {
         if (strcmp(sym.name, decl->identifier->name) == 0) {
             if(decl->is_function_body) {
-                report_error(decl->line_number, decl->character_number, "Function '%s' already declared in this scope", decl->identifier->name);
+                report_error(decl, "Function '%s' already declared in this scope", decl->identifier->name);
                 return false;
             }
         }
@@ -242,16 +272,14 @@ void CodeManager::checkFunctionReturns(Ast_Declaration* decl) {
 
     // Check for complete absence of return statements
     if (!result.has_return) {
-        report_error(decl->line_number, decl->character_number,
-                     "Non-void function '%s' must have a return statement",
+        report_error(decl, "Non-void function '%s' must have a return statement",
                      decl->identifier->name);
         return;  // No need to check all-paths if no returns exist
     }
 
     // Check if all paths return a value
     if (!result.all_paths_return) {
-        report_error(decl->line_number, decl->character_number,
-                     "Not all paths return a value in non-void function '%s'",
+        report_error(decl, "Not all paths return a value in non-void function '%s'",
                      decl->identifier->name);
     }
 }
@@ -266,8 +294,7 @@ void CodeManager::resolve_idents(Ast_Block* block) {
 
             if (stmt->type != AST_DECLARATION) {
                 if(stmt->block && stmt->block->is_entry_point == false && !stmt->block->is_scoped_block) {
-                    report_error(stmt->line_number, stmt->character_number,
-                             "Non-declaration statements are not allowed in global scope");
+                    report_error(stmt, "Non-declaration statements are not allowed in global scope");
 
                 }
                 continue;
@@ -279,8 +306,7 @@ void CodeManager::resolve_idents(Ast_Block* block) {
 
                 if (decl->is_function_body) {
                     if (!decl->return_type) {
-                        report_error(decl->line_number, decl->character_number,
-                                     "Function '%s' must specify a return type", decl->identifier->name);
+                        report_error(decl, "Function '%s' must specify a return type", decl->identifier->name);
                     } else if (decl->return_type != _type->type_def_void /*->builtin_type != TYPE_VOID*/ && decl->my_scope) {
                         // if (!has_return_statement(decl->my_scope)) {
                         //     report_error(decl->line_number, decl->character_number,
@@ -416,8 +442,7 @@ void CodeManager::resolve_idents_in_expr(Ast_Expression* expr)
             Ast_Ident* id = static_cast<Ast_Ident*>(expr);
             CM_Symbol* s = lookup_symbol(id->name);
             if (!s) {
-                report_error(id->line_number, id->character_number,
-                    "Use of undeclared identifier '%s'", id->name);
+                report_error(id, "Use of undeclared identifier '%s'", id->name);
             }
             break;
         }
@@ -431,14 +456,14 @@ void CodeManager::resolve_idents_in_expr(Ast_Expression* expr)
 
             resolve_idents_in_expr(u->operand);
 
-            //  check if operand is a pointer
-            if (u->op == UNARY_DEREFERENCE)
-            {
-                Ast_Type_Definition* opType = u->operand->inferred_type;
-                if (opType && !opType->pointed_to_type) {
-                    report_error(u->line_number, u->character_number, "Cannot dereference non-pointer type");
-                }
-            }
+            // //  check if operand is a pointer
+            // if (u->op == UNARY_DEREFERENCE)
+            // {
+            //     Ast_Type_Definition* opType = u->operand->inferred_type;
+            //     if (opType && !opType->pointed_to_type) {
+            //         report_error(u->line_number, u->character_number, "inside resolve Cannot dereference non-pointer type");
+            //     }
+            // }
 
             break;
         }
@@ -453,66 +478,59 @@ void CodeManager::resolve_idents_in_expr(Ast_Expression* expr)
                 if (b->rhs) {
                     resolve_idents_in_expr(b->rhs);
                 }
-                infer_types_expr(&b->rhs);
-                Ast_Type_Definition* rhsType = b->rhs->inferred_type;
-                Ast_Type_Definition* lhsType = nullptr;
+                // infer_types_expr(&b->rhs);
+                // Ast_Type_Definition* rhsType = b->rhs->inferred_type;
+                // Ast_Type_Definition* lhsType = nullptr;
 
                 if (Ast_Ident* lhs_ident = ast_static_cast<Ast_Ident>(b->lhs, AST_IDENT))
                 {
                     CM_Symbol* sym = lookup_symbol(lhs_ident->name);
                     if (!sym) {
-                        report_error(lhs_ident->line_number, lhs_ident->character_number,
-                            "Assignment to undeclared variable '%s'", lhs_ident->name);
+                        report_error(lhs_ident, "Assignment to undeclared variable '%s'", lhs_ident->name);
+                        expr->inferred_type = _type->type_def_dummy;
                     } else {
                         sym->initialized = true;
 
-                        if (!sym->type) {
-                            sym->type = rhsType;
-                        } else if (!check_that_types_match(sym->type, rhsType)) {
-                            report_error(
-                                lhs_ident->line_number,
-                                lhs_ident->character_number,
-                                "Type mismatch in assignment to '%s'",
-                                lhs_ident->name);
-                        }
+                        // if (!sym->type) {
+                        //     sym->type = rhsType;
+                        // } else if (!check_that_types_match(sym->type, rhsType)) {
+                        //     report_error(
+                        //         lhs_ident->line_number,
+                        //         lhs_ident->character_number,
+                        //         "Type mismatch in assignment to '%s', Expected `%s` Got `%s`",
+                        //         lhs_ident->name, type_to_string(sym->type), type_to_string(rhsType));
+                        // }
 
-                        lhsType = sym->type;
+                        // lhsType = sym->type;
                     }
                 } else if (Ast_Unary* lhs_unary = ast_static_cast<Ast_Unary>(b->lhs, AST_UNARY)) {
                     if (lhs_unary->op == UNARY_DEREFERENCE) {
 
                         // must be a pointer expression
                         resolve_idents_in_expr(lhs_unary->operand);
-                        infer_types_expr(&lhs_unary->operand);
-                        Ast_Type_Definition* pointerType = lhs_unary->operand->inferred_type;
-                        if (!pointerType || !pointerType->pointed_to_type)
-                        {
-                            report_error( lhs_unary->line_number, lhs_unary->character_number,
-                                "Invalid dereference: LHS is not a pointer");
-                        } else {
-                            lhsType = pointerType->pointed_to_type;
+                        // infer_types_expr(&lhs_unary->operand);
+                        // Ast_Type_Definition* pointerType = lhs_unary->operand->inferred_type;
+                        // if (!pointerType || !pointerType->pointed_to_type)
+                        // {
+                        //     report_error( lhs_unary->line_number, lhs_unary->character_number,
+                        //         "Invalid dereference: LHS is not a pointer");
+                        // } else {
+                        //     lhsType = pointerType->pointed_to_type;
 
-                            if (!check_that_types_match(lhsType, rhsType)) {
-                                report_error(
-                                    lhs_unary->line_number,
-                                    lhs_unary->character_number,
-                                    "Type mismatch: cannot assign value to dereferenced pointer"
-                                );
-                            }
-                        }
+                        //     if (!check_that_types_match(lhsType, rhsType)) {
+                        //         report_error(
+                        //             lhs_unary->line_number,
+                        //             lhs_unary->character_number,
+                        //             "Type mismatch: cannot assign value to dereferenced pointer. Expected `%s` Got `%s`"
+                        //             , type_to_string(pointerType), type_to_string(rhsType)
+                        //         );
+                        //     }
+                        // }
                     } else {
-                        report_error(
-                            lhs_unary->line_number,
-                            lhs_unary->character_number,
-                            "Unsupported unary operation on LHS of assignment"
-                        );
+                        report_error(lhs_unary, "Unsupported unary operation on LHS of assignment");
                     }
                 } else {
-                    report_error(
-                        b->line_number,
-                        b->character_number,
-                        "Left-hand side of assignment must be an identifier or dereferenced pointer"
-                    );
+                    report_error(b, "Left-hand side of assignment must be an identifier or dereferenced pointer");
                 }
             }
             else {
@@ -545,29 +563,28 @@ void CodeManager::resolve_idents_in_expr(Ast_Expression* expr)
                         unresolved.character_number = fn->character_number;
                         unresolved_calls.push_back(unresolved);
                     } else if (!sym->is_function) {
-                        report_error(fn->line_number, fn->character_number,
-                                     "'%s' is not a function", fn->name);
-                    } else {
+                        report_error(fn, "'%s' is not a function", fn->name);
+                    }
+                    else {
                         // Check parameter count
                         int call_arg_count = call->arguments ? call->arguments->arguments.count : 0;
                         int decl_arg_count = sym->parameters.count;
                         if (call_arg_count != decl_arg_count) {
-                            report_error(fn->line_number, fn->character_number,
-                                         "Function '%s' expects %d arguments, but %d were provided",
+                            report_error(fn, "Function '%s' expects %d arguments, but %d were provided",
                                          fn->name, decl_arg_count, call_arg_count);
                         } else if (call->arguments) {
 
                             for (int i = 0; i < call_arg_count; ++i) {
                                 Ast_Expression* arg = call->arguments->arguments.data[i];
                                 resolve_idents_in_expr(arg);
-                                infer_types_expr(&arg);
-                                Ast_Type_Definition* arg_type = arg->inferred_type;
-                                Ast_Type_Definition* param_type = sym->parameters.data[i]->declared_type;
-                                if (!check_that_types_match(param_type, arg_type)) {
-                                    report_error(fn->line_number, fn->character_number,
-                                                 "Type mismatch for argument %d in call to '%s'. Expected '%s', Got '%s'",
-                                                 i + 1, fn->name,type_to_string(param_type), type_to_string(arg_type));
-                                }
+                                // infer_types_expr(&arg);
+                                // Ast_Type_Definition* arg_type = arg->inferred_type;
+                                // Ast_Type_Definition* param_type = sym->parameters.data[i]->declared_type;
+                                // if (!check_that_types_match(param_type, arg_type)) {
+                                //     report_error(fn->line_number, fn->character_number,
+                                //                  "Type mismatch for argument %d in call to '%s'. Expected '%s', Got '%s'",
+                                //                  i + 1, fn->name,type_to_string(param_type), type_to_string(arg_type));
+                                // }
                             }
                         }
                     }
@@ -612,8 +629,7 @@ void CodeManager::resolve_unresolved_calls() {
         }
 
         if (!sym->is_function) {
-            report_error(unresolved.line_number, unresolved.character_number,
-                         "'%s' is not a function", fn->name);
+            report_error(unresolved.line_number, unresolved.character_number, "'%s' is not a function", fn->name);
             continue;
         }
 
@@ -627,25 +643,24 @@ void CodeManager::resolve_unresolved_calls() {
         int call_arg_count = call->arguments ? call->arguments->arguments.count : 0;
         int decl_arg_count = sym->parameters.count;
         if (call_arg_count != decl_arg_count) {
-            report_error(unresolved.line_number, unresolved.character_number,
-                         "Function '%s' expects %d arguments, but %d were provided",
+            report_error(unresolved.line_number, unresolved.character_number, "Function '%s' expects %d arguments, but %d were provided",
                          fn->name, decl_arg_count, call_arg_count);
             continue;
         }
 
-        if (call->arguments) {
-            for (int i = 0; i < call_arg_count; ++i) {
-                Ast_Expression* arg = call->arguments->arguments.data[i];
-                infer_types_expr(&arg);
-                Ast_Type_Definition* arg_type = arg->inferred_type;
-                Ast_Type_Definition* param_type = sym->parameters.data[i]->declared_type;
-                if (!check_that_types_match(param_type, arg_type)) {
-                    report_error(unresolved.line_number, unresolved.character_number,
-                                 "Type mismatch for argument %d in call to '%s'",
-                                 i + 1, fn->name);
-                }
-            }
-        }
+        // if (call->arguments) {
+        //     for (int i = 0; i < call_arg_count; ++i) {
+        //         Ast_Expression* arg = call->arguments->arguments.data[i];
+        //         infer_types_expr(&arg);
+        //         Ast_Type_Definition* arg_type = arg->inferred_type;
+        //         Ast_Type_Definition* param_type = sym->parameters.data[i]->declared_type;
+        //         if (!check_that_types_match(param_type, arg_type)) {
+        //             report_error(unresolved.line_number, unresolved.character_number,
+        //                          "Type mismatch for argument %d in call to '%s'",
+        //                          i + 1, fn->name);
+        //         }
+        //     }
+        // }
     }
 
     unresolved_calls = still_unresolved;
@@ -653,8 +668,7 @@ void CodeManager::resolve_unresolved_calls() {
     if (scopes.size() == 1 && !unresolved_calls.empty()) {
         for (const auto& unresolved : unresolved_calls) {
             Ast_Ident* fn = static_cast<Ast_Ident*>(unresolved.call->function);
-            report_error(unresolved.line_number, unresolved.character_number,
-                         "Call to undeclared function '%s'", fn->name);
+            report_error(unresolved.line_number, unresolved.character_number, "Call to undeclared function '%s'", fn->name);
         }
         unresolved_calls.clear();
     }
@@ -713,7 +727,7 @@ void CodeManager::infer_types_return(Ast_Statement* ret, Ast_Declaration* func_d
     Ast_Type_Definition* func_return_type = func_decl->return_type ? func_decl->return_type : _type->type_def_void;
 
     if (!ret->expression && func_return_type != _type->type_def_void) {
-        report_error(ret->line_number, ret->character_number,
+        report_error(ret,
                      "Return statement in function '%s' must return a value of type %s",
                      func_decl->identifier->name,
                      func_return_type == _type->type_def_int ? "int" :
@@ -723,7 +737,7 @@ void CodeManager::infer_types_return(Ast_Statement* ret, Ast_Declaration* func_d
     }
 
     if (ret->expression && func_return_type == _type->type_def_void) {
-        report_error(ret->line_number, ret->character_number,
+        report_error(ret,
                      "Void function '%s' cannot return a value",
                      func_decl->identifier->name);
         return;
@@ -733,14 +747,14 @@ void CodeManager::infer_types_return(Ast_Statement* ret, Ast_Declaration* func_d
         infer_types_expr(&ret->expression);
         Ast_Type_Definition* return_expr_type = ret->expression->inferred_type;
         if (!return_expr_type) {
-            report_error(ret->line_number, ret->character_number,
+            report_error(ret,
                          "Could not infer type of return expression in function '%s'",
                          func_decl->identifier->name);
             return;
         }
 
         if (!check_that_types_match(func_return_type, return_expr_type)) {
-            report_error(ret->line_number, ret->character_number,
+            report_error(ret,
                          "Return type mismatch in function '%s': expected %s, got %s",
                          func_decl->identifier->name,
                          func_return_type == _type->type_def_int ? "int" :
@@ -815,7 +829,7 @@ void CodeManager::infer_types_expr(Ast_Expression** expr_ptr)
 
                 }
             } else {
-                report_error(id->line_number, id->character_number, "Use of undeclared identifier '%s'", id->name);
+                report_error(id, "Use of undeclared identifier '%s'", id->name);
                 expr->inferred_type = _type->type_def_dummy;
             }
             break;
@@ -833,7 +847,7 @@ void CodeManager::infer_types_expr(Ast_Expression** expr_ptr)
             infer_types_expr(&u->operand);
             Ast_Type_Definition *operandType = u->operand->inferred_type;
             if (!operandType) {
-                report_error(u->line_number, u->character_number,
+                report_error(u,
                     "Could not determine type of operand for unary expression");
                 expr->inferred_type = _type->type_def_dummy;
 
@@ -843,8 +857,8 @@ void CodeManager::infer_types_expr(Ast_Expression** expr_ptr)
             Ast_Type_Definition* resultType = AST_NEW(ast_pool, Ast_Type_Definition);
             switch (u->op) {
             case UNARY_DEREFERENCE: {
-                if (!operandType->pointed_to_type) {
-                    report_error(u->line_number, u->character_number,
+                if (!operandType->pointed_to_type || operandType == _type->type_def_dummy) {  // not sure about this
+                    report_error(u,
                         "Cannot dereference non-pointer type");
                     expr->inferred_type = _type->type_def_dummy;
                     return;
@@ -870,7 +884,7 @@ void CodeManager::infer_types_expr(Ast_Expression** expr_ptr)
                 break;
 
             default:
-                report_error(u->line_number, u->character_number, "Unknown unary operator");
+                report_error(u, "Unknown unary operator");
                 expr->inferred_type = _type->type_def_dummy;
 
                 // return nullptr;
@@ -921,7 +935,7 @@ void CodeManager::infer_types_expr(Ast_Expression** expr_ptr)
                         expr->inferred_type = _type->type_def_s64;
                     }else {
                         // type mismatch
-                        report_error(b->line_number, b->character_number, "Type error in binary arithmetic: operand types incompatible");
+                        report_error(b, "Type error in binary arithmetic: operand types incompatible");
                         expr->inferred_type = _type->type_def_dummy;
                     }
 
@@ -941,7 +955,7 @@ void CodeManager::infer_types_expr(Ast_Expression** expr_ptr)
                     infer_types_expr(&b->rhs);
                     Ast_Type_Definition *rhsType = b->rhs->inferred_type;
                     if (rhsType == _type->type_def_dummy) {
-                        report_error(b->line_number, b->character_number,
+                        report_error(b,
                                      "Right-hand side of assignment has unknown type");
                         expr->inferred_type = _type->type_def_dummy;
                         return;
@@ -954,27 +968,27 @@ void CodeManager::infer_types_expr(Ast_Expression** expr_ptr)
                     if (Ast_Ident *lhs_ident = ast_static_cast<Ast_Ident>(b->lhs, AST_IDENT))
                     {
                         CM_Symbol *sym = lookup_symbol(lhs_ident->name);
-                        if (!sym)
-                        {
-                            report_error(lhs_ident->line_number, lhs_ident->character_number,
-                                "Assignment to undeclared variable '%s'",
-                                lhs_ident->name);
-                            expr->inferred_type = _type->type_def_dummy;
-                            return;
-                            // return nullptr;
-                        }
+                        // if (!sym)
+                        // {
+                        //     report_error(lhs_ident->line_number, lhs_ident->character_number,
+                        //         "Assignment to undeclared variable '%s'",
+                        //         lhs_ident->name);
+                        //     expr->inferred_type = _type->type_def_dummy;
+                        //     return;
+                        //     // return nullptr;
+                        // }
 
                         if (!sym->type) {
                             sym->type = rhsType;
                         }
                         else if (!check_that_types_match(sym->type, rhsType))
                         {
-                            report_error(lhs_ident->line_number, lhs_ident->character_number,
+                            report_error(lhs_ident,
                                 "Type mismatch in assignment to '%s'. Expected '%s' Got '%s'",
                                 lhs_ident->name, type_to_string(sym->type), type_to_string(rhsType));
                         }
 
-                        sym->initialized = true;
+                        // sym->initialized = true;
                         lhsType = sym->type;
                     }
 
@@ -988,12 +1002,23 @@ void CodeManager::infer_types_expr(Ast_Expression** expr_ptr)
 
                             if (!pointerType || !pointerType->pointed_to_type)
                             {
-                                report_error(lhs_unary->line_number, lhs_unary->character_number,
+                                report_error(lhs_unary,
                                              "Invalid dereference: LHS is not a pointer");
 
                                 expr->inferred_type = _type->type_def_dummy;
-                                return;
+                                // return;
                                 // return nullptr;
+                            } else {
+                                lhsType = pointerType->pointed_to_type;
+
+                                if (!check_that_types_match(lhsType, rhsType)) {
+                                    report_error(
+                                        lhs_unary,
+                                        "Type mismatch: cannot assign value to dereferenced pointer. Expected `%s` Got `%s`"
+                                        , type_to_string(pointerType), type_to_string(rhsType)
+                                    );
+                                }
+                                break;
                             }
 
                             if (Ast_Ident *pointer_ident = ast_static_cast<Ast_Ident>(lhs_unary->operand, AST_IDENT))
@@ -1002,7 +1027,7 @@ void CodeManager::infer_types_expr(Ast_Expression** expr_ptr)
 
                                 bool is_var_param = is_function_parameter(pointer_ident->name); // HACK think of a better way
                                 if (pointer_sym && !pointer_sym->initialized && !is_var_param) {
-                                    report_error(lhs_unary->line_number, lhs_unary->character_number,
+                                    report_error(lhs_unary,
                                                  "Cannot dereference uninitialized pointer '%s'",
                                                  pointer_ident->name ? pointer_ident->name : "");
 
@@ -1015,13 +1040,13 @@ void CodeManager::infer_types_expr(Ast_Expression** expr_ptr)
                             lhsType = pointerType->pointed_to_type;
 
                             if (!check_that_types_match(lhsType, rhsType)) {
-                                report_error(lhs_unary->line_number, lhs_unary->character_number,
+                                report_error(lhs_unary,
                                              "Type mismatch: cannot assign value to dereferenced pointer");
                                 return;
                             }
 
                         } else {
-                            report_error(lhs_unary->line_number, lhs_unary->character_number,
+                            report_error(lhs_unary,
                                          "Unsupported unary operation on LHS of assignment");
 
 
@@ -1030,7 +1055,7 @@ void CodeManager::infer_types_expr(Ast_Expression** expr_ptr)
                             // return nullptr;
                         }
                     } else {
-                        report_error(b->line_number, b->character_number,
+                        report_error(b,
                                      "Left-hand side of assignment must be an identifier or a dereferenced pointer");
 
 
@@ -1045,7 +1070,7 @@ void CodeManager::infer_types_expr(Ast_Expression** expr_ptr)
                 }
 
                 default:
-                    report_error(b->line_number, b->character_number, "Unknown binary operator in type inference");
+                    report_error(b, "Unknown binary operator in type inference");
 
                     expr->inferred_type = _type->type_def_dummy;
                     break;
@@ -1067,9 +1092,34 @@ void CodeManager::infer_types_expr(Ast_Expression** expr_ptr)
                         return_type = sym->type; // Function's return type
                         // Ensure return type matches declared type
                         if (sym->decl && sym->decl->return_type && !check_that_types_match(sym->type, sym->decl->return_type)) {
-                            report_error(fn->line_number, fn->character_number,
+                            report_error(fn,
                                          "Function '%s' return type mismatch", fn->name);
                         }
+
+                        // Check parameter count
+                        int call_arg_count = call->arguments ? call->arguments->arguments.count : 0;
+                        // int decl_arg_count = sym->parameters.count;
+                        // if (call_arg_count != decl_arg_count) {
+                        //     report_error(fn->line_number, fn->character_number,
+                        //                  "Function '%s' expects %d arguments, but %d were provided",
+                        //                  fn->name, decl_arg_count, call_arg_count);
+                        // } else
+                        if (call->arguments) {
+
+                            for (int i = 0; i < call_arg_count; ++i) {
+                                Ast_Expression* arg = call->arguments->arguments.data[i];
+                                // resolve_idents_in_expr(arg);
+                                infer_types_expr(&arg);
+                                Ast_Type_Definition* arg_type = arg->inferred_type;
+                                Ast_Type_Definition* param_type = sym->parameters.data[i]->declared_type;
+                                if (!check_that_types_match(param_type, arg_type)) {
+                                    report_error(fn,
+                                                 "Type mismatch for argument %d in call to '%s'. Expected '%s', Got '%s'",
+                                                 i + 1, fn->name,type_to_string(param_type), type_to_string(arg_type));
+                                }
+                            }
+                        }
+
                     } else {
                         return_type = _type->type_def_void;
                         // return_type = make_builtin_type(TYPE_VOID); // Default for undefined functions
@@ -1097,7 +1147,7 @@ void CodeManager::infer_types_expr(Ast_Expression** expr_ptr)
             if (expr->inferred_type == _type->type_def_dummy) {
                 expr->inferred_type = return_type;
             } else if (!check_that_types_match(expr->inferred_type, return_type)) {
-                report_error(expr->line_number, expr->character_number,
+                report_error(expr,
                              "Type mismatch: function call return type does not match expected type. Expected '%s' Got '%s'",
                                 type_to_string(expr->inferred_type), type_to_string(return_type));
             }
@@ -1106,9 +1156,9 @@ void CodeManager::infer_types_expr(Ast_Expression** expr_ptr)
             // return return_type;
         }
 
-        case AST_COMMA_SEPARATED_ARGS:
-            expr->inferred_type = _type->type_def_dummy;
-            break;
+        // case AST_COMMA_SEPARATED_ARGS:
+            // expr->inferred_type = _type->type_def_dummy;
+            // break;
             // return nullptr;
 
         default:
@@ -1382,7 +1432,7 @@ void CodeManager::infer_types_decl(Ast_Declaration* decl) {
         infer_types_expr(&init_expr);
         Ast_Type_Definition *init_type = init_expr->inferred_type;
         if(!init_type) {
-            report_error(decl->line_number, decl->character_number, "Could not infer type for variable '%s' from intitializer.",decl->identifier->name);
+            report_error(decl, "Could not infer type for variable '%s' from intitializer.",decl->identifier->name);
             return;
         }
 
@@ -1393,8 +1443,7 @@ void CodeManager::infer_types_decl(Ast_Declaration* decl) {
                 // explicitly typed
                 if (!check_that_types_match(decl->declared_type, init_type)) {
                 report_error(
-                    decl->line_number,
-                    decl->character_number,
+                    decl,
                     "Type mismatch in initializer for '%s', Expected '%s' Got '%s'",
                     decl->identifier->name, type_to_string(decl->declared_type), type_to_string(init_type)
                 );
@@ -1406,7 +1455,15 @@ void CodeManager::infer_types_decl(Ast_Declaration* decl) {
             CM_Symbol *sym = lookup_symbol(decl->identifier->name);
             if(sym) sym->type = init_type;
         }
+    } else {
+        auto inf = decl->declared_type;
+        if(inf == _type->type_def_int) {
+            decl->initializer = make_integer_literal(-24);
+        }
+        // printf("declared_type = init_type %p\n-----------", init_type);
+
     }
+
 }
 
 
@@ -1426,7 +1483,7 @@ void CodeManager::infer_types_block(Ast_Block* block, Ast_Declaration *my_func)
                 if (my_func) {
                     infer_types_return(stmt, my_func);
                 } else {
-                    report_error(stmt->line_number, stmt->character_number,
+                    report_error(stmt,
                                  "Return statement outside of function body");
                 }
             } else if (stmt->type == AST_DECLARATION) {
