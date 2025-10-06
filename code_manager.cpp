@@ -36,7 +36,7 @@ int CodeManager::get_count_errors(){
 }
 
 template<typename T>
-void CodeManager::report_error(T type, const char* fmt, ...)  // Temporary we inherit Ast so dont need to pass line and col implicitly change it
+void CodeManager::report_error(T type, const char* fmt, ...)
 {
     constexpr size_t BUFFER_SIZE = 512;
     char buffer[BUFFER_SIZE];
@@ -188,31 +188,7 @@ void CodeManager::mark_initialized(const char *name)
     if (s) s->initialized = true;
 }
 
-// bool CodeManager::has_return_statement(Ast_Block* block) {
-//     if (!block) return false;
 
-//     for (int i = 0; i < block->statements.count; ++i) {
-//         Ast_Statement* stmt = block->statements.data[i];
-//         if (!stmt) continue;
-
-//         if (stmt->is_return) {
-//             return true;
-//         } else if (stmt->type == AST_IF) {
-//             Ast_If* ifn = static_cast<Ast_If*>(stmt);
-//             if (ifn->then_block && has_return_statement(ifn->then_block)) {
-//                 return true;
-//             }
-//             if (ifn->else_block && has_return_statement(ifn->else_block)) {
-//                 return true;
-//             }
-//         } else if (stmt->block && stmt->block->is_scoped_block) {
-//             if (has_return_statement(stmt->block)) {
-//                 return true;
-//             }
-//         }
-//     }
-//     return false;
-// }
 ReturnCheckResult CodeManager::checkReturnPaths(Ast_Block* block) {
     ReturnCheckResult result = {false, false};  // Default: no returns, some path falls through
     if (!block) return result;
@@ -264,7 +240,7 @@ ReturnCheckResult CodeManager::checkReturnPaths(Ast_Block* block) {
 
 // Semantic analysis check for function return statements
 void CodeManager::checkFunctionReturns(Ast_Declaration* decl) {
-    if (decl->return_type == _type->type_def_void /*->builtin_type == TYPE_VOID*/) {
+    if (decl->return_type == _type->type_def_void) {
         return;
     }
 
@@ -307,12 +283,7 @@ void CodeManager::resolve_idents(Ast_Block* block) {
                 if (decl->is_function_body) {
                     if (!decl->return_type) {
                         report_error(decl, "Function '%s' must specify a return type", decl->identifier->name);
-                    } else if (decl->return_type != _type->type_def_void /*->builtin_type != TYPE_VOID*/ && decl->my_scope) {
-                        // if (!has_return_statement(decl->my_scope)) {
-                        //     report_error(decl->line_number, decl->character_number,
-                        //                  "Non-void function '%s' must contain a return statement",
-                        //                  decl->identifier->name);
-                        // }
+                    } else if (decl->return_type != _type->type_def_void && decl->my_scope) {
                         checkFunctionReturns(decl);
                     }
                 }
@@ -372,17 +343,13 @@ void CodeManager::resolve_idents(Ast_Block* block) {
             if (!stmt) continue;
 
             if (stmt->is_return) {
-                // Handle return statements
-                // if (stmt->expression) {
                     resolve_idents_in_expr(stmt->expression);
-                // }
                 continue;
             }
 
             if (stmt->type == AST_DECLARATION) {
                 Ast_Declaration* decl = static_cast<Ast_Declaration*>(stmt);
                 if (decl->is_function) {
-                    // resolve_idents_in_declaration(decl);
                     declare_function(decl);
                     if (decl->my_scope && decl->is_function_body) {
                         push_scope();
@@ -456,15 +423,6 @@ void CodeManager::resolve_idents_in_expr(Ast_Expression* expr)
 
             resolve_idents_in_expr(u->operand);
 
-            // //  check if operand is a pointer
-            // if (u->op == UNARY_DEREFERENCE)
-            // {
-            //     Ast_Type_Definition* opType = u->operand->inferred_type;
-            //     if (opType && !opType->pointed_to_type) {
-            //         report_error(u->line_number, u->character_number, "inside resolve Cannot dereference non-pointer type");
-            //     }
-            // }
-
             break;
         }
 
@@ -478,9 +436,7 @@ void CodeManager::resolve_idents_in_expr(Ast_Expression* expr)
                 if (b->rhs) {
                     resolve_idents_in_expr(b->rhs);
                 }
-                // infer_types_expr(&b->rhs);
-                // Ast_Type_Definition* rhsType = b->rhs->inferred_type;
-                // Ast_Type_Definition* lhsType = nullptr;
+
 
                 if (Ast_Ident* lhs_ident = ast_static_cast<Ast_Ident>(b->lhs, AST_IDENT))
                 {
@@ -490,42 +446,10 @@ void CodeManager::resolve_idents_in_expr(Ast_Expression* expr)
                         expr->inferred_type = _type->type_def_dummy;
                     } else {
                         sym->initialized = true;
-
-                        // if (!sym->type) {
-                        //     sym->type = rhsType;
-                        // } else if (!check_that_types_match(sym->type, rhsType)) {
-                        //     report_error(
-                        //         lhs_ident->line_number,
-                        //         lhs_ident->character_number,
-                        //         "Type mismatch in assignment to '%s', Expected `%s` Got `%s`",
-                        //         lhs_ident->name, type_to_string(sym->type), type_to_string(rhsType));
-                        // }
-
-                        // lhsType = sym->type;
                     }
                 } else if (Ast_Unary* lhs_unary = ast_static_cast<Ast_Unary>(b->lhs, AST_UNARY)) {
                     if (lhs_unary->op == UNARY_DEREFERENCE) {
-
-                        // must be a pointer expression
                         resolve_idents_in_expr(lhs_unary->operand);
-                        // infer_types_expr(&lhs_unary->operand);
-                        // Ast_Type_Definition* pointerType = lhs_unary->operand->inferred_type;
-                        // if (!pointerType || !pointerType->pointed_to_type)
-                        // {
-                        //     report_error( lhs_unary->line_number, lhs_unary->character_number,
-                        //         "Invalid dereference: LHS is not a pointer");
-                        // } else {
-                        //     lhsType = pointerType->pointed_to_type;
-
-                        //     if (!check_that_types_match(lhsType, rhsType)) {
-                        //         report_error(
-                        //             lhs_unary->line_number,
-                        //             lhs_unary->character_number,
-                        //             "Type mismatch: cannot assign value to dereferenced pointer. Expected `%s` Got `%s`"
-                        //             , type_to_string(pointerType), type_to_string(rhsType)
-                        //         );
-                        //     }
-                        // }
                     } else {
                         report_error(lhs_unary, "Unsupported unary operation on LHS of assignment");
                     }
@@ -549,14 +473,11 @@ void CodeManager::resolve_idents_in_expr(Ast_Expression* expr)
             {
                 Ast_Ident* fn = static_cast<Ast_Ident*>(call->function);
 
-                if (fn->name && strcmp(fn->name, "printf") != 0) // allow builtins
+                if (fn->name && strcmp(fn->name, "printf") != 0)
                 {
 
                     CM_Symbol* sym = lookup_symbol(fn->name);
                     if (!sym) {
-                        // report_error(fn->line_number, fn->character_number,
-                        //              "Call to undeclared function '%s'", fn->name);
-
                         CM_Unresolved_Call unresolved;
                         unresolved.call = call;
                         unresolved.line_number = fn->line_number;
@@ -577,14 +498,6 @@ void CodeManager::resolve_idents_in_expr(Ast_Expression* expr)
                             for (int i = 0; i < call_arg_count; ++i) {
                                 Ast_Expression* arg = call->arguments->arguments.data[i];
                                 resolve_idents_in_expr(arg);
-                                // infer_types_expr(&arg);
-                                // Ast_Type_Definition* arg_type = arg->inferred_type;
-                                // Ast_Type_Definition* param_type = sym->parameters.data[i]->declared_type;
-                                // if (!check_that_types_match(param_type, arg_type)) {
-                                //     report_error(fn->line_number, fn->character_number,
-                                //                  "Type mismatch for argument %d in call to '%s'. Expected '%s', Got '%s'",
-                                //                  i + 1, fn->name,type_to_string(param_type), type_to_string(arg_type));
-                                // }
                             }
                         }
                     }
@@ -647,20 +560,7 @@ void CodeManager::resolve_unresolved_calls() {
                          fn->name, decl_arg_count, call_arg_count);
             continue;
         }
-
-        // if (call->arguments) {
-        //     for (int i = 0; i < call_arg_count; ++i) {
-        //         Ast_Expression* arg = call->arguments->arguments.data[i];
-        //         infer_types_expr(&arg);
-        //         Ast_Type_Definition* arg_type = arg->inferred_type;
-        //         Ast_Type_Definition* param_type = sym->parameters.data[i]->declared_type;
-        //         if (!check_that_types_match(param_type, arg_type)) {
-        //             report_error(unresolved.line_number, unresolved.character_number,
-        //                          "Type mismatch for argument %d in call to '%s'",
-        //                          i + 1, fn->name);
-        //         }
-        //     }
-        // }
+        // we infer args later on....
     }
 
     unresolved_calls = still_unresolved;
@@ -675,8 +575,6 @@ void CodeManager::resolve_unresolved_calls() {
 }
 
 char* CodeManager::type_to_string(Ast_Type_Definition* type) {
-
-// part of code pasted from c_converter
 
     if (!type) {
         return pool_strdup(ast_pool, "unknown");
@@ -711,19 +609,9 @@ char* CodeManager::type_to_string(Ast_Type_Definition* type) {
     return pool_strdup(ast_pool, type_str.c_str());
 }
 
-
-// Ast_Type_Definition  *CodeManager::make_builtin_type(Ast_Builtin_Type t) {
-//     Ast_Type_Definition *out = AST_NEW(ast_pool, Ast_Type_Definition);
-//     out->builtin_type = t;
-//     return out;
-// }
-
-
-// Helper function to infer types for return statements and check against function return type
 void CodeManager::infer_types_return(Ast_Statement* ret, Ast_Declaration* func_decl) {
     if (!ret || !func_decl) return;
 
-    // Ast_Type_Definition* func_return_type = func_decl->return_type ? func_decl->return_type : make_builtin_type(TYPE_VOID);
     Ast_Type_Definition* func_return_type = func_decl->return_type ? func_decl->return_type : _type->type_def_void;
 
     if (!ret->expression && func_return_type != _type->type_def_void) {
@@ -777,31 +665,26 @@ void CodeManager::infer_types_expr(Ast_Expression** expr_ptr)
             Ast_Literal *lit = static_cast<Ast_Literal *>(expr);
             switch(lit->value_type){
                 case LITERAL_NUMBER: {
-                    expr->inferred_type = _type->type_def_s64;
+                    expr->inferred_type = _type->type_def_int;
                     break;
-                    // return make_builtin_type(TYPE_INT);
                 }
                 case LITERAL_FLOAT: {
                     expr->inferred_type = _type->type_def_float;
                     break;
-                    // return make_builtin_type(TYPE_FLOAT);
                 }
                 case LITERAL_STRING: {
                     expr->inferred_type = _type->type_def_string;
                     break;
-                    // return make_builtin_type(TYPE_STRING);
                 }
                 case LITERAL_TRUE:
                 case LITERAL_FALSE:{
                     expr->inferred_type = _type->type_def_bool;
                     break;
-                    // return make_builtin_type(TYPE_BOOL);
                 }
 
                 default: {
                     expr->inferred_type = _type->type_def_dummy;
                     break;
-                    // return nullptr;
                 }
             }
             break;
@@ -809,31 +692,25 @@ void CodeManager::infer_types_expr(Ast_Expression** expr_ptr)
 
         case AST_IDENT: {
             Ast_Ident *id = static_cast<Ast_Ident *>(expr);
-            CM_Symbol *s = lookup_symbol(id->name); /* = lookup_symbol_current_scope(id->name);*/
-            // if(!s) s = lookup_symbol(id->name);
+            CM_Symbol *s = lookup_symbol(id->name);
 
             if (s && s->decl)
             {
                 if (s->is_function) {
-                    // return s->type;
                     expr->inferred_type = s->type;
                 }else if (s->decl->declared_type) {
-                    // return s->decl->declared_type;
                     expr->inferred_type = s->decl->declared_type;
                 } else if (s->initialized && !s->inferred) {
-                    // return infer_types_expr(&s->decl->initializer);
                     infer_types_expr(&s->decl->initializer);
                     expr->inferred_type = s->decl->initializer->inferred_type;
                 } else {
                     expr->inferred_type = _type->type_def_dummy;
-
                 }
             } else {
                 report_error(id, "Use of undeclared identifier '%s'", id->name);
                 expr->inferred_type = _type->type_def_dummy;
             }
             break;
-            // return nullptr;
         }
 
         case AST_UNARY: {
@@ -841,7 +718,6 @@ void CodeManager::infer_types_expr(Ast_Expression** expr_ptr)
             if (!u->operand) {
                 expr->inferred_type = _type->type_def_dummy;
                 return;
-                // return nullptr;
             }
 
             infer_types_expr(&u->operand);
@@ -851,47 +727,33 @@ void CodeManager::infer_types_expr(Ast_Expression** expr_ptr)
                     "Could not determine type of operand for unary expression");
                 expr->inferred_type = _type->type_def_dummy;
 
-                // return nullptr;
             }
 
             Ast_Type_Definition* resultType = AST_NEW(ast_pool, Ast_Type_Definition);
             switch (u->op) {
             case UNARY_DEREFERENCE: {
-                if (!operandType->pointed_to_type || operandType == _type->type_def_dummy) {  // not sure about this
+                if (!operandType->pointed_to_type || operandType == _type->type_def_dummy) {
                     report_error(u,
                         "Cannot dereference non-pointer type");
                     expr->inferred_type = _type->type_def_dummy;
-                    return;
-                    // return nullptr;
+                    break;
                 }
                 expr->inferred_type = operandType->pointed_to_type;
-                // resultType = operandType->pointed_to_type;
-                // expr->inferred_type = resultType;
-                // return resultType;
                 break;
             }
             case UNARY_ADDRESS_OF:
-                resultType = AST_NEW(ast_pool, Ast_Type_Definition);
                 resultType->pointed_to_type = operandType;
                 expr->inferred_type = resultType;
-                // resultType->builtin_type = TYPE_UNKNOWN;
                 break;
             case UNARY_NEGATE:
             case UNARY_NOT:
-                // type same as operand
-                // resultType = operandType;
                 expr->inferred_type = operandType;
                 break;
 
             default:
                 report_error(u, "Unknown unary operator");
                 expr->inferred_type = _type->type_def_dummy;
-
-                // return nullptr;
             }
-
-            // expr->inferred_type = resultType;
-            // return resultType;
             break;
         }
 
@@ -916,15 +778,6 @@ void CodeManager::infer_types_expr(Ast_Expression** expr_ptr)
                 case BINOP_MUL:
                 case BINOP_DIV: {
 
-                    // prefer float
-                    // if ((lt && lt->builtin_type == TYPE_FLOAT) || (rt && rt->builtin_type == TYPE_FLOAT)) {
-                    //     return make_builtin_type(TYPE_FLOAT);
-                    // }
-
-                    // if (lt && rt && lt->builtin_type == TYPE_INT && rt->builtin_type == TYPE_INT) {
-                    //     return make_builtin_type(TYPE_INT);
-                    // }
-
                     if (lt == _type->type_def_float || rt == _type->type_def_float) {
                         expr->inferred_type = _type->type_def_float;
                     } else if (lt == _type->type_def_int && rt == _type->type_def_int) {
@@ -940,14 +793,11 @@ void CodeManager::infer_types_expr(Ast_Expression** expr_ptr)
                     }
 
                     break;
-                    // type mismatch
-                    // report_error(b->line_number, b->character_number, "Type error in binary arithmetic: operand types incompatible");
-                    // return nullptr;
+
                 }
 
                 case BINOP_EQ:
                 case BINOP_NEQ: {
-                    // return make_builtin_type(TYPE_BOOL)
                     expr->inferred_type = _type->type_def_bool;
                     break;
                 }
@@ -959,8 +809,6 @@ void CodeManager::infer_types_expr(Ast_Expression** expr_ptr)
                                      "Right-hand side of assignment has unknown type");
                         expr->inferred_type = _type->type_def_dummy;
                         return;
-                        // return nullptr;
-
                     }
 
                     Ast_Type_Definition *lhsType = nullptr;
@@ -968,15 +816,6 @@ void CodeManager::infer_types_expr(Ast_Expression** expr_ptr)
                     if (Ast_Ident *lhs_ident = ast_static_cast<Ast_Ident>(b->lhs, AST_IDENT))
                     {
                         CM_Symbol *sym = lookup_symbol(lhs_ident->name);
-                        // if (!sym)
-                        // {
-                        //     report_error(lhs_ident->line_number, lhs_ident->character_number,
-                        //         "Assignment to undeclared variable '%s'",
-                        //         lhs_ident->name);
-                        //     expr->inferred_type = _type->type_def_dummy;
-                        //     return;
-                        //     // return nullptr;
-                        // }
 
                         if (!sym->type) {
                             sym->type = rhsType;
@@ -987,8 +826,6 @@ void CodeManager::infer_types_expr(Ast_Expression** expr_ptr)
                                 "Type mismatch in assignment to '%s'. Expected '%s' Got '%s'",
                                 lhs_ident->name, type_to_string(sym->type), type_to_string(rhsType));
                         }
-
-                        // sym->initialized = true;
                         lhsType = sym->type;
                     }
 
@@ -1006,8 +843,7 @@ void CodeManager::infer_types_expr(Ast_Expression** expr_ptr)
                                              "Invalid dereference: LHS is not a pointer");
 
                                 expr->inferred_type = _type->type_def_dummy;
-                                // return;
-                                // return nullptr;
+
                             } else {
                                 lhsType = pointerType->pointed_to_type;
 
@@ -1033,7 +869,6 @@ void CodeManager::infer_types_expr(Ast_Expression** expr_ptr)
 
                                     expr->inferred_type = _type->type_def_dummy;
                                     return;
-                                    // return nullptr;
                                 }
                             }
 
@@ -1052,7 +887,6 @@ void CodeManager::infer_types_expr(Ast_Expression** expr_ptr)
 
                             expr->inferred_type = _type->type_def_dummy;
                             return;
-                            // return nullptr;
                         }
                     } else {
                         report_error(b,
@@ -1061,12 +895,10 @@ void CodeManager::infer_types_expr(Ast_Expression** expr_ptr)
 
                         expr->inferred_type = _type->type_def_dummy;
                         return;
-                        // return nullptr;
                     }
 
                     expr->inferred_type = lhsType;
                     break;
-                    // return lhsType;
                 }
 
                 default:
@@ -1074,7 +906,6 @@ void CodeManager::infer_types_expr(Ast_Expression** expr_ptr)
 
                     expr->inferred_type = _type->type_def_dummy;
                     break;
-                    // return nullptr;
             }
             break;
         }
@@ -1086,51 +917,41 @@ void CodeManager::infer_types_expr(Ast_Expression** expr_ptr)
 
             if (call->function) {
                 Ast_Ident *fn = static_cast<Ast_Ident *>(call->function);
-                if (fn->name && strcmp(fn->name, "printf") != 0) { // Allow builtins
+                if (fn->name && strcmp(fn->name, "printf") != 0) {
                     CM_Symbol *sym = lookup_symbol(fn->name);
                     if (sym && sym->is_function) {
-                        return_type = sym->type; // Function's return type
-                        // Ensure return type matches declared type
+                        return_type = sym->type;
+
                         if (sym->decl && sym->decl->return_type && !check_that_types_match(sym->type, sym->decl->return_type)) {
-                            report_error(fn,
-                                         "Function '%s' return type mismatch", fn->name);
+                            report_error(fn, "Function '%s' return type mismatch", fn->name);
                         }
 
-                        // Check parameter count
                         int call_arg_count = call->arguments ? call->arguments->arguments.count : 0;
-                        // int decl_arg_count = sym->parameters.count;
-                        // if (call_arg_count != decl_arg_count) {
-                        //     report_error(fn->line_number, fn->character_number,
-                        //                  "Function '%s' expects %d arguments, but %d were provided",
-                        //                  fn->name, decl_arg_count, call_arg_count);
-                        // } else
+
                         if (call->arguments) {
 
                             for (int i = 0; i < call_arg_count; ++i) {
                                 Ast_Expression* arg = call->arguments->arguments.data[i];
-                                // resolve_idents_in_expr(arg);
+
                                 infer_types_expr(&arg);
                                 Ast_Type_Definition* arg_type = arg->inferred_type;
                                 Ast_Type_Definition* param_type = sym->parameters.data[i]->declared_type;
                                 if (!check_that_types_match(param_type, arg_type)) {
-                                    report_error(fn,
-                                                 "Type mismatch for argument %d in call to '%s'. Expected '%s', Got '%s'",
-                                                 i + 1, fn->name,type_to_string(param_type), type_to_string(arg_type));
+                                    report_error(fn, "Type mismatch for argument %d in call to '%s'. Expected '%s', Got '%s'"
+                                                        ,i + 1, fn->name,type_to_string(param_type), type_to_string(arg_type));
                                 }
                             }
                         }
 
                     } else {
                         return_type = _type->type_def_void;
-                        // return_type = make_builtin_type(TYPE_VOID); // Default for undefined functions
                     }
                 } else {
                     return_type = _type->type_def_void;
-                    // return_type = make_builtin_type(TYPE_VOID); // Builtins like printf
                 }
             }
 
-            // Infer types for arguments
+
             if (call->arguments)
             {
                 for (int i = 0; i < call->arguments->arguments.count; ++i)
@@ -1139,290 +960,23 @@ void CodeManager::infer_types_expr(Ast_Expression** expr_ptr)
                     infer_types_expr(&p);
                 }
             }
-            // // builtins like printf
-            // return make_builtin_type(TYPE_VOID);
-
             // If this call is part of an assignment, check the LHS type
             expr->inferred_type = return_type;
             if (expr->inferred_type == _type->type_def_dummy) {
                 expr->inferred_type = return_type;
             } else if (!check_that_types_match(expr->inferred_type, return_type)) {
-                report_error(expr,
-                             "Type mismatch: function call return type does not match expected type. Expected '%s' Got '%s'",
-                                type_to_string(expr->inferred_type), type_to_string(return_type));
+                report_error(expr, "Type mismatch: function call return type does not match expected type. Expected '%s' Got '%s'",
+                                    type_to_string(expr->inferred_type), type_to_string(return_type));
             }
 
             break;
-            // return return_type;
         }
-
-        // case AST_COMMA_SEPARATED_ARGS:
-            // expr->inferred_type = _type->type_def_dummy;
-            // break;
-            // return nullptr;
 
         default:
             expr->inferred_type = _type->type_def_dummy;
             break;
-            // return nullptr;
     }
 }
-// Ast_Type_Definition *CodeManager::infer_types_expr(Ast_Expression** expr_ptr)
-// {
-//     if (!expr_ptr || !*expr_ptr) return nullptr;
-//     Ast_Expression *expr = *expr_ptr;
-
-//     switch (expr->type) {
-//         case AST_LITERAL: {
-//             Ast_Literal *lit = static_cast<Ast_Literal *>(expr);
-//             switch(lit->value_type){
-//                 case LITERAL_NUMBER: {
-//                     return make_builtin_type(TYPE_INT);
-//                 }
-//                 case LITERAL_FLOAT: return make_builtin_type(TYPE_FLOAT);
-//                 case LITERAL_STRING: return make_builtin_type(TYPE_STRING);
-//                 case LITERAL_TRUE:
-//                 case LITERAL_FALSE: return make_builtin_type(TYPE_BOOL);
-//                 default: return nullptr;
-//             }
-//             break;
-//         }
-
-//         case AST_IDENT: {
-//             Ast_Ident *id = static_cast<Ast_Ident *>(expr);
-//             CM_Symbol *s = lookup_symbol(id->name); /* = lookup_symbol_current_scope(id->name);*/
-//             // if(!s) s = lookup_symbol(id->name);
-
-//             if (s && s->decl)
-//             {
-//                 if (s->is_function) {
-//                     return s->type;
-//                 }else if (s->decl->declared_type) {
-//                     return s->decl->declared_type;
-//                 } else if (s->initialized && !s->inferred) {
-//                     return infer_types_expr(&s->decl->initializer);
-//                 }
-//             }
-//             return nullptr;
-//         }
-
-//         case AST_UNARY: {
-//             Ast_Unary *u = static_cast<Ast_Unary *>(expr);
-//             if (!u->operand) return nullptr;
-
-//             Ast_Type_Definition *operandType = infer_types_expr(&u->operand);
-//             if (!operandType) {
-//                 report_error(u->line_number, u->character_number,
-//                     "Could not determine type of operand for unary expression");
-//                 return nullptr;
-//             }
-
-//             Ast_Type_Definition* resultType = AST_NEW(ast_pool, Ast_Type_Definition);
-//             switch (u->op) {
-//             case UNARY_DEREFERENCE: {
-//                 if (!operandType->pointed_to_type) {
-//                     report_error(u->line_number, u->character_number,
-//                         "Cannot dereference non-pointer type");
-//                     return nullptr;
-//                 }
-//                 resultType = operandType->pointed_to_type;
-//                 // expr->inferred_type = resultType;
-//                 // return resultType;
-//                 break;
-//             }
-//             case UNARY_ADDRESS_OF:
-//                 resultType->builtin_type = TYPE_UNKNOWN;
-//                 resultType->pointed_to_type = operandType;
-//                 break;
-//             case UNARY_NEGATE:
-//             case UNARY_NOT:
-//                 // type same as operand
-//                 resultType = operandType;
-//                 break;
-
-//             default:
-//                 report_error(u->line_number, u->character_number, "Unknown unary operator");
-//                 return nullptr;
-//             }
-
-//             expr->inferred_type = resultType;
-//             return resultType;
-//         }
-
-//         case AST_BINARY: {
-
-//             Ast_Binary *b = static_cast<Ast_Binary *>(expr);
-//             Ast_Type_Definition *lt = infer_types_expr(&b->lhs);
-//             Ast_Type_Definition *rt = infer_types_expr(&b->rhs);
-
-//             switch (b->op) {
-//                 case BINOP_ADD:
-//                 case BINOP_SUB:
-//                 case BINOP_MUL:
-//                 case BINOP_DIV: {
-
-//                     // prefer float
-//                     if ((lt && lt->builtin_type == TYPE_FLOAT) || (rt && rt->builtin_type == TYPE_FLOAT)) {
-//                         return make_builtin_type(TYPE_FLOAT);
-//                     }
-
-//                     if (lt && rt && lt->builtin_type == TYPE_INT && rt->builtin_type == TYPE_INT) {
-//                         return make_builtin_type(TYPE_INT);
-//                     }
-//                     // type mismatch
-//                     report_error(b->line_number, b->character_number, "Type error in binary arithmetic: operand types incompatible");
-//                     return nullptr;
-//                 }
-
-//                 case BINOP_EQ:
-//                 case BINOP_NEQ: {
-//                     return make_builtin_type(TYPE_BOOL);
-//                 }
-//                 case BINOP_ASSIGN: {
-//                     Ast_Type_Definition *rhsType = infer_types_expr(&b->rhs);
-//                     if (!rhsType) {
-//                         report_error(b->line_number, b->character_number,
-//                                      "Right-hand side of assignment has unknown type");
-//                         return nullptr;
-//                     }
-
-//                     Ast_Type_Definition *lhsType = nullptr;
-
-//                     if (Ast_Ident *lhs_ident = ast_static_cast<Ast_Ident>(b->lhs, AST_IDENT))
-//                     {
-//                         CM_Symbol *sym = lookup_symbol(lhs_ident->name);
-//                         if (!sym)
-//                         {
-//                             report_error(lhs_ident->line_number, lhs_ident->character_number,
-//                                 "Assignment to undeclared variable '%s'",
-//                                 lhs_ident->name);
-//                             return nullptr;
-//                         }
-
-//                         if (!sym->type) {
-//                             sym->type = rhsType;
-//                         }
-//                         else if (!check_that_types_match(sym->type, rhsType))
-//                         {
-//                             report_error(lhs_ident->line_number, lhs_ident->character_number,
-//                                 "Type mismatch in assignment to '%s'. Expected '%s' Got '%s'",
-//                                 lhs_ident->name, type_to_string(sym->type), type_to_string(rhsType));
-//                         }
-
-//                         sym->initialized = true;
-//                         lhsType = sym->type;
-//                     }
-
-//                     // lhs is a dereference
-//                     else if (Ast_Unary *lhs_unary = ast_static_cast<Ast_Unary>(b->lhs, AST_UNARY))
-//                     {
-//                         if (lhs_unary->op == UNARY_DEREFERENCE)
-//                         {
-//                             Ast_Type_Definition *pointerType = infer_types_expr(&lhs_unary->operand);
-
-//                             if (!pointerType || !pointerType->pointed_to_type)
-//                             {
-//                                 report_error(lhs_unary->line_number, lhs_unary->character_number,
-//                                              "Invalid dereference: LHS is not a pointer");
-//                                 return nullptr;
-//                             }
-
-//                             if (Ast_Ident *pointer_ident = ast_static_cast<Ast_Ident>(lhs_unary->operand, AST_IDENT))
-//                             {
-//                                 CM_Symbol *pointer_sym = lookup_symbol(pointer_ident->name);
-
-//                                 bool is_var_param = is_function_parameter(pointer_ident->name); // HACK think of a better way
-//                                 if (pointer_sym && !pointer_sym->initialized && !is_var_param) {
-//                                     report_error(lhs_unary->line_number, lhs_unary->character_number,
-//                                                  "Cannot dereference uninitialized pointer '%s'",
-//                                                  pointer_ident->name ? pointer_ident->name : "");
-
-//                                     return nullptr;
-//                                 }
-//                             }
-
-//                             lhsType = pointerType->pointed_to_type;
-
-//                             if (!check_that_types_match(lhsType, rhsType)) {
-//                                 report_error(lhs_unary->line_number, lhs_unary->character_number,
-//                                              "Type mismatch: cannot assign value to dereferenced pointer");
-//                             }
-
-//                         } else {
-//                             report_error(lhs_unary->line_number, lhs_unary->character_number,
-//                                          "Unsupported unary operation on LHS of assignment");
-//                             return nullptr;
-//                         }
-//                     } else {
-//                         report_error(b->line_number, b->character_number,
-//                                      "Left-hand side of assignment must be an identifier or a dereferenced pointer");
-//                         return nullptr;
-//                     }
-
-//                     return lhsType;
-//                 }
-
-//                 default:
-//                     report_error(b->line_number, b->character_number, "Unknown binary operator in type inference");
-//                     return nullptr;
-//             }
-//         }
-
-//         case AST_PROCEDURE_CALL_EXPRESSION: {
-//             Ast_Procedure_Call_Expression *call = static_cast<Ast_Procedure_Call_Expression *>(expr);
-
-//             Ast_Type_Definition *return_type = nullptr;
-
-//             if (call->function) {
-//                 Ast_Ident *fn = static_cast<Ast_Ident *>(call->function);
-//                 if (fn->name && strcmp(fn->name, "printf") != 0) { // Allow builtins
-//                     CM_Symbol *sym = lookup_symbol(fn->name);
-//                     if (sym && sym->is_function) {
-//                         return_type = sym->type; // Function's return type
-//                         // Ensure return type matches declared type
-//                         if (sym->decl && sym->decl->return_type && !check_that_types_match(sym->type, sym->decl->return_type)) {
-//                             report_error(fn->line_number, fn->character_number,
-//                                          "Function '%s' return type mismatch", fn->name);
-//                         }
-//                     } else {
-//                         return_type = make_builtin_type(TYPE_VOID); // Default for undefined functions
-//                     }
-//                 } else {
-//                     return_type = make_builtin_type(TYPE_VOID); // Builtins like printf
-//                 }
-//             }
-
-//             // Infer types for arguments
-//             if (call->arguments)
-//             {
-//                 for (int i = 0; i < call->arguments->arguments.count; ++i)
-//                 {
-//                     Ast_Expression* p = call->arguments->arguments.data[i];
-//                     infer_types_expr(&p);
-//                 }
-//             }
-//             // // builtins like printf
-//             // return make_builtin_type(TYPE_VOID);
-
-//             // If this call is part of an assignment, check the LHS type
-//             if (expr->inferred_type == nullptr) {
-//                 expr->inferred_type = return_type;
-//             } else if (!check_that_types_match(expr->inferred_type, return_type)) {
-//                 report_error(expr->line_number, expr->character_number,
-//                              "Type mismatch: function call return type does not match expected type");
-//             }
-
-//             return return_type;
-//         }
-
-//         case AST_COMMA_SEPARATED_ARGS:
-//             return nullptr;
-
-//         default:
-//             return nullptr;
-//     }
-// }
-
 
 void CodeManager::infer_types_decl(Ast_Declaration* decl) {
     if (!decl) return;
@@ -1460,8 +1014,6 @@ void CodeManager::infer_types_decl(Ast_Declaration* decl) {
         if(inf == _type->type_def_int) {
             decl->initializer = make_integer_literal(-24);
         }
-        // printf("declared_type = init_type %p\n-----------", init_type);
-
     }
 
 }
@@ -1469,7 +1021,6 @@ void CodeManager::infer_types_decl(Ast_Declaration* decl) {
 
 void CodeManager::infer_types_block(Ast_Block* block, Ast_Declaration *my_func)
 {
-    // if (!block) return;
     assert(block);
 
     for (int i = 0; i < block->statements.count; i++) {
@@ -1537,53 +1088,6 @@ void CodeManager::infer_types_block(Ast_Block* block, Ast_Declaration *my_func)
     }
 }
 
-
-// bool CodeManager::check_that_types_match(Ast_Type_Definition *wanted, Ast_Type_Definition* have, bool is_pointer)
-// {
-//     if (!wanted || !have) return false;
-
-//     if (wanted->array_kind != ARRAY_NONE || have->array_kind != ARRAY_NONE)
-//     {
-
-//         if (wanted->array_kind != have->array_kind)
-//             return false;
-
-//         if (wanted->array_kind == ARRAY_STATIC &&
-//             wanted->static_array_size != have->static_array_size)
-//             return false;
-
-//         if (!wanted->element_type || !have->element_type)
-//             return false;
-
-//         return check_that_types_match(wanted->element_type, have->element_type);
-//     }
-
-//     if (wanted->pointed_to_type || have->pointed_to_type) {
-
-//         if (!wanted->pointed_to_type || !have->pointed_to_type)
-//             return false;
-
-//         return check_that_types_match(wanted->pointed_to_type, have->pointed_to_type, true);
-//     }
-
-//     if (wanted->builtin_type != TYPE_UNKNOWN && have->builtin_type != TYPE_UNKNOWN) {
-//         if (wanted->builtin_type == have->builtin_type)
-//             return true;
-
-//         // since wanted != have, we can't allow a pointer type to have different builtin type
-//         if(is_pointer == true) return false;
-
-//         // we allow implicit int -> float, but not if its a pointer type
-//         if (wanted->builtin_type == TYPE_FLOAT && have->builtin_type == TYPE_INT)
-//         {
-//             return true;
-
-//         }
-//         return false;
-//     }
-
-//     return false;
-// }
 
 bool CodeManager::check_that_types_match(Ast_Type_Definition *wanted, Ast_Type_Definition* have, bool is_pointer) {
     // Early null/unknown check

@@ -16,12 +16,12 @@ typedef double     float64;
 bool func1(void);
 int func(int * aa, int sssd);
 
-s64 a = (((1 + ((2 * 3) * 4)) + 5) / 2);
-s64 b = (4 + (5 * 2));
-s64 c = ((5 * 2) + 4);
-s64 d = ((5 * 2) / 4);
+int a = (((1 + ((2 * 3) * 4)) + 5) / 2);
+int b = (4 + (5 * 2));
+int c = ((5 * 2) + 4);
+int d = ((5 * 2) / 4);
 float e = ((2 / 4) * 5);
-s64 h = 1;
+int h = 1;
 int num = (2 * (5 - h));
 bool something = true;
 float cc = (((3 * 4) + 5) / 2.000000);
@@ -50,7 +50,7 @@ bool boolean = true;
 
 int func (int * aa, int sssd) {
     printf("Address of aa = %p\n",aa);
-    s64 something = (/*DEREF*/ * aa * 2);
+    int something = (/*DEREF*/ * aa * 2);
     (/*DEREF*/ * aa = 699);
     int * ss = aa;
     printf("Address of ss = %p\n",ss);
@@ -60,7 +60,7 @@ int func (int * aa, int sssd) {
 
 
 void GENERATED_MAIN(){
-    s64 numa = -2;
+    int numa = -2;
     printf("numa= %d\n",numa);
     printf("cc =%f\n",cc);
     printf("dd =%f\n",dd);
@@ -132,11 +132,11 @@ void GENERATED_MAIN(){
     }
     int arrStaticInt[4];
     {
-        s64 me = 5;
-        s64 * mee = /*ADDRESS_OF*/ &me;
+        int me = 5;
+        int * mee = /*ADDRESS_OF*/ &me;
         int meee = (/*DEREF*/ * mee * /*DEREF*/ * mee);
         printf("meee = %d\n",meee);
-        s64 * * m2 = /*ADDRESS_OF*/ &mee;
+        int * * m2 = /*ADDRESS_OF*/ &mee;
         int m3 = (/*DEREF*/ * /*DEREF*/ * m2 + /*DEREF*/ * /*DEREF*/ * m2);
         printf("m3 = %d\n",m3);
         printf("me = %p\n",/*ADDRESS_OF*/ &me);
@@ -151,7 +151,7 @@ void GENERATED_MAIN(){
         {
             float block_inside_if = 3.100000;
         }
-        s64 block_inside_if = 0;
+        int block_inside_if = 0;
     }
     else {
         printf("a == b\n");
@@ -167,12 +167,12 @@ void GENERATED_MAIN(){
     printf("scopedint=%f\n",scopedint);
     int zeroChild = 0;
     {
-        s64 g = 5;
+        int g = 5;
         (g = 3);
-        s64 firstChild = 0;
+        int firstChild = 0;
         (firstChild = 22);
         {
-            s64 secondChild = 0;
+            int secondChild = 0;
             (secondChild = 335);
         }
     }
