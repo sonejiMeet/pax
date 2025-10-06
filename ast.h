@@ -239,31 +239,12 @@ struct Def_Type {
 
 };
 
-// enum Ast_Builtin_Type {
-//     TYPE_UNKNOWN,
-//     TYPE_INT, // int
-//     TYPE_S8,
-//     TYPE_S16,
-//     TYPE_S32, // int
-//     TYPE_S64,
-//     TYPE_U8,
-//     TYPE_U16,
-//     TYPE_U32,
-//     TYPE_U64,
-//     TYPE_FLOAT, // float
-//     TYPE_FLOAT32, // float
-//     TYPE_FLOAT64,
-//     TYPE_VOID,
-//     TYPE_BOOL,
-//     TYPE_STRING,
-//     TYPE_STRUCT,
-// };
-
 enum Array_Kind {
     ARRAY_NONE,      // Not an array
     ARRAY_DYNAMIC,   // []T
     ARRAY_STATIC,    // [N]T
 };
+
 struct Ast_Type_Definition : public Ast {
     Ast_Type_Definition(Pool* = nullptr) { type = AST_TYPE_DEFINITION; }
 
@@ -307,19 +288,6 @@ struct Ast_Type_Definition : public Ast {
 
         else if (struct_def) base_name = std::string(struct_def->name ? struct_def->name : "unknown_struct");
         else base_name = "unknown_builtin_type";
-        // switch (builtin_type) {
-        //     case TYPE_INT:    base = "int"; break;
-        //     case TYPE_S64:    base = "s64"; break;
-        //     case TYPE_FLOAT:  base = "float"; break;
-        //     case TYPE_F64:    base = "float64"; break;
-        //     case TYPE_BOOL:   base = "bool"; break;
-        //     case TYPE_STRING: base = "string"; break;
-        //     case TYPE_VOID:   base = "void"; break;
-        //     case TYPE_STRUCT:
-        //         base = struct_def ? struct_def->name : "unknown struct";
-        //         break;
-        //     default: base =  "unknown type broo";
-        // }
 
         return base_name;
     }
