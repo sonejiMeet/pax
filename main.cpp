@@ -9,6 +9,7 @@
 
 #ifdef _WIN32
 #include <windows.h>
+
     #ifdef _DEBUG
         #define _CRTDBG_MAP_ALLOC // for mem leaks
         #include <crtdbg.h>
@@ -23,8 +24,7 @@
 #include <cstdlib>
 #include <chrono>
 
-#include <intrin.h>
-#pragma intrinsic(__rdtsc)
+
   // #define PRINT_LEX
 
 #ifdef _DEBUG
@@ -95,6 +95,7 @@ void* default_allocator(int mode, size_t size, size_t old_size,
 int main(int argc, char **args) {
 
 #ifdef _WIN32
+
 #ifdef _DEBUG
     _CrtSetDbgFlag ( _CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF ); // put it at start, when we want to exit(1) early. temporary!!!!!!
 
@@ -107,9 +108,6 @@ int main(int argc, char **args) {
         return 1;
     }
 
-    uint64_t last_count = __rdtsc();
-    // uint64_t end_count = (uint64_t)__rdtsc();
-    // uint64_t = last_count - end_count;
     auto start = std::chrono::high_resolution_clock::now();
 
     Pool pool;
@@ -181,9 +179,7 @@ int main(int argc, char **args) {
         auto end3 = std::chrono::high_resolution_clock::now();
         std::chrono::duration<double> elapsed3 = end3 - start3;
         printf("\n\t -Time to ouput c code: %.6f seconds\n\n", elapsed3.count());
-        uint64_t end_count = __rdtsc();
-        uint64_t done = end_count - last_count;
-        printf("\nCycle count %lld \n", done);
+
 
     }
 
@@ -234,6 +230,8 @@ int main(int argc, char **args) {
     printf("\nTotal mallocs called %d\n\n", total_malloc);
     return 0;
 }
+
+
 
 #ifdef _WIN32
 void runCompiler(char * command){

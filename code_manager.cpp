@@ -1,6 +1,7 @@
 #include "code_manager.h"
 
 #include <cstdarg> // for variadic function
+#include <cstring> // for linux strlen
 
 #define AST_NEW(pool, type) ([&]() -> type* {                   \
     assert(pool != nullptr && "Pool must not be null");         \
