@@ -20,7 +20,7 @@
 
 #endif
 
-
+#include <cstring>
 #include <cstdlib>
 #include <chrono>
 

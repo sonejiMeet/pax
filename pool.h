@@ -9,6 +9,7 @@
     #endif
 #elif __linux__
     #include <stdint.h>
+    #include <cstring>
 
 #endif
 

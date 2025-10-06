@@ -2,7 +2,7 @@
 #include "token.h"
 
 #include <iostream>
-
+#include <cstring>
 bool exitSuccess = true;
 
 #ifdef _DEBUG
