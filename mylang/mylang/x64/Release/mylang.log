@@ -1,12 +1,9 @@
-﻿  c_converter.cpp
-  code_manager.cpp
-  lexer.cpp
+﻿  code_manager.cpp
   main.cpp
   parser.cpp
-  tools.cpp
   Generating code
-  244 of 436 functions (56.0%) were compiled, the rest were copied from previous compilation.
-    43 functions were new in current compilation
-    14 functions had inline decision re-evaluated but remain unchanged
+  14 of 576 functions ( 2.4%) were compiled, the rest were copied from previous compilation.
+    0 functions were new in current compilation
+    2 functions had inline decision re-evaluated but remain unchanged
   Finished generating code
   mylang.vcxproj -> C:\mylang\mylang\x64\Release\mylang.exe

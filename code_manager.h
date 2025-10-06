@@ -35,8 +35,9 @@ struct CodeManager {
     std::vector<CM_Scope> scopes; // Temporary must replace with Array<>
     std::vector<CM_Unresolved_Call> unresolved_calls;
     Pool *ast_pool;
-    CodeManager(Pool *pool);
+    Def_Type *_type;
 
+    CodeManager(Pool *pool, Def_Type *type);
 
     int count_errors = 0;
 
@@ -50,6 +51,11 @@ struct CodeManager {
 
     bool declare_variable(Ast_Declaration *decl);
     bool declare_function(Ast_Declaration *decl); // New method for function declarations
+
+    template <typename T>  // Temporary we want to simplify where this is used to get rid of this
+    T* ast_static_cast(Ast* node, Ast_Type type) {
+        return node->type == type ? static_cast<T*>(node) : nullptr;
+    }
 
     CM_Symbol* lookup_symbol(const char *name);
     CM_Symbol* lookup_symbol_current_scope(const char *name);
@@ -68,10 +74,13 @@ struct CodeManager {
 
     char *type_to_string(Ast_Type_Definition* type);
 
-    Ast_Type_Definition* make_builtin_type(Ast_Builtin_Type t);
+    // Ast_Type_Definition* make_builtin_type(Ast_Builtin_Type t);
+
 
     void infer_types_return(Ast_Statement* ret, Ast_Declaration* func_decl);
-    Ast_Type_Definition* infer_types_expr(Ast_Expression **expr_ptr);
+
+    void infer_types_expr(Ast_Expression **expr_ptr);
+    // Ast_Type_Definition* infer_types_expr(Ast_Expression **expr_ptr);
     void infer_types_decl(Ast_Declaration *decl);
     void infer_types_block(Ast_Block *block, Ast_Declaration *my_func = nullptr);
 

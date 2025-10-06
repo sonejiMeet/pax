@@ -3,7 +3,14 @@
 
         to be FIXed
 
-fix not all control paths return a value
+
+low-mid priority: replace function booleans (inside Ast_Declaration) to a single flag that have serialized value
+
+mid-high priority: simplify this
+    template <typename T>  // Temporary we want to simplify where this is used to get rid of this
+    T* ast_static_cast(Ast* node, Ast_Type type) {
+        return node->type == type ? static_cast<T*>(node) : nullptr;
+    }
 
 high priority: fix proper C output convertion for functions declared inside functions. Our parser and code_manager both resolve and infer correctly. Just find a way to output forward declarations in C code correctly.
 EXAMPLE:
@@ -55,6 +62,7 @@ emit #line directives so the compiler and debugger know the real source file and
 
 
 
+DONE: fix not all control paths return a value
 DONE: Mid-High priority: negative numbers can't be assigned yet
 DONE: high priority: Fix return types mismatch. check if the function declaration has return type and whether the is_return statement exists in function declaration.
 

@@ -1,6 +1,6 @@
 #include "token.h"
 #include "parser.h"
-#include "ast_printer.h"
+// #include "ast_printer.h"
 #include "code_manager.h"
 #include "c_converter.h"
 #include "tools.h"
@@ -23,16 +23,50 @@
 #include <cstdlib>
 #include <chrono>
 
-
-  //#define PRINT_LEX
+#include <intrin.h>
+#pragma intrinsic(__rdtsc)
+  // #define PRINT_LEX
 
 #ifdef _DEBUG
 int totalNbyte = 0;
 #endif
+
+#define AST_NEW(pool, type) ([&]() -> type* {                   \
+    assert(pool != nullptr && "Pool must not be null");         \
+    void* mem = pool_alloc(pool, sizeof(type));                \
+    type* node = new (mem) type(pool);                         \
+    return node;                                               \
+}())
+
+
+const Def_Type *_type = nullptr; // TEMPORARY
+
 int total_malloc = 0;
 
 inline void printLex(FileBuffer buf, Pool *pool);
 void runCompiler(char * command);
+
+void init_Def_Type(Def_Type *type, Pool *pool){
+
+    type->type_def_dummy = AST_NEW(pool, Ast_Type_Definition);
+    type->type_def_int = AST_NEW(pool, Ast_Type_Definition);
+    type->type_def_s8 = AST_NEW(pool, Ast_Type_Definition);
+    type->type_def_s16 = AST_NEW(pool, Ast_Type_Definition);
+    type->type_def_s32 = AST_NEW(pool, Ast_Type_Definition);
+    type->type_def_s64 = AST_NEW(pool, Ast_Type_Definition);
+    type->type_def_u8 = AST_NEW(pool, Ast_Type_Definition);
+    type->type_def_u16 = AST_NEW(pool, Ast_Type_Definition);
+    type->type_def_u32 = AST_NEW(pool, Ast_Type_Definition);
+    type->type_def_u64 = AST_NEW(pool, Ast_Type_Definition);
+    type->type_def_float = AST_NEW(pool, Ast_Type_Definition);
+    type->type_def_float32 = AST_NEW(pool, Ast_Type_Definition);
+    type->type_def_float64 = AST_NEW(pool, Ast_Type_Definition);
+    type->type_def_void = AST_NEW(pool, Ast_Type_Definition);
+    type->type_def_bool = AST_NEW(pool, Ast_Type_Definition);
+    type->type_def_string = AST_NEW(pool, Ast_Type_Definition);
+    type->literal_true = AST_NEW(pool, Ast_Literal);
+    type->literal_false = AST_NEW(pool, Ast_Literal);
+}
 
 void* default_allocator(int mode, size_t size, size_t old_size,
                         void* old_memory, void* allocator_data, int options) {
@@ -73,6 +107,9 @@ int main(int argc, char **args) {
         return 1;
     }
 
+    uint64_t last_count = __rdtsc();
+    // uint64_t end_count = (uint64_t)__rdtsc();
+    // uint64_t = last_count - end_count;
     auto start = std::chrono::high_resolution_clock::now();
 
     Pool pool;
@@ -87,9 +124,13 @@ int main(int argc, char **args) {
 
 #else
 
-    Lexer lexer((const char*)buf.data, buf.size, &pool);
 
-    Parser parser(&lexer, &pool);
+    Lexer lexer((const char*)buf.data, buf.size, &pool);
+    Def_Type type;
+    _type = &type;
+    init_Def_Type(&type, &pool);
+    // printf("----------->type_def_s8 IS %p\n-------------------", type.type_def_int);
+    Parser parser(&lexer, &pool, &type);
 
     Ast_Block* ast = parser.parseProgram();
     // printAst(ast);
@@ -97,7 +138,7 @@ int main(int argc, char **args) {
     free(buf.data);
 
     {
-        CodeManager cm(&pool);
+        CodeManager cm(&pool, &type);
         cm.resolve_idents(ast); // resolve identifiers and populate symbol table/scopes
         cm.resolve_unresolved_calls();
         cm.infer_types_block(ast); // run type inference / checking
@@ -140,6 +181,10 @@ int main(int argc, char **args) {
         auto end3 = std::chrono::high_resolution_clock::now();
         std::chrono::duration<double> elapsed3 = end3 - start3;
         printf("\n\t -Time to ouput c code: %.6f seconds\n\n", elapsed3.count());
+        uint64_t end_count = __rdtsc();
+        uint64_t done = end_count - last_count;
+        printf("\nCycle count %lld \n", done);
+
     }
 
 

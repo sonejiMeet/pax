@@ -68,12 +68,7 @@ struct Ast {
     Ast_Type type = AST_UNKNOWN;
     int line_number = 0;
     int character_number = 0;
-
-    virtual ~Ast() = default;
-
-    std::string getTypeString() const {
-        return astTypeToString(type);
-    }
+    // const char *file_name = nullptr;
 };
 
 struct Ast_Statement : public Ast {
@@ -92,17 +87,17 @@ struct Ast_Expression : public Ast {
 struct Ast_Declaration : public Ast_Statement {
     Ast_Declaration(Pool* p) :parameters(p) { type = AST_DECLARATION; }
 
-    Ast_Type_Definition *declared_type = nullptr;
     Ast_Ident *identifier = nullptr;
+    Ast_Type_Definition *declared_type = nullptr;
     Ast_Expression *initializer = nullptr;
 
     Ast_Block *my_scope = nullptr;
 
-    // --- Function-specific fields ---
-    bool is_function = false;               // This declaration is a function
-    bool is_function_header = false;        // Function prototype (no body)
-    bool is_function_body = false;          // Function with body
-    bool is_local_function = false;         // Function declared inside another function
+    // replace this with flags and use & operator to check flags for simplicity
+    bool is_function = false;
+    bool is_function_header = false;
+    bool is_function_body = false;
+    bool is_local_function = false;
 
     Array<Ast_Declaration*> parameters;     // function parameters
     Ast_Type_Definition* return_type = nullptr; // return type can be int, float, bool, or even struct
@@ -215,15 +210,53 @@ struct Ast_Struct_Description : public Ast_Expression {
     Array<Ast_Declaration *> declarations_who_own_memory;
 
 };
-enum Ast_Builtin_Type {
-    TYPE_UNKNOWN,
-    TYPE_INT,
-    TYPE_FLOAT,
-    TYPE_BOOL,
-    TYPE_STRING,
-    TYPE_VOID,
-    TYPE_STRUCT,
+
+
+struct Def_Type {
+
+ Ast_Type_Definition *type_def_dummy ; // cause we dont want nullptr initialized
+ Ast_Type_Definition *type_def_int;
+ Ast_Type_Definition *type_def_s8;
+ Ast_Type_Definition *type_def_s16;
+ Ast_Type_Definition *type_def_s32;
+ Ast_Type_Definition *type_def_s64;
+ Ast_Type_Definition *type_def_u8;
+ Ast_Type_Definition *type_def_u16;
+ Ast_Type_Definition *type_def_u32;
+ Ast_Type_Definition *type_def_u64;
+
+ Ast_Type_Definition *type_def_float;
+ Ast_Type_Definition *type_def_float32;
+ Ast_Type_Definition *type_def_float64;
+
+ Ast_Type_Definition *type_def_void;
+ Ast_Type_Definition *type_def_bool;
+ Ast_Type_Definition *type_def_string;
+
+ Ast_Literal *literal_true;
+ Ast_Literal *literal_false;
+
 };
+
+// enum Ast_Builtin_Type {
+//     TYPE_UNKNOWN,
+//     TYPE_INT, // int
+//     TYPE_S8,
+//     TYPE_S16,
+//     TYPE_S32, // int
+//     TYPE_S64,
+//     TYPE_U8,
+//     TYPE_U16,
+//     TYPE_U32,
+//     TYPE_U64,
+//     TYPE_FLOAT, // float
+//     TYPE_FLOAT32, // float
+//     TYPE_FLOAT64,
+//     TYPE_VOID,
+//     TYPE_BOOL,
+//     TYPE_STRING,
+//     TYPE_STRUCT,
+// };
 
 enum Array_Kind {
     ARRAY_NONE,      // Not an array
@@ -233,7 +266,7 @@ enum Array_Kind {
 struct Ast_Type_Definition : public Ast {
     Ast_Type_Definition(Pool* = nullptr) { type = AST_TYPE_DEFINITION; }
 
-    Ast_Builtin_Type builtin_type = TYPE_UNKNOWN;
+    // Ast_Builtin_Type builtin_type = TYPE_UNKNOWN;
 
     Ast_Type_Definition *pointed_to_type = nullptr;
 
@@ -244,20 +277,49 @@ struct Ast_Type_Definition : public Ast {
     bool is_reference = false;
     Ast_Struct_Description *struct_def = nullptr;
 
-    std::string to_string() const { // Temporary replace with char *
-        std::string base;
-        switch (builtin_type) {
-            case TYPE_INT:    base = "int"; break;
-            case TYPE_FLOAT:  base = "float"; break;
-            case TYPE_BOOL:   base = "bool"; break;
-            case TYPE_STRING: base = "string"; break;
-            case TYPE_VOID:   base = "void"; break;
-            case TYPE_STRUCT:
-                base = struct_def ? struct_def->name : "unknown struct";
-                break;
-            default: base =  "unknown type broo";
-        }
+    // char *foreign_function_name = nullptr;
+    // void *foreign_function_resolved_pointer = nullptr;
 
-        return base;
+    std::string to_string(const Def_Type &types) const { // Temporary replace with char *
+
+        const Ast_Type_Definition *base = this; // interesting...
+
+        std::string base_name;
+        if (base == types.type_def_dummy) base_name = "/* DUMMY */";
+        else if (base == types.type_def_int) base_name = "int";
+        else if (base == types.type_def_s8) base_name = "s8";
+        else if (base == types.type_def_s16) base_name = "s16";
+        else if (base == types.type_def_s32) base_name = "s32";
+        else if (base == types.type_def_s64) base_name = "s64";
+        else if (base == types.type_def_u8) base_name = "u8";
+        else if (base == types.type_def_u16) base_name = "u16";
+        else if (base == types.type_def_u32) base_name = "u32";
+        else if (base == types.type_def_u64) base_name = "u64";
+
+        else if (base == types.type_def_float) base_name = "float";
+        else if (base == types.type_def_float32) base_name = "float32";
+        else if (base == types.type_def_float64) base_name = "float64";
+
+        else if (base == types.type_def_void) base_name = "void";
+        else if (base == types.type_def_bool) base_name = "bool";
+        else if (base == types.type_def_string) base_name = "string";
+
+        else if (struct_def) base_name = std::string(struct_def->name ? struct_def->name : "unknown_struct");
+        else base_name = "unknown_builtin_type";
+        // switch (builtin_type) {
+        //     case TYPE_INT:    base = "int"; break;
+        //     case TYPE_S64:    base = "s64"; break;
+        //     case TYPE_FLOAT:  base = "float"; break;
+        //     case TYPE_F64:    base = "float64"; break;
+        //     case TYPE_BOOL:   base = "bool"; break;
+        //     case TYPE_STRING: base = "string"; break;
+        //     case TYPE_VOID:   base = "void"; break;
+        //     case TYPE_STRUCT:
+        //         base = struct_def ? struct_def->name : "unknown struct";
+        //         break;
+        //     default: base =  "unknown type broo";
+        // }
+
+        return base_name;
     }
 };
