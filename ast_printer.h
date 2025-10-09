@@ -3,7 +3,8 @@
 #include "pool.h"
 #include <iostream>
 
-// Forward declarations
+// extern Def_Type *ttype;
+
 struct Ast;
 struct Ast_Block;
 struct Ast_Statement;
@@ -14,12 +15,10 @@ struct Ast_Binary;
 struct Ast_If;
 struct Ast_Declaration;
 
-// Helper: indent printing
 inline void printIndent(int indent) {
     for (int i = 0; i < indent; ++i) std::cout << "  ";
 }
 
-// Forward declarations
 void printAst(const Ast* node, int indent = 0);
 void printStatement(const Ast_Statement* stmt, int indent);
 void printExpression(const Ast_Expression* expr, int indent);
@@ -30,9 +29,7 @@ void printBlock(const Ast_Block* block, int indent);
 void printIf(const Ast_If* ifnode, int indent);
 void printDeclaration(const Ast_Declaration* decl, int indent);
 
-// ==================================================
-// Generic dispatcher
-// ==================================================
+
 void printAst(const Ast* node, int indent) {
     if (!node) return;
 
@@ -53,13 +50,11 @@ void printAst(const Ast* node, int indent) {
     }
 }
 
-// ==================================================
-// Statements
-// ==================================================
+
 void printStatement(const Ast_Statement* stmt, int indent) {
     if (!stmt) return;
 
-    // Dispatch based on concrete type
+
     switch (stmt->type) {
         case AST_DECLARATION:
             printDeclaration(static_cast<const Ast_Declaration*>(stmt), indent);
@@ -81,9 +76,7 @@ void printStatement(const Ast_Statement* stmt, int indent) {
 }
 
 
-// ==================================================
-// Expressions
-// ==================================================
+
 void printExpression(const Ast_Expression* expr, int indent) {
     if (!expr) return;
     switch (expr->type) {
@@ -97,9 +90,7 @@ void printExpression(const Ast_Expression* expr, int indent) {
     }
 }
 
-// ==================================================
-// Literals
-// ==================================================
+
 void printLiteral(const Ast_Literal* lit, int indent) {
     printIndent(indent);
     std::cout << "Literal: ";
@@ -112,17 +103,13 @@ void printLiteral(const Ast_Literal* lit, int indent) {
     std::cout << std::endl;
 }
 
-// ==================================================
-// Identifiers
-// ==================================================
+
 void printIdent(const Ast_Ident* ident, int indent) {
     printIndent(indent);
     std::cout << "Identifier: " << ident->name << std::endl;
 }
 
-// ==================================================
-// Binary Expressions
-// ==================================================
+
 void printBinary(const Ast_Binary* bin, int indent) {
     printIndent(indent);
     std::cout << "Binary Expression: ";
@@ -143,9 +130,7 @@ void printBinary(const Ast_Binary* bin, int indent) {
     if (bin->rhs) printExpression(bin->rhs, indent + 1);
 }
 
-// ==================================================
-// Blocks
-// ==================================================
+
 void printBlock(const Ast_Block* block, int indent) {
     printIndent(indent);
     std::cout << "Block {" << std::endl;
@@ -161,9 +146,7 @@ void printBlock(const Ast_Block* block, int indent) {
     std::cout << "}" << std::endl;
 }
 
-// ==================================================
-// If Statements
-// ==================================================
+
 void printIf(const Ast_If* ifnode, int indent) {
     printIndent(indent);
     std::cout << "If Statement" << std::endl;
@@ -180,14 +163,12 @@ void printIf(const Ast_If* ifnode, int indent) {
     }
 }
 
-// ==================================================
-// Declarations
-// ==================================================
+
 void printDeclaration(const Ast_Declaration* decl, int indent) {
     printIndent(indent);
     std::cout << "Declaration: ";
     if (decl->identifier) std::cout << decl->identifier->name;
-    if (decl->declared_type) std::cout << " : " << decl->declared_type->to_string();
+    if (decl->declared_type) std::cout << " : " << decl->declared_type->to_string(*ttype);
     std::cout << std::endl;
 
     if (decl->initializer) {

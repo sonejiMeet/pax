@@ -101,8 +101,10 @@ struct Ast_Declaration : public Ast_Statement {
     bool is_local_function = false;
 
     Array<Ast_Declaration*> parameters;     // function parameters
-    Ast_Type_Definition* return_type = nullptr; // return type can be int, float, bool, or even struct
+    Ast_Type_Definition* return_type = nullptr; // maybe return_type should be an Array too since we will support more than one return_type in a function
 
+    // bool initialized = false;
+    // bool inferred = false;
 };
 
 struct Ast_Comma_Separated_Args : public Ast_Expression {
@@ -134,6 +136,7 @@ struct Ast_Ident : public Ast_Expression {
 
     const char* name = nullptr;
 
+    // Ast_Declaration* resolved_decl = nullptr;
 };
 
 struct Ast_Procedure_Call_Expression : public Ast_Expression {
@@ -184,6 +187,7 @@ struct Ast_Block : public Ast {
     bool is_scoped_block = false;
     bool is_entry_point = false;
 
+    Array<Ast_Block *> my_scope = nullptr;
 };
 
 struct Ast_If : public Ast_Statement {
@@ -248,8 +252,6 @@ enum Array_Kind {
 struct Ast_Type_Definition : public Ast {
     Ast_Type_Definition(Pool* = nullptr) { type = AST_TYPE_DEFINITION; }
 
-    // Ast_Builtin_Type builtin_type = TYPE_UNKNOWN;
-
     Ast_Type_Definition *pointed_to_type = nullptr;
 
     Array_Kind array_kind = ARRAY_NONE;
@@ -267,7 +269,7 @@ struct Ast_Type_Definition : public Ast {
         const Ast_Type_Definition *base = this; // interesting...
 
         std::string base_name;
-        if (base == types.type_def_dummy) base_name = "/* DUMMY */";
+        if (base == types.type_def_dummy) base_name = "unknown_type_def";
         else if (base == types.type_def_int) base_name = "int";
         else if (base == types.type_def_s8) base_name = "s8";
         else if (base == types.type_def_s16) base_name = "s16";

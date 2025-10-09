@@ -1,5 +1,4 @@
 
-// assfdfdf : s64;
 a := (1+2*3*4+5)/2;
 
 b := 4 + 5 * 2;
@@ -17,55 +16,46 @@ something := true;
 /* multiline
   comment */
 
-
-// structName :: struct {
-
-// }
-
-// func :: (aa: ^int) -> int;
-cc := (3 * 4 + 5) / 2.0;
-dd : float = 6 / 3.0 + 2 * 7;
-ee : float = 10 - 4 / 2.0 + 3 * 5;
-ff : float = 1 + 2 * 3 - 4.0 / 5;
-gg : float = (7 * 8 + 9) / (10 - 2.0);
-hh :float = 5 * 2 + 3 * 4 / 2.0;
+// more assosiativity tests
+cc := (3 * 4 + 5) / 2;
+dd := 6 / 3.0 + 2 * 7;
+ee := 10 - 4 / 2 + 3 * 5;
+ff := 1 + 2 * 3 - 4 / 5;
+gg := (7 * 8 + 9) / (10 - 2);
+hh : float = 5 * 2 + 3 * 4 / 2.0;
 
 func1 :: () -> bool{
     f :int= -100;
     func(&f, a);
-    printf("f inside func1 is equal to: %d\n", f);
-    printf("f inside func1 is equal to: %p\n", &f);
-    if(f != 100) {
+    if (f != 100) {
         f = 2;
         return true;
     }
     else {
         return false;
     }
-    //
-    // return true;
 }
-
 
 main :: () {
 
-    numa := -2;
-    printf("numa= %d\n", numa);
-    printf("cc =%f\n",cc );
-    printf("dd =%f\n",dd );
-    printf("ee =%f\n",ee );
-    printf("ff =%f\n", ff);
-    printf("gg =%f\n",gg );
-    printf("hh =%f\n", hh);
+    { // testing pointer arithmetic
+        a:int= 2;
+        var:= &a;
+        var2:= &var+1;
+        printf("var = %x\n", &var);
+        printf("var2 = %x\n", &var2);
+    }
+
+    vvv:= -2-4;
 
     {
-        f :int= 100;
+        f: int = 100;
         printf("Address of f = %p\n", &f);
 
         af := func(&f, a);
+        printf("f = %d\n", f);
 
         ret2 := func1();
-        printf("f = %d\n", f);
         printf("af =  %d\n", af);
         if(ret2 == false) {
             printf("ret2 == false\n");
@@ -76,18 +66,20 @@ main :: () {
     }
 
     { // simple example of how to use pointers
-        bruh: int = 333;
 
-        ligma: ^int = &bruh;   // reference of bruh
-        *ligma = 420;        // store 42 at the location that ligma points to
+        Name:= 100;
+        printf("Name = %d\n", Name);
 
-        what: int = *ligma;    // dereference ligma (get value at address ligma points to)
-        printf("what = %d\n", what);
-        printf("bruh = %d\n", bruh);
+        Name2:= &Name;
+        *Name2 = *Name2 * 420;
+        printf("Name = %d\n", Name);
+
+        Name3:= *Name2;
+        printf("Name3 = %d\n", Name3);
     }
 
     {  // more complex example
-        printf("\n");
+        newline();
 
         aint: int = 5;
         aint = 10;
@@ -112,14 +104,14 @@ main :: () {
         *rint = 30;      // dereference , so value of aint = 30
         printf("aint = %d\n", aint);
 
-
         *p_uninit_int = 40;
         printf("p_uninit_int = %d\n", *p_uninit_int);
         printf("aint = %d\n", aint);
     }
 
-    { // pointer depths
-        printf("\n");
+    { // testing pointer depths
+        newline();
+
         what: int = 999;
         printf("what = %d\n", what);
 
@@ -174,7 +166,7 @@ main :: () {
         printf("meee = %d\n", meee);
 
         m2 := &mee;
-        m3 : int = **m2+**m2;
+        m3 : int = **m2***m2;
         printf("m3 = %d\n", m3);
 
         printf("me = %p\n", &me);
@@ -255,3 +247,6 @@ func :: (aa: ^int, sssd: int) -> int {
     return something;
 }
 
+newline :: (){
+    printf("\n");
+}

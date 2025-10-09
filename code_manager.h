@@ -6,14 +6,16 @@
 
 struct CM_Symbol {
     const char *name;
-    Ast_Declaration* decl = nullptr; // For variables or function declarations
-    Ast_Type_Definition* type = nullptr; // For variables (type) or functions (return type)
-    bool initialized = false; // For variables
+    Ast_Declaration *decl = nullptr; // for var/funcs
+    Ast_Type_Definition *type = nullptr; // vars/func return type
+
+    // for vars
+    bool initialized = false;
     bool inferred = false;
 
-    Array<Ast_Declaration*> parameters; // For function parameters
-    bool is_function = false; // Indicates if this symbol is a function
-    bool is_function_body = false; // True if function has a body, false for prototype
+    Array<Ast_Declaration *> parameters; // func decls
+    bool is_function = false;
+    bool is_function_body = false;
     bool is_local_function = false;
 };
 
@@ -23,10 +25,9 @@ struct CM_Unresolved_Call {
     int character_number;
 };
 
-// Struct to hold both check results from a single traversal
 struct ReturnCheckResult {
-    bool has_return;  // True if at least one return statement exists
-    bool all_paths_return;  // True if all execution paths return
+    bool has_return;
+    bool all_paths_return;
 };
 
 using CM_Scope = std::vector<CM_Symbol>;
@@ -54,22 +55,22 @@ struct CodeManager {
 
     bool is_function_parameter(const char* name);
 
-    bool declare_variable(Ast_Declaration *decl);
-    bool declare_function(Ast_Declaration *decl); // New method for function declarations
+    bool declare_variable(Ast_Declaration *decl, bool force_decl = false);
+    bool declare_function(Ast_Declaration *decl);
 
 
     template <typename T>  // Temporary we want to simplify where this is used to get rid of this
-    T* ast_static_cast(Ast* node, Ast_Type type) {
-        return node->type == type ? static_cast<T*>(node) : nullptr;
+    T *ast_static_cast(Ast *node, Ast_Type type) {
+        return node->type == type ? static_cast<T *>(node) : nullptr;
     }
 
-    CM_Symbol* lookup_symbol(const char *name);
-    CM_Symbol* lookup_symbol_current_scope(const char *name);
+    CM_Symbol *lookup_symbol(const char *name);
+    CM_Symbol *lookup_symbol_current_scope(const char *name);
     void mark_initialized(const char *name);
 
-    ReturnCheckResult checkReturnPaths(Ast_Block* block);
-    void checkFunctionReturns(Ast_Declaration* decl);
-    bool has_return_statement(Ast_Block* block);
+    ReturnCheckResult checkReturnPaths(Ast_Block *block);
+    void checkFunctionReturns(Ast_Declaration *decl);
+    bool has_return_statement(Ast_Block *block);
     bool all_paths_return(Ast_Block *block);
 
     void resolve_idents(Ast_Block *block);
@@ -78,19 +79,14 @@ struct CodeManager {
     void resolve_unresolved_calls();
 
 
-    char *type_to_string(Ast_Type_Definition* type);
+    char *type_to_string(Ast_Type_Definition *type);
 
-    // Ast_Type_Definition* make_builtin_type(Ast_Builtin_Type t);
-
-
-    void infer_types_return(Ast_Statement* ret, Ast_Declaration* func_decl);
+    void infer_types_return(Ast_Statement *ret, Ast_Declaration *func_decl);
 
     void infer_types_expr(Ast_Expression **expr_ptr);
-    // Ast_Type_Definition* infer_types_expr(Ast_Expression **expr_ptr);
     void infer_types_decl(Ast_Declaration *decl);
     void infer_types_block(Ast_Block *block, Ast_Declaration *my_func = nullptr);
 
+    bool check_that_types_match(Ast_Type_Definition *wanted, Ast_Type_Definition *have, bool is_pointer = false);
 
-
-    bool check_that_types_match(Ast_Type_Definition* wanted, Ast_Type_Definition* have, bool is_pointer = false);
 };

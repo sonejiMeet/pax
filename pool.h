@@ -156,7 +156,7 @@ using Block_Allocator = void* (int, size_t, size_t, void*, void*, int);
 
 struct Pool {
     size_t memblock_size = POOL_BUCKET_SIZE_DEFAULT;
-    size_t alignment = 1;
+    size_t alignment = 8;
 
     BlockList unused_memblocks;
     BlockList used_memblocks;
@@ -179,8 +179,8 @@ inline void pool_init(Pool *pool) {
 inline void *pool_alloc(Pool *pool, size_t size) {
     assert(pool != nullptr);
 
-    // size_t extra = (size % pool->alignment) ? pool->alignment - (size % pool->alignment) : 0;
-    size_t extra = pool->alignment - (size % pool->alignment); // how many bytes are we missing to alignment in size-to-be-allocated
+    size_t extra = (size % pool->alignment) ? pool->alignment - (size % pool->alignment) : 0;
+    // size_t extra = pool->alignment - (size % pool->alignment); // how many bytes are we missing to alignment in size-to-be-allocated
     size += extra;
 
     // do we have enough bytes left in current block?
@@ -192,6 +192,7 @@ inline void *pool_alloc(Pool *pool, size_t size) {
 
 #ifdef _DEBUG
     totalNbyte += (int) size;
+    printf("[POOL_ALLOC] extra=%zu\n", extra);
     printf("[POOL_ALLOC] %zu bytes %p\n", size, retval);
     printf("[POOL_ALLOC TOTAL SO FAR] %d bytes, %f KiB\n", totalNbyte, (float)totalNbyte/1024);
 #endif

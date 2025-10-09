@@ -83,6 +83,7 @@ void CodeManager::push_scope()
 
 void CodeManager::pop_scope()
 {
+    // printf("popping scope\n");
     if (!scopes.empty()) scopes.pop_back();
 }
 
@@ -111,15 +112,19 @@ bool CodeManager::is_function_parameter(const char* name) {
     return false;
 }
 
-bool CodeManager::declare_variable(Ast_Declaration* decl)
+bool CodeManager::declare_variable(Ast_Declaration* decl, bool force_decl)
 {
     CM_Scope &scope = scopes.back();
 
-    for (auto &sym : scope) {
-        if (strcmp(sym.name, decl->identifier->name) == 0) {
-            //if (!decl->initializer)
-            report_error(decl, "Variable '%s' already declared", decl->identifier->name);
-            return false;
+    if(force_decl == false){
+
+        for (auto &sym : scope) {
+            if (strcmp(sym.name, decl->identifier->name) == 0) {
+                //if (!decl->initializer)
+                printf("Scope is %lld\n", scopes.size());
+                report_error(decl, "Variable '%s' already declared", decl->identifier->name);
+                return false;
+            }
         }
     }
 
@@ -151,7 +156,6 @@ bool CodeManager::declare_function(Ast_Declaration* decl) {
     CM_Symbol sym;
     sym.name = pool_strdup(ast_pool, decl->identifier->name);
     sym.decl = decl;
-    // sym.type = decl->return_type ? decl->return_type : make_builtin_type(TYPE_VOID);
     sym.type = decl->return_type ? decl->return_type : _type->type_def_void;
 
     sym.is_function = true;
@@ -160,6 +164,8 @@ bool CodeManager::declare_function(Ast_Declaration* decl) {
     sym.initialized = decl->is_function_body; // idk if its a good idea to tag function bodies as initialized
 
     scope.push_back(sym);
+    // printf("declare_function inside itself\n");
+
     return true;
 }
 
@@ -190,41 +196,41 @@ void CodeManager::mark_initialized(const char *name)
 }
 
 
-ReturnCheckResult CodeManager::checkReturnPaths(Ast_Block* block) {
-    ReturnCheckResult result = {false, false};  // Default: no returns, some path falls through
+ReturnCheckResult CodeManager::checkReturnPaths(Ast_Block* block)
+{
+    ReturnCheckResult result = {false, false};
     if (!block) return result;
 
-    bool fallthrough = true;  // Tracks if any path reaches the end without returning
+    bool fallthrough = true;
 
     for (size_t i = 0; i < block->statements.count; ++i) {
         Ast_Statement* stmt = block->statements.data[i];
         if (!stmt) continue;
 
         if (!fallthrough) {
-            // Unreachable code after a guaranteed return; skip
             continue;
         }
 
         if (stmt->is_return) {
             result.has_return = true;
             fallthrough = false;
-            break;  // All paths from this return are covered
+            break;
         } else if (stmt->type == AST_IF) {
             Ast_If* ifn = static_cast<Ast_If*>(stmt);
             ReturnCheckResult badResult = {false, false};
             ReturnCheckResult then_result = ifn->then_block ? checkReturnPaths(ifn->then_block) : badResult;
+
+            //  add check for else_if_blocks once implemeneted
             ReturnCheckResult else_result = ifn->else_block ? checkReturnPaths(ifn->else_block) : badResult;
 
-            // Update has_return: true if either branch has a return
             result.has_return |= then_result.has_return || else_result.has_return;
 
-            // All paths return only if both branches return (if else exists)
             if (then_result.all_paths_return && else_result.all_paths_return) {
                 fallthrough = false;
                 break;
             }
         } else if (stmt->block && stmt->block->is_scoped_block) {
-            // Recurse into scoped blocks (e.g., while, for, compound)
+            // recurse normal blocks/scoped
             ReturnCheckResult block_result = checkReturnPaths(stmt->block);
             result.has_return |= block_result.has_return;
             if (block_result.all_paths_return) {
@@ -232,14 +238,13 @@ ReturnCheckResult CodeManager::checkReturnPaths(Ast_Block* block) {
                 break;
             }
         }
-        // Other statements (e.g., assignments) allow fallthrough
+        // add AST_WHILE
     }
 
     result.all_paths_return = !fallthrough;
     return result;
 }
 
-// Semantic analysis check for function return statements
 void CodeManager::checkFunctionReturns(Ast_Declaration* decl) {
     if (decl->return_type == _type->type_def_void) {
         return;
@@ -247,17 +252,13 @@ void CodeManager::checkFunctionReturns(Ast_Declaration* decl) {
 
     ReturnCheckResult result = checkReturnPaths(decl->my_scope);
 
-    // Check for complete absence of return statements
     if (!result.has_return) {
-        report_error(decl, "Non-void function '%s' must have a return statement",
-                     decl->identifier->name);
-        return;  // No need to check all-paths if no returns exist
+        report_error(decl, "Non-void function '%s' must have a return statement", decl->identifier->name);
+        return;
     }
 
-    // Check if all paths return a value
     if (!result.all_paths_return) {
-        report_error(decl, "Not all paths return a value in non-void function '%s'",
-                     decl->identifier->name);
+        report_error(decl, "Not all paths return a value in non-void function '%s'", decl->identifier->name);
     }
 }
 
@@ -266,7 +267,13 @@ void CodeManager::resolve_idents(Ast_Block* block) {
 
     if (scopes.size() == 1) {
         for (int i = 0; i < block->statements.count; i++) {
+
             Ast_Statement* stmt = block->statements.data[i];
+            /*printf("WE ARE INSIDE GLOBAL SCOPE \n");
+            if(stmt->block && stmt->block->is_entry_point){
+                printf("------------------------------function is_entry_point\n");
+            }*/
+
             if (!stmt) continue;
 
             if (stmt->type != AST_DECLARATION) {
@@ -289,13 +296,15 @@ void CodeManager::resolve_idents(Ast_Block* block) {
                     }
                 }
             } else {
+                // printf(" global Scope in sided single pass is %lld\n", scopes.size());
+                // printf("global declaration name = %s\n", decl->identifier->name);
                 declare_variable(decl);
             }
         }
 
         // Second pass: Resolve initializers, function bodies, and expressions
         for (int i = 0; i < block->statements.count; i++) {
-            Ast_Statement* stmt = block->statements.data[i];
+            Ast_Statement *stmt = block->statements.data[i];
             if (!stmt) continue;
 
             if (stmt->is_return) {
@@ -314,8 +323,11 @@ void CodeManager::resolve_idents(Ast_Block* block) {
                     resolve_idents(decl->my_scope);
                     pop_scope();
                 }
-            } else if (stmt->type == AST_IF) {
-                Ast_If* ifn = static_cast<Ast_If*>(stmt);
+            }
+/*
+            else if (stmt->type == AST_IF) {
+                printf("IFFFFFFFFFFFFFFFFFFF\n");
+                Ast_If *ifn = static_cast<Ast_If*>(stmt);
                 if (ifn->condition) resolve_idents_in_expr(ifn->condition);
                 if (ifn->then_block) {
                     push_scope();
@@ -327,18 +339,30 @@ void CodeManager::resolve_idents(Ast_Block* block) {
                     resolve_idents(ifn->else_block);
                     pop_scope();
                 }
-            } else if (stmt->expression) {
+            }
+            else if (stmt->expression) {
+                printf("EXPRRRRRRRRRRRRRRRRRRRRRR\n");
                 resolve_idents_in_expr(stmt->expression);
-            } else if (stmt->block) {
-                if (stmt->block->is_scoped_block)
-                    push_scope();
+            }
+*/
+            else if (stmt->block) {
+                // printf("WE ARE INSIDE GLOBAL SCOPE \n");
+                if (stmt->block && stmt->block->is_entry_point) {
+                    // printf("------------------------------function is_entry_point\n");
+                }
+                // if (stmt->block->is_scoped_block) {
+                //     push_scope();
+                // }
+                push_scope();
                 resolve_idents(stmt->block);
-                if (stmt->block->is_scoped_block)
-                    pop_scope();
+                pop_scope();
+                // if (stmt->block->is_scoped_block) {
+                    // pop_scope();
+                // }
             }
         }
     } else {
-        // Non-global scope: Single pass
+
         for (int i = 0; i < block->statements.count; i++) {
             Ast_Statement* stmt = block->statements.data[i];
             if (!stmt) continue;
@@ -355,19 +379,29 @@ void CodeManager::resolve_idents(Ast_Block* block) {
                     if (decl->my_scope && decl->is_function_body) {
                         push_scope();
                         for (int j = 0; j < decl->parameters.count; ++j) {
+                            // printf("declare_variable inside a for loop\n");
                             declare_variable(decl->parameters.data[j]);
                         }
                         resolve_idents(decl->my_scope);
                         pop_scope();
                     }
                 } else {
-                    resolve_idents_in_declaration(decl);
-                    declare_variable(decl);
+                    auto *sym = lookup_symbol_current_scope(decl->identifier->name);
+                    // resolve_idents_in_declaration(decl);
+                    // printf("sym lookup_symbol_current_scope = %p\n", sym);
+                    // printf("declaration name = %s\n", decl->identifier->name);
+                    if(!sym) {
+                        // printf("Scope in sided single pass is %lld\n", scopes.size());
+                        // printf("declaration name = %s\n", decl->identifier->name);
+                        declare_variable(decl, true);
+                    }
+
                 }
                 continue;
             }
 
             if (stmt->type == AST_IF) {
+
                 Ast_If* ifn = static_cast<Ast_If*>(stmt);
                 if (ifn->condition) resolve_idents_in_expr(ifn->condition);
                 if (ifn->then_block) {
@@ -383,11 +417,15 @@ void CodeManager::resolve_idents(Ast_Block* block) {
             } else if (stmt->expression) {
                 resolve_idents_in_expr(stmt->expression);
             } else if (stmt->block) {
-                if (stmt->block->is_scoped_block)
+                push_scope();
+                if (stmt->block->is_scoped_block){
                     push_scope();
+                }
                 resolve_idents(stmt->block);
-                if (stmt->block->is_scoped_block)
+                if (stmt->block->is_scoped_block){
                     pop_scope();
+                }
+                pop_scope();
             }
         }
     }
@@ -591,7 +629,7 @@ char* CodeManager::type_to_string(Ast_Type_Definition* type) {
     std::string type_str;  // Temporary replace with char *
 
     for (int i = 0; i < pointer_depth; ++i) {
-        type_str = "^";
+        type_str += "^";
     }
 
     if (type->is_reference) {
@@ -658,37 +696,27 @@ void CodeManager::infer_types_return(Ast_Statement* ret, Ast_Declaration* func_d
 
 void CodeManager::infer_types_expr(Ast_Expression** expr_ptr)
 {
-    if (!expr_ptr || !*expr_ptr) return;
     Ast_Expression *expr = *expr_ptr;
+    if (!expr_ptr) return;
+    if(expr->inferred_type) return;  // this saves us unnessary checks
 
     switch (expr->type) {
         case AST_LITERAL: {
             Ast_Literal *lit = static_cast<Ast_Literal *>(expr);
-            switch(lit->value_type){
-                case LITERAL_NUMBER: {
-                    expr->inferred_type = _type->type_def_int;
-                    break;
-                }
-                case LITERAL_FLOAT: {
-                    expr->inferred_type = _type->type_def_float;
-                    break;
-                }
-                case LITERAL_STRING: {
-                    expr->inferred_type = _type->type_def_string;
-                    break;
-                }
-                case LITERAL_TRUE:
-                case LITERAL_FALSE:{
-                    expr->inferred_type = _type->type_def_bool;
-                    break;
-                }
-
-                default: {
-                    expr->inferred_type = _type->type_def_dummy;
-                    break;
-                }
+            if(lit->value_type == LITERAL_NUMBER){
+                expr->inferred_type = _type->type_def_s64;
+            } else if(lit->value_type == LITERAL_FLOAT){
+                expr->inferred_type = _type->type_def_float;
+            } else if(lit->value_type == LITERAL_STRING){
+                expr->inferred_type = _type->type_def_string;
+            } else if(lit->value_type == LITERAL_TRUE){
+                expr->inferred_type = _type->type_def_bool;
+            } else if(lit->value_type == LITERAL_FALSE){
+                expr->inferred_type = _type->type_def_bool;
+            } else {
+                report_error(expr, "Internal: unhandled type of literal.");
             }
-            break;
+            return;
         }
 
         case AST_IDENT: {
@@ -734,8 +762,7 @@ void CodeManager::infer_types_expr(Ast_Expression** expr_ptr)
             switch (u->op) {
             case UNARY_DEREFERENCE: {
                 if (!operandType->pointed_to_type || operandType == _type->type_def_dummy) {
-                    report_error(u,
-                        "Cannot dereference non-pointer type");
+                    report_error(u, "Cannot dereference non-pointer type");
                     expr->inferred_type = _type->type_def_dummy;
                     break;
                 }
@@ -775,10 +802,8 @@ void CodeManager::infer_types_expr(Ast_Expression** expr_ptr)
 
             switch (b->op) {
                 case BINOP_ADD:
-                case BINOP_SUB:
-                case BINOP_MUL:
-                case BINOP_DIV: {
-
+                case BINOP_SUB: {
+                    // Handle numeric types
                     if (lt == _type->type_def_float || rt == _type->type_def_float) {
                         expr->inferred_type = _type->type_def_float;
                     } else if (lt == _type->type_def_int && rt == _type->type_def_int) {
@@ -787,14 +812,31 @@ void CodeManager::infer_types_expr(Ast_Expression** expr_ptr)
                         expr->inferred_type = _type->type_def_s64;
                     } else if (lt == _type->type_def_int && rt == _type->type_def_s64) {
                         expr->inferred_type = _type->type_def_s64;
-                    }else {
-                        // type mismatch
+                    }
+                    // pointer arithmetic
+                    else if (lt && lt->pointed_to_type && (rt == _type->type_def_int || rt == _type->type_def_s64)) {
+                        expr->inferred_type = lt; // Result is the pointer type (e.g., ^int)
+                    } else {
                         report_error(b, "Type error in binary arithmetic: operand types incompatible");
                         expr->inferred_type = _type->type_def_dummy;
                     }
-
                     break;
-
+                }
+                case BINOP_MUL:
+                case BINOP_DIV: {
+                    if (lt == _type->type_def_float || rt == _type->type_def_float) {
+                        expr->inferred_type = _type->type_def_float;
+                    } else if (lt == _type->type_def_int && rt == _type->type_def_int) {
+                        expr->inferred_type = _type->type_def_int;
+                    } else if (lt == _type->type_def_s64 && rt == _type->type_def_s64) {
+                        expr->inferred_type = _type->type_def_s64;
+                    } else if (lt == _type->type_def_int && rt == _type->type_def_s64) {
+                        expr->inferred_type = _type->type_def_s64;
+                    } else {
+                        report_error(b, "Type error in binary arithmetic: operand types incompatible");
+                        expr->inferred_type = _type->type_def_dummy;
+                    }
+                    break;
                 }
 
                 case BINOP_EQ:
@@ -996,12 +1038,21 @@ void CodeManager::infer_types_decl(Ast_Declaration* decl) {
         if (decl->declared_type) {
 
                 // explicitly typed
-                if (!check_that_types_match(decl->declared_type, init_type)) {
-                report_error(
-                    decl,
-                    "Type mismatch in initializer for '%s', Expected '%s' Got '%s'",
-                    decl->identifier->name, type_to_string(decl->declared_type), type_to_string(init_type)
-                );
+            if (!check_that_types_match(decl->declared_type, init_type)) {
+
+                if (init_type && init_type->pointed_to_type &&
+                                 decl->declared_type->pointed_to_type &&
+                                 check_that_types_match(decl->declared_type->pointed_to_type, init_type)) {
+                    // ^int assigned to ^^int
+                } else {
+                    report_error(
+                        decl,
+                        "Type mismatch in initializer for '%s', Expected '%s' Got '%s'",
+                        decl->identifier ? decl->identifier->name : "null",
+                        type_to_string(decl->declared_type),
+                        type_to_string(init_type)
+                    );
+                }
             }
 
         } else {
@@ -1035,8 +1086,7 @@ void CodeManager::infer_types_block(Ast_Block* block, Ast_Declaration *my_func)
                 if (my_func) {
                     infer_types_return(stmt, my_func);
                 } else {
-                    report_error(stmt,
-                                 "Return statement outside of function body");
+                    report_error(stmt, "Return statement outside of function body");
                 }
             } else if (stmt->type == AST_DECLARATION) {
                 Ast_Declaration *decl = static_cast<Ast_Declaration*>(stmt);
@@ -1091,13 +1141,11 @@ void CodeManager::infer_types_block(Ast_Block* block, Ast_Declaration *my_func)
 
 
 bool CodeManager::check_that_types_match(Ast_Type_Definition *wanted, Ast_Type_Definition* have, bool is_pointer) {
-    // Early null/unknown check
     if (!wanted || !have || wanted == _type->type_def_dummy || have == _type->type_def_dummy) return false;
 
-    // Exact match: pointer equality (handles base builtins, pointers, arrays if children match)
+    // direct full pointer match
     if (wanted == have) return true;
 
-    // Handle arrays recursively
     if (wanted->array_kind != ARRAY_NONE || have->array_kind != ARRAY_NONE) {
         if (wanted->array_kind != have->array_kind ||
             (wanted->array_kind == ARRAY_STATIC && wanted->static_array_size != have->static_array_size) ||
@@ -1107,7 +1155,7 @@ bool CodeManager::check_that_types_match(Ast_Type_Definition *wanted, Ast_Type_D
         return check_that_types_match(wanted->element_type, have->element_type);
     }
 
-    // Handle pointers recursively (strict for pointers—no promotions on pointee)
+    // if pointer both type
     if (wanted->pointed_to_type || have->pointed_to_type) {
         if (!wanted->pointed_to_type || !have->pointed_to_type) return false;
         bool pointee_match = check_that_types_match(wanted->pointed_to_type, have->pointed_to_type, true);
@@ -1115,14 +1163,17 @@ bool CodeManager::check_that_types_match(Ast_Type_Definition *wanted, Ast_Type_D
         return pointee_match;
     }
 
-    // Base case: No array/pointer—check promotions via explicit pointer matches
-    // (No promotions if is_pointer; otherwise, allow implicit widening)
+    // No promotions if is_pointer
     if (is_pointer) return false;  // Already checked equality above
 
+    //
+    // Critical!!! not tested heavily yett
+    //
+
+    // integer promotions: smaller signed/unsigned to larger
     if (wanted == _type->type_def_float && have == _type->type_def_s64) return true;
     if (wanted == _type->type_def_int && have == _type->type_def_s64) return true;
     if (wanted == _type->type_def_float && have == _type->type_def_int) return true;
-    // Integer promotions: smaller signed/unsigned to larger
     if (wanted == _type->type_def_s16 && have == _type->type_def_s8) return true;
     if (wanted == _type->type_def_s32 && (have == _type->type_def_s8 || have == _type->type_def_s16)) return true;
     if (wanted == _type->type_def_s64 && (have == _type->type_def_s8 || have == _type->type_def_s16 || have == _type->type_def_s32)) return true;
@@ -1130,20 +1181,19 @@ bool CodeManager::check_that_types_match(Ast_Type_Definition *wanted, Ast_Type_D
     if (wanted == _type->type_def_u32 && (have == _type->type_def_u8 || have == _type->type_def_u16)) return true;
     if (wanted == _type->type_def_u64 && (have == _type->type_def_u8 || have == _type->type_def_u16 || have == _type->type_def_u32)) return true;
 
-    // Signed/unsigned interop (e.g., s32 <- u32; warn in caller if needed)
+    // Signed/unsigned
     if (wanted == _type->type_def_s32 && have == _type->type_def_u32) return true;
     if (wanted == _type->type_def_u32 && have == _type->type_def_s32) return true;
-    // Add s64/u64 if needed
+    if (wanted == _type->type_def_s64 && have == _type->type_def_u64) return true;
+    if (wanted == _type->type_def_u64 && have == _type->type_def_s64) return true;
 
-    // Float promotions
+    // float promotions
     if (wanted == _type->type_def_float64 && have == _type->type_def_float32) return true;
-    if (wanted == _type->type_def_float64 && have == _type->type_def_s32) return true;  // int -> float (legacy)
-    if (wanted == _type->type_def_float64 && have == _type->type_def_s64) return true;  // Extend as needed
-    // Add float32 -> s32? (Usually not, but if you want: if (wanted == _type->type_def_s32 && have == _type->type_def_float32) return true;)
+    if (wanted == _type->type_def_float64 && have == _type->type_def_s32) return true;
+    if (wanted == _type->type_def_float64 && have == _type->type_def_s64) return true;
+    // Add float32 -> s32?
 
-    // Other (e.g., bool -> int; string equality only)
     if (wanted == _type->type_def_s32 && have == _type->type_def_bool) return true;  // bool as int
 
-    // No match
     return false;
 }
