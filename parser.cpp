@@ -37,6 +37,7 @@ void Parser::advance() {
 void Parser::parseError(const char *message) {
     printf("\nParsing Error[%d:%d] %s", current->row, current->col, message);
     exitSuccess = false;
+    synchronize();
 
 }
 
@@ -187,7 +188,6 @@ Ast_Expression *Parser::parseFactor()
     return nullptr;
 }
 
-// Parses a term (multiplication and division operations)
 Ast_Expression *Parser::parseTerm()
 {
     Ast_Expression *left = parseFactor();
@@ -245,11 +245,9 @@ Ast_Type_Definition *Parser::parseTypeSpecifier() {
     while (true) {
 
         if (current->type == TOK_CARET) {
-            // Pointer type (^int, ^^int, etc.)
+
             Ast_Type_Definition *pointerType = AST_NEW(pool, Ast_Type_Definition);
             pointerType->pointed_to_type = _type->type_def_dummy;
-            // pointerType->builtin_type = TYPE_UNKNOWN;
-            // pointerType = _type->type_def_dummy;
 
             if (currentType) {
                 pointerType->pointed_to_type = currentType;
@@ -288,9 +286,6 @@ Ast_Type_Definition *Parser::parseTypeSpecifier() {
         }
     }
 
-    // Now expect the base type
-    // Ast_Type_Definition *baseType = AST_NEW(pool,Ast_Type_Definition);
-
     Ast_Type_Definition *baseType = nullptr;
 
 
@@ -315,19 +310,6 @@ Ast_Type_Definition *Parser::parseTypeSpecifier() {
         synchronize();
     return nullptr;
     }
-    // if (current->type == TOK_TYPE_INT)
-    //     baseType->builtin_type = TYPE_INT;
-    // else if (current->type == TOK_TYPE_FLOAT)
-    //     baseType->builtin_type = TYPE_FLOAT;
-    // else if (current->type == TOK_TYPE_STRING)
-    //     baseType->builtin_type = TYPE_STRING;
-    // else if (current->type == TOK_TYPE_BOOL)
-    //     baseType->builtin_type = TYPE_BOOL;
-    // else {
-    //     parseError("Expected a base type (e.g 'int', 'float', 'string', 'bool')");
-    //     synchronize();
-    //     return nullptr;
-    // }
 
     advance();
 
@@ -507,7 +489,6 @@ Ast_Procedure_Call_Expression *Parser::parseCall()
 // }
 
 Ast_Declaration* Parser::parseFunctionDeclaration(bool is_local) {
-    // Expect function name
     if (current->type != TOK_IDENTIFIER) {
         parseError("Expected function name at start of declaration");
         return nullptr;
@@ -518,17 +499,14 @@ Ast_Declaration* Parser::parseFunctionDeclaration(bool is_local) {
     func_decl->identifier->name = current->value;
     func_decl->is_function = true;
     func_decl->is_local_function = is_local;
-    advance(); // consume function name
+    advance();
 
-    // Expect '::'
     expect(TOK_DOUBLECOLON, "Expected '::' after function name");
 
-    // --- Parse parameter list ---
     expect(TOK_LPAREN, "Expected '(' to start parameter list");
 
     if (current->type != TOK_RPAREN) {
         while (true) {
-            // Parameter name
             if (current->type != TOK_IDENTIFIER) {
                 parseError("Expected parameter name");
                 return nullptr;
@@ -541,7 +519,6 @@ Ast_Declaration* Parser::parseFunctionDeclaration(bool is_local) {
 
             expect(TOK_COLON, "Expected ':' after parameter name");
 
-            // Parameter type
             param->declared_type = parseTypeSpecifier();
             if (!param->declared_type) {
                 parseError("Invalid parameter type");
@@ -558,25 +535,21 @@ Ast_Declaration* Parser::parseFunctionDeclaration(bool is_local) {
 
     expect(TOK_RPAREN, "Expected ')' after parameter list");
 
-    // --- Optional return type ---
     if (current->type == TOK_ARROW) {
-        advance(); // consume '->'
+        advance();
         func_decl->return_type = parseTypeSpecifier();
     } else {
-        // Default return type is void
         func_decl->return_type = AST_NEW(pool, Ast_Type_Definition);
-        // func_decl->return_type->builtin_type = TYPE_VOID;
+
         func_decl->return_type = _type->type_def_void;
 
     }
 
-    // --- Body or prototype ---
+
     if (current->type == TOK_LCURLY_PAREN) {
-        // Function with a body
         func_decl->is_function_body = true;
         func_decl->my_scope = parseBlockStatement(); // parse the body as a block
     } else {
-        // Function prototype
         func_decl->is_function_header = true;
         expect(TOK_SEMICOLON, "Expected ';' after function prototype");
     }
@@ -721,7 +694,7 @@ Ast_Block *Parser::parseProgram()
 {
     Ast_Block *program = AST_NEW(pool,Ast_Block);
 
-    //  printf("size of Token %zu----------->>>>>>>>>>>>>>>>>>>\n", sizeof(Token));
+     // printf("size of Token %zu----------->>>>>>>>>>>>>>>>>>>\n", sizeof(Token));
     // printf("size of Ast_Ident %zu----------->>>>>>>>>>>>>>>>>>>\n", sizeof(Ast_Ident));
     // printf("size of Ast_Procedure_Call_Expression %zu----------->>>>>>>>>>>>>>>>>>>\n", sizeof(Ast_Procedure_Call_Expression));
 

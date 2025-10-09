@@ -77,17 +77,6 @@ void* default_allocator(int mode, size_t size, size_t old_size,
             assert(ptr && "Memeory allocation failed");
             return ptr;
         }
-        // case RESIZE: {
-        //     void* new_ptr = realloc(old_memory, size);
-        //     if (!new_ptr) {
-        //         // Handle allocation failure
-        //         printf("Memory reallocation failed\n");
-        //         exit(1); // or throw an exception
-        //     }
-        //     return new_ptr;
-        // }
-        // case FREE: return 0;
-        // case FREE_ALL: return 0;
     }
     return 0;
 }
@@ -189,7 +178,7 @@ int main(int argc, char **args) {
         auto start2 = std::chrono::high_resolution_clock::now();
 #ifdef _WIN32
     char command[256];
-    snprintf(command, sizeof(command), "cl.exe /Od /EHsc /nologo %s", baseName);
+    snprintf(command, sizeof(command), "cl.exe /w /Od /EHsc /nologo %s", baseName);
     printf("Running C compiler: %s\n", command);
 
     //#ifndef _DEBUG // temporary!!!!
@@ -220,9 +209,9 @@ int main(int argc, char **args) {
 #ifdef _WIN32
 #ifdef _DEBUG
     _CrtMemState state;
-    _CrtMemCheckpoint(&state); // snapshot current memory state
-    _CrtMemDumpStatistics(&state); // print summary
-    _CrtMemDumpAllObjectsSince(&state); // detailed list of allocations
+    _CrtMemCheckpoint(&state);
+    _CrtMemDumpStatistics(&state);
+    _CrtMemDumpAllObjectsSince(&state);
     _CrtSetReportMode(_CRT_WARN, _CRTDBG_MODE_DEBUG);
 #endif
 #endif

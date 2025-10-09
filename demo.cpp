@@ -15,27 +15,26 @@ typedef double     float64;
 /*GLOBAL FUNCTION FORWARD DECLARATIONS*/
 bool func1(void);
 int func(int * aa, int sssd);
+void newline(void);
 
-int a = (((1 + ((2 * 3) * 4)) + 5) / 2);
-int b = (4 + (5 * 2));
-int c = ((5 * 2) + 4);
-int d = ((5 * 2) / 4);
+s64 a = (((1 + ((2 * 3) * 4)) + 5) / 2);
+s64 b = (4 + (5 * 2));
+s64 c = ((5 * 2) + 4);
+s64 d = ((5 * 2) / 4);
 float e = ((2 / 4) * 5);
-int h = 1;
+s64 h = 1;
 int num = (2 * (5 - h));
 bool something = true;
-float cc = (((3 * 4) + 5) / 2.000000);
+s64 cc = (((3 * 4) + 5) / 2);
 float dd = ((6 / 3.000000) + (2 * 7));
-float ee = ((10 - (4 / 2.000000)) + (3 * 5));
-float ff = ((1 + (2 * 3)) - (4.000000 / 5));
-float gg = (((7 * 8) + 9) / (10 - 2.000000));
+s64 ee = ((10 - (4 / 2)) + (3 * 5));
+s64 ff = ((1 + (2 * 3)) - (4 / 5));
+s64 gg = (((7 * 8) + 9) / (10 - 2));
 float hh = ((5 * 2) + ((3 * 4) / 2.000000));
 
 bool func1 () {
     int f = -100;
     func(/*ADDRESS_OF*/ &f,a);
-    printf("f inside func1 is equal to: %d\n",f);
-    printf("f inside func1 is equal to: %p\n",/*ADDRESS_OF*/ &f);
     if((f != 100)){
         (f = 2);
         return true;
@@ -50,7 +49,7 @@ bool boolean = true;
 
 int func (int * aa, int sssd) {
     printf("Address of aa = %p\n",aa);
-    int something = (/*DEREF*/ * aa * 2);
+    s64 something = (/*DEREF*/ * aa * 2);
     (/*DEREF*/ * aa = 699);
     int * ss = aa;
     printf("Address of ss = %p\n",ss);
@@ -59,21 +58,26 @@ int func (int * aa, int sssd) {
 }
 
 
+void newline () {
+    printf("\n");
+}
+
+
 void GENERATED_MAIN(){
-    int numa = -2;
-    printf("numa= %d\n",numa);
-    printf("cc =%f\n",cc);
-    printf("dd =%f\n",dd);
-    printf("ee =%f\n",ee);
-    printf("ff =%f\n",ff);
-    printf("gg =%f\n",gg);
-    printf("hh =%f\n",hh);
+    {
+        int a = 2;
+        int * var = /*ADDRESS_OF*/ &a;
+        int * * var2 = (/*ADDRESS_OF*/ &var + 1);
+        printf("var = %x\n",/*ADDRESS_OF*/ &var);
+        printf("var2 = %x\n",/*ADDRESS_OF*/ &var2);
+    }
+    s64 vvv = (-2 - 4);
     {
         int f = 100;
         printf("Address of f = %p\n",/*ADDRESS_OF*/ &f);
         int af = func(/*ADDRESS_OF*/ &f,a);
-        bool ret2 = func1();
         printf("f = %d\n",f);
+        bool ret2 = func1();
         printf("af =  %d\n",af);
         if((ret2 == false)){
             printf("ret2 == false\n");
@@ -83,15 +87,16 @@ void GENERATED_MAIN(){
         }
     }
     {
-        int bruh = 333;
-        int * ligma = /*ADDRESS_OF*/ &bruh;
-        (/*DEREF*/ * ligma = 420);
-        int what = /*DEREF*/ * ligma;
-        printf("what = %d\n",what);
-        printf("bruh = %d\n",bruh);
+        s64 Name = 100;
+        printf("Name = %d\n",Name);
+        s64 * Name2 = /*ADDRESS_OF*/ &Name;
+        (/*DEREF*/ * Name2 = (/*DEREF*/ * Name2 * 420));
+        printf("Name = %d\n",Name);
+        s64 Name3 = /*DEREF*/ * Name2;
+        printf("Name3 = %d\n",Name3);
     }
     {
-        printf("\n");
+        newline();
         int aint = 5;
         (aint = 10);
         printf("aint = %d\n",aint);
@@ -113,7 +118,7 @@ void GENERATED_MAIN(){
         printf("aint = %d\n",aint);
     }
     {
-        printf("\n");
+        newline();
         int what = 999;
         printf("what = %d\n",what);
         int * ligma = /*ADDRESS_OF*/ &what;
@@ -132,12 +137,12 @@ void GENERATED_MAIN(){
     }
     int arrStaticInt[4];
     {
-        int me = 5;
-        int * mee = /*ADDRESS_OF*/ &me;
+        s64 me = 5;
+        s64 * mee = /*ADDRESS_OF*/ &me;
         int meee = (/*DEREF*/ * mee * /*DEREF*/ * mee);
         printf("meee = %d\n",meee);
-        int * * m2 = /*ADDRESS_OF*/ &mee;
-        int m3 = (/*DEREF*/ * /*DEREF*/ * m2 + /*DEREF*/ * /*DEREF*/ * m2);
+        s64 * * m2 = /*ADDRESS_OF*/ &mee;
+        int m3 = (/*DEREF*/ * /*DEREF*/ * m2 * /*DEREF*/ * /*DEREF*/ * m2);
         printf("m3 = %d\n",m3);
         printf("me = %p\n",/*ADDRESS_OF*/ &me);
         printf("mee = %p\n",mee);
@@ -151,7 +156,7 @@ void GENERATED_MAIN(){
         {
             float block_inside_if = 3.100000;
         }
-        int block_inside_if = 0;
+        s64 block_inside_if = 0;
     }
     else {
         printf("a == b\n");
@@ -167,12 +172,12 @@ void GENERATED_MAIN(){
     printf("scopedint=%f\n",scopedint);
     int zeroChild = 0;
     {
-        int g = 5;
+        s64 g = 5;
         (g = 3);
-        int firstChild = 0;
+        s64 firstChild = 0;
         (firstChild = 22);
         {
-            int secondChild = 0;
+            s64 secondChild = 0;
             (secondChild = 335);
         }
     }
