@@ -138,6 +138,7 @@ int main(int argc, char **args) {
 
     char baseName[256]; // temporary?
     char tempName[256];
+    const char* fileNameOnly;
 
     {
         #ifdef _WIN32
@@ -154,6 +155,17 @@ int main(int argc, char **args) {
         snprintf(baseName, sizeof(baseName), "%s.cpp", tempName);
         printf("baseName = %s\n",baseName);
         printf("tempName = %s\n", tempName);
+
+
+        const char* slashPos =
+        #ifdef _WIN32
+            strrchr(tempName, '\\');
+        #else
+            strrchr(tempName, '/');
+        #endif
+
+        fileNameOnly = (slashPos) ? slashPos + 1 : tempName;
+        
     }
 
     auto end1 = std::chrono::high_resolution_clock::now();
@@ -188,7 +200,7 @@ int main(int argc, char **args) {
 
 #elif __linux__
     char command[256];
-    snprintf(command, sizeof(command), "g++ -o %s %s", tempName, baseName);
+    snprintf(command, sizeof(command), "g++ -w -o %s %s", fileNameOnly, baseName);
     printf("Running C compiler: %s\n", command);
     system(command);
 #endif
