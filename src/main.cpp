@@ -93,7 +93,7 @@ int main(int argc, char **args) {
 #endif
 
     if (argc < 2) {
-        printf("Usage: %s <file>.mylang\n", args[0]);
+        printf("Usage: %s <file>.pax\n", args[0]);
         return 1;
     }
 
@@ -152,7 +152,8 @@ int main(int argc, char **args) {
         }
 
         snprintf(baseName, sizeof(baseName), "%s.cpp", tempName);
-
+        printf("baseName = %s\n",baseName);
+        printf("tempName = %s\n", tempName);
     }
 
     auto end1 = std::chrono::high_resolution_clock::now();
