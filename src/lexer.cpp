@@ -1,5 +1,6 @@
 #include "lexer.h"
 
+
 #ifdef _WIN32
     #define malloc(s) _malloc_dbg(s, _NORMAL_BLOCK, __FILE__, __LINE__)
     #define free(p) _free_dbg(p, _NORMAL_BLOCK)
@@ -50,19 +51,18 @@ Token *Lexer::makeIntToken(TokenType type, unsigned long long val, int row, int 
     return t;
 }
 
-Token *Lexer::makeFloatToken(TokenType type, float val, int row, int col)
+Token *Lexer::makeFloatToken(TokenType type, double val, int row, int col)
 {
     Token *t = (Token*)pool_alloc(lex_pool, sizeof(Token));
     t->type = type;
-    t->float32_value = val;
+    t->float64_value = val;
     t->row = row;
     t->col = col;
     return t;
 }
 
-
 inline void Lexer::lexerError(const char *message, int row, int col) {
-    printf("\nLexer Error [%d:%d] %s", row, col, message);
+    printf("\nLexer Error [%d:%d]: %s", row, col, message);
     exit(1);
 }
 
@@ -74,7 +74,7 @@ Token *Lexer::stringToken(int row, int col)
     }
 
     if (Pos >= size) {
-        lexerError("Lexer Error: Unterminated string literal", row, col);
+        lexerError("Unterminated string literal", row, col);
         return makeToken(TOK_ERROR, "", row, col);
     }
 
@@ -102,30 +102,27 @@ Token *Lexer::numberToken(char first, int row, int col)
 
     int buffer_idx = 0;
 
-    if (buffer_idx < MAX_NUM_STR_LEN - 1) {
-        num_str_buffer[buffer_idx++] = first;
-    } else {
-        lexerError("Lexer Error: Number literal too long", row, col);
-        return makeToken(TOK_ERROR, "", row, col);
-    }
+    num_str_buffer[buffer_idx++] = first;
 
     // Parse the integer part of the number
     while (Pos < size && isNumeric(Source[Pos])) {
         if (buffer_idx < MAX_NUM_STR_LEN - 1) {
             num_str_buffer[buffer_idx++] = get_and_advance();
         } else {
-            lexerError("Lexer Error: Number literal too long", row, col);
+            lexerError("Number literal too long", row, col);
             while (Pos < size && isNumeric(Source[Pos])) get_and_advance();
             return makeToken(TOK_ERROR, "", row, col);
         }
     }
 
+    bool is_float = false;
     // check for a decimal point (for float type)
     if (Pos < size && Source[Pos] == '.') {
+        is_float = true;
         if (buffer_idx < MAX_NUM_STR_LEN - 1) {
             num_str_buffer[buffer_idx++] = get_and_advance(); // Consume the '.'
         } else {
-            lexerError("Lexer Error: Number literal too long (decimal part)", row, col);
+            lexerError("Number literal too long (decimal part)", row, col);
             return makeToken(TOK_ERROR, "", row, col);
         }
 
@@ -136,45 +133,49 @@ Token *Lexer::numberToken(char first, int row, int col)
                 num_str_buffer[buffer_idx++] = get_and_advance();
                 has_fractional_digits = true;
             } else {
-                lexerError("Lexer Error: Number literal too long (fractional part)", row, col);
+                lexerError("Number literal too long (fractional part)", row, col);
                 while (Pos < size && isNumeric(Source[Pos])) get_and_advance();
                 return makeToken(TOK_ERROR, "", row, col);
             }
         }
 
-        if (!has_fractional_digits && num_str_buffer[buffer_idx - 1] == '.') {
-            lexerError("Lexer Error: Malformed float literal (missing fractional digits)", row, col);
-            // exit(1); // lets not exit like this its bad
+        if (!has_fractional_digits /* && num_str_buffer[buffer_idx - 1] == '.'*/) {
+            lexerError("Malformed float literal (missing fractional digits)", row, col);
             return makeToken(TOK_ERROR, "", row, col);
         }
+    }
+    num_str_buffer[buffer_idx] = '\0';
 
-        num_str_buffer[buffer_idx] = '\0';
-
+    if (is_float){
         // Convert to float using strtof
         char *end_ptr;
-        float val = strtof(num_str_buffer, &end_ptr);
+        double val = strtod(num_str_buffer, &end_ptr);
 
         if (*end_ptr != '\0') {
-            lexerError("Lexer Error: Invalid float literal conversion", row, col);
+            lexerError("Invalid float literal conversion", row, col);
             return makeToken(TOK_ERROR, num_str_buffer, row, col);
         }
 
         return makeFloatToken(TOK_FLOAT, val, row, col);
+    } else {
+        // If no decimal point, it's an integer
+        char *end_ptr;
+
+        unsigned long long val = strtoull(num_str_buffer, &end_ptr, 10);
+        if (errno == ERANGE) {
+            lexerError("Integer literal overflow.", row, col);
+            return makeToken(TOK_ERROR, num_str_buffer, row, col);
+        }
+
+        if (*end_ptr != '\0') {
+            lexerError("Invalid integer literal conversion", row, col);
+            return makeToken(TOK_ERROR, num_str_buffer, row, col);
+        }
+
+        return makeIntToken(TOK_NUMBER, val, row, col);
     }
-
-    // If no decimal point, it's an integer
-    num_str_buffer[buffer_idx] = '\0';
-
-    char *end_ptr;
-    unsigned long long val = strtoull(num_str_buffer, &end_ptr, 10);
-
-    if (*end_ptr != '\0') {
-        lexerError("Lexer Error: Invalid integer literal conversion", row, col);
-        return makeToken(TOK_ERROR, num_str_buffer, row, col);
-    }
-
-    return makeIntToken(TOK_NUMBER, val, row, col);
 }
+
 
 Token *Lexer::identifierToken(char first, int row, int col)
 {
