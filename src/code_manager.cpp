@@ -2,7 +2,7 @@
 
 #include <cstdarg> // for variadic function
 #include <cstring> // for linux strlen
-
+#include <math.h> // for linux
 #define AST_NEW(pool, type) ([&]() -> type* {                   \
     assert(pool != nullptr && "Pool must not be null");         \
     void* mem = pool_alloc(pool, sizeof(type));                \
