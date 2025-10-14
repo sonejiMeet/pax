@@ -136,7 +136,7 @@ Ast_Expression *Parser::parseFactor()
 
         Ast_Literal *node = AST_NEW(pool,Ast_Literal);
         node->value_type = LITERAL_FLOAT;
-        node->float_value = current->float32_value;
+        node->float_value = current->float64_value;
         advance();
         return node;
     }

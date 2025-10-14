@@ -19,7 +19,7 @@ const char *BOILTERPLATE_TOP =
     "typedef int        s32;\n"
     "typedef short      s16;\n"
     "typedef char       s8;\n"
-    // "typedef float      float32;\n"
+    "typedef float      float32;\n"
     "typedef double     float64;\n"
     "\n"
 ;
@@ -43,7 +43,7 @@ void emitExpression(FILE* out, Ast_Expression* expr, int indent)
             auto* lit = static_cast<Ast_Literal*>(expr);
             switch (lit->value_type) {
                 case LITERAL_NUMBER: fprintf(out, "%lld", lit->integer_value); break;
-                case LITERAL_FLOAT:  fprintf(out, "%f", lit->float_value); break;
+                case LITERAL_FLOAT:  fprintf(out, "%.17g", lit->float_value); break;
                 case LITERAL_STRING: fprintf(out, "\"%s\"", lit->string_value); break;
                 case LITERAL_TRUE: {
                     char *s = (char *)"true";
