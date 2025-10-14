@@ -84,6 +84,11 @@ struct CodeManager {
     void infer_types_return(Ast_Statement *ret, Ast_Declaration *func_decl);
 
     void infer_types_expr(Ast_Expression **expr_ptr);
+
+    bool check_that_types_fit(long long value, Ast_Type_Definition *target);
+    bool check_that_types_fit(double value, Ast_Type_Definition *target);
+    long long wrap_integer_to_type(long long value, Ast_Type_Definition *target);
+
     void infer_types_decl(Ast_Declaration *decl);
     void infer_types_block(Ast_Block *block, Ast_Declaration *my_func = nullptr);
 

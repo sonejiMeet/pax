@@ -23,6 +23,7 @@ Ast_Literal *CodeManager::make_integer_literal(long long value){
     return literal;
 }
 
+
 char *CodeManager::pool_strdup(Pool* pool, const char* str) {
     size_t len = strlen(str) + 1;
     char* p = (char*)pool_alloc(pool, len);
@@ -806,6 +807,10 @@ void CodeManager::infer_types_expr(Ast_Expression** expr_ptr)
                     // Handle numeric types
                     if (lt == _type->type_def_float || rt == _type->type_def_float) {
                         expr->inferred_type = _type->type_def_float;
+                    } else if (lt == _type->type_def_float32 || rt == _type->type_def_float32) {
+                        expr->inferred_type = _type->type_def_float32;
+                    }else if (lt == _type->type_def_float64 || rt == _type->type_def_float64) {
+                        expr->inferred_type = _type->type_def_float64;
                     } else if (lt == _type->type_def_int && rt == _type->type_def_int) {
                         expr->inferred_type = _type->type_def_int;
                     } else if (lt == _type->type_def_s64 && rt == _type->type_def_s64) {
@@ -826,6 +831,10 @@ void CodeManager::infer_types_expr(Ast_Expression** expr_ptr)
                 case BINOP_DIV: {
                     if (lt == _type->type_def_float || rt == _type->type_def_float) {
                         expr->inferred_type = _type->type_def_float;
+                    } else if (lt == _type->type_def_float32 || rt == _type->type_def_float32) {
+                        expr->inferred_type = _type->type_def_float32;
+                    } else if (lt == _type->type_def_float64 || rt == _type->type_def_float64) {
+                        expr->inferred_type = _type->type_def_float64;
                     } else if (lt == _type->type_def_int && rt == _type->type_def_int) {
                         expr->inferred_type = _type->type_def_int;
                     } else if (lt == _type->type_def_s64 && rt == _type->type_def_s64) {
@@ -1021,21 +1030,171 @@ void CodeManager::infer_types_expr(Ast_Expression** expr_ptr)
     }
 }
 
+bool CodeManager::check_that_types_fit(long long value, Ast_Type_Definition *target){
+
+    if(!target) return false;
+
+    if(target == _type->type_def_int) return value >= -2147483648ll && value <= 2147483647ll;
+    else if(target == _type->type_def_s8) return value >= -128ll && value <= 127ll;
+    else if(target == _type->type_def_s16) return value >= -32768ll && value <= 32767ll;
+    else if(target == _type->type_def_s32) return value >= -2147483648ll && value <= 2147483648ll;
+    else if(target == _type->type_def_s64) return true;
+    else if(target == _type->type_def_u8) return value >= 0 &&  value <= 255ull;
+    else if(target == _type->type_def_u16) return value >= 0 && value <= 65535ull;
+    else if(target == _type->type_def_u32) return value >= 0 && value <= 4294967295ull;
+    else if(target == _type->type_def_u64) return value >= 0;
+
+    return false;
+}
+
+
+bool CodeManager::check_that_types_fit(double value, Ast_Type_Definition *target) {
+    if (!target) return false;
+
+    // --- Integer targets: must be in range and integral ---
+    if (target == _type->type_def_int)
+        return value >= -2147483648.0 && value <= 2147483647.0 && floor(value) == value;
+    if (target == _type->type_def_s8)
+        return value >= -128.0 && value <= 127.0 && floor(value) == value;
+    if (target == _type->type_def_s16)
+        return value >= -32768.0 && value <= 32767.0 && floor(value) == value;
+    if (target == _type->type_def_s32)
+        return value >= -2147483648.0 && value <= 2147483647.0 && floor(value) == value;
+    if (target == _type->type_def_s64)
+        return floor(value) == value; // whole number fits
+
+    if (target == _type->type_def_u8)
+        return value >= 0.0 && value <= 255.0 && floor(value) == value;
+    if (target == _type->type_def_u16)
+        return value >= 0.0 && value <= 65535.0 && floor(value) == value;
+    if (target == _type->type_def_u32)
+        return value >= 0.0 && value <= 4294967295.0 && floor(value) == value;
+    if (target == _type->type_def_u64)
+        return value >= 0.0 && floor(value) == value;
+
+    // --- Floating-point targets ---
+    if (target == _type->type_def_float32 || target == _type->type_def_float) {
+        // IEEE 754 float range
+        const double max_f32 = 3.402823466e38;
+        const double min_f32 = -max_f32;
+        return value >= min_f32 && value <= max_f32;
+    }
+
+    if (target == _type->type_def_float64) {
+        // any double fits
+        return true;
+    }
+
+    return false;
+}
+long long CodeManager::wrap_integer_to_type(long long value, Ast_Type_Definition *target) {
+    if (!target) return value;
+
+    if (target == _type->type_def_u8)  return (unsigned long long)value & 0xFFull;
+    if (target == _type->type_def_u16) return (unsigned long long)value & 0xFFFFull;
+    if (target == _type->type_def_u32) return (unsigned long long)value & 0xFFFFFFFFull;
+    if (target == _type->type_def_u64) return (unsigned long long)value;
+
+    if (target == _type->type_def_s8)  return (long long)((int8_t)value);
+    if (target == _type->type_def_s16) return (long long)((int16_t)value);
+    if (target == _type->type_def_s32) return (long long)((int32_t)value);
+    if (target == _type->type_def_s64) return value;
+
+    if (target == _type->type_def_int) return (long long)((int)value);
+
+    return value;
+}
+
+
+
 void CodeManager::infer_types_decl(Ast_Declaration* decl) {
     if (!decl) return;
 
     if (decl->initializer) {
-        Ast_Expression *init_expr = decl->initializer;
-        infer_types_expr(&init_expr);
-        Ast_Type_Definition *init_type = init_expr->inferred_type;
+        Ast_Expression *expr = decl->initializer;
+        infer_types_expr(&expr);
+        Ast_Type_Definition *init_type = expr->inferred_type;
         if(!init_type) {
             report_error(decl, "Could not infer type for variable '%s' from intitializer.",decl->identifier->name);
             return;
         }
 
-        init_expr->inferred_type = init_type;
 
-        if (decl->declared_type) {
+        Ast_Type_Definition *decl_type = decl->declared_type;
+        if (decl_type) {
+
+            // this is temoporay when we want to check if types with UNARY_NEGATE fit
+            long long signed_value = 0;
+            double signed_float = 0.0;
+            bool is_literal_number = false;
+            bool is_float_number = false;
+            bool is_unary_negate = false;
+
+            Ast_Literal *lit = static_cast<Ast_Literal *>(expr);
+
+            if (expr->type == AST_LITERAL) {
+                lit = static_cast<Ast_Literal*>(expr);
+                if (lit->value_type == LITERAL_NUMBER) {
+                    signed_value = lit->integer_value;
+                    is_literal_number = true;
+                }
+                else if(lit->value_type == LITERAL_FLOAT) {
+                    signed_float = lit->float_value;
+                    is_float_number = true;
+                }
+
+            }
+            else if (expr->type == AST_UNARY) {
+                auto *u = static_cast<Ast_Unary*>(expr);
+                if (u->op == UNARY_NEGATE && u->operand && u->operand->type == AST_LITERAL) {
+                    is_unary_negate = true;
+                    lit = static_cast<Ast_Literal*>(u->operand);
+                    if (lit->value_type == LITERAL_NUMBER) {
+                        signed_value = -lit->integer_value;  // to pass the negated value into check_that_types_fit()
+                        is_literal_number = true;
+                    } else if (lit->value_type == LITERAL_FLOAT) {
+                    signed_float = -lit->float_value;
+                    is_float_number = true;
+                    }
+
+                }
+            }
+
+            if (is_literal_number && check_that_types_fit(signed_value, decl_type)) {
+                // allow implicit narrowing
+                expr->inferred_type = decl_type;
+                init_type = decl_type;
+            }
+            else if (is_float_number && check_that_types_fit(signed_float, decl_type)) {
+                // allow implicit narrowing
+                expr->inferred_type = decl_type;
+                init_type = decl_type;
+            }
+            else if (is_literal_number) {
+                if (!check_that_types_fit(signed_value, decl_type)) {
+                    long long wrapped = wrap_integer_to_type(signed_value, decl_type);
+                    // TEMPORARY WE CAN implement the flag during compilation to only throw this warning if the programmer wants it thrown or not, (just like c compilers)
+                    printf("Warning: Constant overflow in '%s'. %lld wrapped to %lld for type '%s'\n",
+                           decl->identifier->name, signed_value, wrapped, type_to_string(decl_type));
+
+                    signed_value = wrapped;
+                }
+
+                // Replace the expr tree with a single literal (collapse unary)
+                if (is_unary_negate) {
+                    expr = make_integer_literal(signed_value);
+                    decl->initializer = expr;
+                } else {
+                    expr = make_integer_literal(signed_value);
+                    decl->initializer = expr;
+                }
+
+                expr->inferred_type = decl_type;
+                init_type = decl_type;
+
+                // report_error(decl, "Initializer cannot fit the declared variable '%s'", decl->identifier->name);
+            }
+
 
                 // explicitly typed
             if (!check_that_types_match(decl->declared_type, init_type)) {
@@ -1066,6 +1225,10 @@ void CodeManager::infer_types_decl(Ast_Declaration* decl) {
         if(inf == _type->type_def_int) {
             decl->initializer = make_integer_literal(-24);
         }
+        else if(inf == _type->type_def_s8) {
+            decl->initializer = make_integer_literal(-6);
+        }
+
     }
 
 }
@@ -1171,9 +1334,9 @@ bool CodeManager::check_that_types_match(Ast_Type_Definition *wanted, Ast_Type_D
     //
 
     // integer promotions: smaller signed/unsigned to larger
-    if (wanted == _type->type_def_float && have == _type->type_def_s64) return true;
+    if ((wanted == _type->type_def_float || wanted == _type->type_def_float32) && have == _type->type_def_s64) return true;
     if (wanted == _type->type_def_int && have == _type->type_def_s64) return true;
-    if (wanted == _type->type_def_float && have == _type->type_def_int) return true;
+    if ((wanted == _type->type_def_float || wanted == _type->type_def_float32) && have == _type->type_def_int) return true;
     if (wanted == _type->type_def_s16 && have == _type->type_def_s8) return true;
     if (wanted == _type->type_def_s32 && (have == _type->type_def_s8 || have == _type->type_def_s16)) return true;
     if (wanted == _type->type_def_s64 && (have == _type->type_def_s8 || have == _type->type_def_s16 || have == _type->type_def_s32)) return true;

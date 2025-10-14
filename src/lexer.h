@@ -108,8 +108,7 @@ struct Lexer
 
     Token* makeToken(TokenType type, const char* value, int row, int col);
     Token* makeIntToken(TokenType type, unsigned long long val, int row, int col);
-    Token* makeFloatToken(TokenType type, float val, int row, int col);
-
+    Token* makeFloatToken(TokenType type, double val, int row, int col);
 
     Token* stringToken(int row, int col);
     Token* numberToken(char first, int row, int col);

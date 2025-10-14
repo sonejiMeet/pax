@@ -1,6 +1,6 @@
 #include "token.h"
 #include "parser.h"
-// #include "ast_printer.h"
+#include "ast_printer.h"
 #include "code_manager.h"
 #include "c_converter.h"
 #include "tools.h"
@@ -20,8 +20,8 @@
 
 #endif
 
-#include <cstring>
-#include <cstdlib>
+#include <string.h>
+#include <stdlib.h>
 #include <chrono>
 
 
@@ -39,7 +39,8 @@ int totalNbyte = 0;
 }())
 
 
-const Def_Type *_type = nullptr; // TEMPORARY
+extern const Def_Type *_type = nullptr; // TEMPORARY
+extern const Def_Type *ttype = nullptr; // TEMPORARY
 
 int total_malloc = 0;
 
@@ -115,6 +116,7 @@ int main(int argc, char **args) {
     Lexer lexer((const char*)buf.data, buf.size, &pool);
     Def_Type type;
     _type = &type;
+    ttype = &type;
     init_Def_Type(&type, &pool);
     // printf("----------->type_def_s8 IS %p\n-------------------", type.type_def_int);
     Parser parser(&lexer, &pool, &type);
@@ -153,9 +155,6 @@ int main(int argc, char **args) {
         }
 
         snprintf(baseName, sizeof(baseName), "%s.cpp", tempName);
-        printf("baseName = %s\n",baseName);
-        printf("tempName = %s\n", tempName);
-
 
         const char* slashPos =
         #ifdef _WIN32
@@ -165,7 +164,7 @@ int main(int argc, char **args) {
         #endif
 
         fileNameOnly = (slashPos) ? slashPos + 1 : tempName;
-        
+
     }
 
     auto end1 = std::chrono::high_resolution_clock::now();
@@ -272,7 +271,7 @@ inline void printLex(FileBuffer buf, Pool *pool){
                 printf("Value: \"%llu\"\n", tok->int_value);
                 break;
             case TOK_FLOAT:
-                printf("Value: \"%f\"\n", tok->float32_value);
+                printf("Value: \"%.17g\"\n", tok->float64_value);
                 break;
 
                 // printf("Value: \"%c\"\n",(char)tok.value);

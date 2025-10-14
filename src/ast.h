@@ -165,6 +165,7 @@ struct Ast_Binary : public Ast_Expression {
 };
 
 enum Ast_Unary_Op {
+    UNARY_UNKNOWN,
     UNARY_NEGATE,      // -x
     UNARY_NOT,         // !x
     UNARY_ADDRESS_OF,  // &x
@@ -173,7 +174,7 @@ enum Ast_Unary_Op {
 
 struct Ast_Unary : Ast_Expression {
     Ast_Unary (Pool* = nullptr) { type = AST_UNARY; }
-    Ast_Unary_Op op;
+    Ast_Unary_Op op = UNARY_UNKNOWN;
     Ast_Expression* operand = nullptr; // expression being operated on
 
 };

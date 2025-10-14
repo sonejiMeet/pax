@@ -3,7 +3,7 @@
 #include "pool.h"
 #include <iostream>
 
-// extern Def_Type *ttype;
+extern const Def_Type *ttype;
 
 struct Ast;
 struct Ast_Block;
