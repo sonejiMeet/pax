@@ -19,6 +19,11 @@ struct CM_Symbol {
     bool is_local_function = false;
 };
 
+// struct Scope {
+//     Array<Ast_Declaration *> decls;
+//     Scope *parent = nullptr;
+// };
+
 struct CM_Unresolved_Call {
     Ast_Procedure_Call_Expression* call;
     int line_number;
