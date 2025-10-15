@@ -63,4 +63,7 @@
       <Filter>Source Files</Filter>
     </ClInclude>
   </ItemGroup>
+  <ItemGroup>
+    <Natvis Include="Array.natvis" />
+  </ItemGroup>
 </Project>

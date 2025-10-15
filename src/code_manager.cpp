@@ -3,6 +3,7 @@
 #include <cstdarg> // for variadic function
 #include <cstring> // for linux strlen
 #include <math.h> // for linux
+
 #define AST_NEW(pool, type) ([&]() -> type* {                   \
     assert(pool != nullptr && "Pool must not be null");         \
     void* mem = pool_alloc(pool, sizeof(type));                \
@@ -10,9 +11,11 @@
     return node;                                               \
 }())
 
-CodeManager::CodeManager(Pool* pool, Def_Type *type) : ast_pool(pool) {
-    scopes.clear();
-    scopes.emplace_back(); // global scope
+CodeManager::CodeManager(Pool* pool, Def_Type *type) : ast_pool(pool)
+{
+    scope_stack = ast_pool;
+    Ast_Block *block = AST_NEW(ast_pool, Ast_Block);
+    scope_stack.emplace_back(block); // global scope
     _type = type;
 }
 
@@ -79,123 +82,115 @@ void CodeManager::report_error(int row, int col, const char* fmt, ...)
 
 void CodeManager::push_scope()
 {
-    scopes.emplace_back();
+    Ast_Block *block = AST_NEW(ast_pool, Ast_Block);
+    scope_stack.emplace_back(block);
 }
 
 void CodeManager::pop_scope()
 {
-    // printf("popping scope\n");
-    if (!scopes.empty()) scopes.pop_back();
+    if (!scope_stack.empty()) scope_stack.pop_back();
 }
 
 bool CodeManager::is_function_parameter(const char* name) {
-    if (scopes.empty()) return false;
+    if (scope_stack.empty()) return false;
 
     // start with innermost
-    for (int i = (int)scopes.size() - 1; i >= 0; --i) {
-        CM_Scope& scope = scopes[i];
+    for (int i = (int)scope_stack.size() - 1; i >= 0; --i) {
+        Ast_Block *block = scope_stack.data[i];
 
+        if(!block) continue;
         // look for func decl in this scope
-        for (auto& sym : scope) {
-            if (sym.is_function && sym.decl && sym.is_function_body) {
+        for (int j = 0; j < block->statements.count; ++j) {
+                Ast_Statement *stmt = block->statements.data[j];
+                if(!stmt || stmt->type == AST_DECLARATION) continue;
+
+                Ast_Declaration *decl = static_cast<Ast_Declaration *>(stmt);
+
+                if (decl && decl->is_function && decl->is_function_body) {
 
                 // go through function's parameter lists
-                Ast_Declaration* func_decl = sym.decl;
-                for (int i = 0; i < func_decl->parameters.count; ++i) {
-                    Ast_Declaration* param = func_decl->parameters.data[i];
-                    if (param->identifier && strcmp(param->identifier->name, name) == 0) {
+                for (int i = 0; i < decl->parameters.count; ++i) {
+                    Ast_Declaration* param = decl->parameters.data[i];
+                    if (param && param->identifier && strcmp(param->identifier->name, name) == 0) {
                         return true;
                     }
                 }
+                return false;
             }
         }
     }
     return false;
 }
 
-bool CodeManager::declare_variable(Ast_Declaration* decl, bool force_decl)
-{
-    CM_Scope &scope = scopes.back();
-
-    if(force_decl == false){
-
-        for (auto &sym : scope) {
-            if (strcmp(sym.name, decl->identifier->name) == 0) {
-                //if (!decl->initializer)
-                printf("Scope is %lld\n", scopes.size());
-                report_error(decl, "Variable '%s' already declared", decl->identifier->name);
-                return false;
+Ast_Declaration* CodeManager::lookup_symbol(const char* name) {
+    for (int i = (int)scope_stack.size() - 1; i >= 0; --i) {
+        Ast_Block* block = scope_stack.data[i];
+        if(!block) continue;
+        for (int j = 0; j < block->statements.count; ++j) {
+            Ast_Statement* stmt = block->statements.data[j];
+            if (!stmt || stmt->type != AST_DECLARATION) continue;
+            Ast_Declaration* decl = static_cast<Ast_Declaration*>(stmt);
+            if (decl->identifier && strcmp(decl->identifier->name, name) == 0) {
+                return decl;
             }
         }
     }
+    return nullptr;
+}
 
-    CM_Symbol sym;
-    sym.name = pool_strdup(ast_pool, decl->identifier->name);
-    sym.decl = decl;
-    sym.type = decl->declared_type;
-    sym.initialized = (decl->initializer != nullptr);
+Ast_Declaration* CodeManager::lookup_symbol_current_scope(const char* name) {
+    if (scope_stack.empty()) return nullptr;
+    Ast_Block* block = scope_stack.pop();
+    if(!block) return nullptr;
 
-    scope.push_back(sym);
+    for (int j = 0; j < block->statements.count; ++j) {
+        Ast_Statement* stmt = block->statements.data[j];
+        if (!stmt || stmt->type != AST_DECLARATION) continue;
+        Ast_Declaration* decl = static_cast<Ast_Declaration*>(stmt);
+        if (decl->identifier && strcmp(decl->identifier->name, name) == 0) {
+            return decl;
+        }
+    }
+    return nullptr;
+}
+
+bool CodeManager::declare_variable(Ast_Declaration* decl, bool force_decl) {
+    if (!decl || !decl->identifier) return false;
+
+    if (!force_decl) {
+        if (lookup_symbol_current_scope(decl->identifier->name)) {
+            report_error(decl, "Variable '%s' already declared in this scope", decl->identifier->name);
+            return false;
+        }
+    }
+
+    Ast_Block* current_block = scope_stack.pop();
+
+    decl->initialized = (decl->initializer != nullptr);
+
+    current_block->statements.push_back(static_cast<Ast_Statement*>(decl));
+
     return true;
 }
+
 bool CodeManager::declare_function(Ast_Declaration* decl) {
-    if (!decl || !decl->is_function || !decl->identifier) return false;
+    if (!decl || !decl->identifier || !decl->is_function) return false;
 
     if (decl->is_function_header) return false;
-    CM_Scope &scope = scopes.back();
 
-    // checks if function are duplicate declaration stricly by the function name, so in the future it will change this is just here temporarily. (obviously we want to check for same types as well as the function name because we will allow functions with same names but different types but not same name and same types. Just like C.)
-    for (auto &sym : scope) {
-        if (strcmp(sym.name, decl->identifier->name) == 0) {
-            if(decl->is_function_body) {
-                report_error(decl, "Function '%s' already declared in this scope", decl->identifier->name);
-                return false;
-            }
-        }
+    if (lookup_symbol_current_scope(decl->identifier->name) && decl->is_function_body) {
+        report_error(decl, "Function '%s' already declared in this scope", decl->identifier->name);
+        return false;
     }
 
-    CM_Symbol sym;
-    sym.name = pool_strdup(ast_pool, decl->identifier->name);
-    sym.decl = decl;
-    sym.type = decl->return_type ? decl->return_type : _type->type_def_void;
+    Ast_Block* current_block = scope_stack.pop();
 
-    sym.is_function = true;
-    sym.is_function_body = decl->is_function_body;
-    sym.parameters = decl->parameters;
-    sym.initialized = decl->is_function_body; // idk if its a good idea to tag function bodies as initialized
+    decl->initialized = decl->is_function_body;
 
-    scope.push_back(sym);
-    // printf("declare_function inside itself\n");
+    current_block->statements.push_back(static_cast<Ast_Statement*>(decl));
 
     return true;
 }
-
-CM_Symbol* CodeManager::lookup_symbol(const char *name)
-{
-    for (int i = (int)scopes.size() - 1; i >= 0; --i) {
-        for (auto &sym : scopes[i]) {
-            if (strcmp(sym.name, name) == 0) return &sym;
-        }
-    }
-    return nullptr;
-}
-
-CM_Symbol* CodeManager::lookup_symbol_current_scope(const char *name)
-{
-    if (scopes.empty()) return nullptr;
-    CM_Scope& current_scope = scopes.back();
-    for (auto &sym : current_scope) {
-        if (strcmp(sym.name, name) == 0) return &sym;
-    }
-    return nullptr;
-}
-
-void CodeManager::mark_initialized(const char *name)
-{
-    CM_Symbol* s = lookup_symbol(name);
-    if (s) s->initialized = true;
-}
-
 
 ReturnCheckResult CodeManager::checkReturnPaths(Ast_Block* block)
 {
@@ -267,7 +262,7 @@ void CodeManager::checkFunctionReturns(Ast_Declaration* decl) {
 void CodeManager::resolve_idents(Ast_Block* block) {
     if (!block) return;
 
-    if (scopes.size() == 1) {
+    if (scope_stack.size() == 1) {
         for (int i = 0; i < block->statements.count; i++) {
 
             Ast_Statement* stmt = block->statements.data[i];
@@ -448,7 +443,7 @@ void CodeManager::resolve_idents_in_expr(Ast_Expression* expr)
     switch (expr->type) {
         case AST_IDENT: {
             Ast_Ident* id = static_cast<Ast_Ident*>(expr);
-            CM_Symbol* s = lookup_symbol(id->name);
+            Ast_Declaration* s = lookup_symbol(id->name);
             if (!s) {
                 report_error(id, "Use of undeclared identifier '%s'", id->name);
             }
@@ -481,7 +476,7 @@ void CodeManager::resolve_idents_in_expr(Ast_Expression* expr)
 
                 if (Ast_Ident* lhs_ident = ast_static_cast<Ast_Ident>(b->lhs, AST_IDENT))
                 {
-                    CM_Symbol* sym = lookup_symbol(lhs_ident->name);
+                    Ast_Declaration *sym = lookup_symbol(lhs_ident->name);
                     if (!sym) {
                         report_error(lhs_ident, "Assignment to undeclared variable '%s'", lhs_ident->name);
                         expr->inferred_type = _type->type_def_dummy;
@@ -514,10 +509,9 @@ void CodeManager::resolve_idents_in_expr(Ast_Expression* expr)
             {
                 Ast_Ident* fn = static_cast<Ast_Ident*>(call->function);
 
-                if (fn->name && strcmp(fn->name, "printf") != 0)
-                {
+                if (fn->name && strcmp(fn->name, "printf") != 0){
 
-                    CM_Symbol* sym = lookup_symbol(fn->name);
+                    Ast_Declaration *sym = lookup_symbol(fn->name);
                     if (!sym) {
                         CM_Unresolved_Call unresolved;
                         unresolved.call = call;
@@ -525,7 +519,7 @@ void CodeManager::resolve_idents_in_expr(Ast_Expression* expr)
                         unresolved.character_number = fn->character_number;
                         unresolved_calls.push_back(unresolved);
                     } else if (!sym->is_function) {
-                        report_error(fn, "'%s' is not a function", fn->name);
+                        report_error(fn, "'s' is not a function", fn->name);
                     }
                     else {
                         // Check parameter count
@@ -575,7 +569,7 @@ void CodeManager::resolve_unresolved_calls() {
     for (const auto& unresolved : unresolved_calls) {
         Ast_Procedure_Call_Expression* call = unresolved.call;
         Ast_Ident* fn = static_cast<Ast_Ident*>(call->function);
-        CM_Symbol* sym = lookup_symbol(fn->name);
+        Ast_Declaration* sym = lookup_symbol(fn->name);
 
         if (!sym) {
             still_unresolved.push_back(unresolved);
@@ -606,7 +600,7 @@ void CodeManager::resolve_unresolved_calls() {
 
     unresolved_calls = still_unresolved;
 
-    if (scopes.size() == 1 && !unresolved_calls.empty()) {
+    if (scope_stack.size() == 1 && !unresolved_calls.empty()) {
         for (const auto& unresolved : unresolved_calls) {
             Ast_Ident* fn = static_cast<Ast_Ident*>(unresolved.call->function);
             report_error(unresolved.line_number, unresolved.character_number, "Call to undeclared function '%s'", fn->name);
@@ -723,17 +717,17 @@ void CodeManager::infer_types_expr(Ast_Expression** expr_ptr)
 
         case AST_IDENT: {
             Ast_Ident *id = static_cast<Ast_Ident *>(expr);
-            CM_Symbol *s = lookup_symbol(id->name);
+            Ast_Declaration *s = lookup_symbol(id->name);
 
-            if (s && s->decl)
+            if (s)
             {
                 if (s->is_function) {
-                    expr->inferred_type = s->type;
-                }else if (s->decl->declared_type) {
-                    expr->inferred_type = s->decl->declared_type;
+                    expr->inferred_type = s->return_type;
+                }else if (s->declared_type) {
+                    expr->inferred_type = s->declared_type;
                 } else if (s->initialized && !s->inferred) {
-                    infer_types_expr(&s->decl->initializer);
-                    expr->inferred_type = s->decl->initializer->inferred_type;
+                    infer_types_expr(&s->initializer);
+                    expr->inferred_type = s->initializer->inferred_type;
                 } else {
                     expr->inferred_type = _type->type_def_dummy;
                 }
@@ -868,18 +862,18 @@ void CodeManager::infer_types_expr(Ast_Expression** expr_ptr)
 
                     if (Ast_Ident *lhs_ident = ast_static_cast<Ast_Ident>(b->lhs, AST_IDENT))
                     {
-                        CM_Symbol *sym = lookup_symbol(lhs_ident->name);
+                        Ast_Declaration *sym = lookup_symbol(lhs_ident->name);
 
-                        if (!sym->type) {
-                            sym->type = rhsType;
+                        if (!sym->return_type) {
+                            sym->return_type = rhsType;
                         }
-                        else if (!check_that_types_match(sym->type, rhsType))
+                        else if (!check_that_types_match(sym->return_type, rhsType))
                         {
                             report_error(lhs_ident,
                                 "Type mismatch in assignment to '%s'. Expected '%s' Got '%s'",
-                                lhs_ident->name, type_to_string(sym->type), type_to_string(rhsType));
+                                lhs_ident->name, type_to_string(sym->return_type), type_to_string(rhsType));
                         }
-                        lhsType = sym->type;
+                        lhsType = sym->return_type;
                     }
 
                     // lhs is a dereference
@@ -912,7 +906,7 @@ void CodeManager::infer_types_expr(Ast_Expression** expr_ptr)
 
                             if (Ast_Ident *pointer_ident = ast_static_cast<Ast_Ident>(lhs_unary->operand, AST_IDENT))
                             {
-                                CM_Symbol *pointer_sym = lookup_symbol(pointer_ident->name);
+                                Ast_Declaration *pointer_sym = lookup_symbol(pointer_ident->name);
 
                                 bool is_var_param = is_function_parameter(pointer_ident->name); // HACK think of a better way
                                 if (pointer_sym && !pointer_sym->initialized && !is_var_param) {
@@ -971,11 +965,12 @@ void CodeManager::infer_types_expr(Ast_Expression** expr_ptr)
             if (call->function) {
                 Ast_Ident *fn = static_cast<Ast_Ident *>(call->function);
                 if (fn->name && strcmp(fn->name, "printf") != 0) {
-                    CM_Symbol *sym = lookup_symbol(fn->name);
-                    if (sym && sym->is_function) {
-                        return_type = sym->type;
+                    Ast_Declaration *sym = lookup_symbol(fn->name);
 
-                        if (sym->decl && sym->decl->return_type && !check_that_types_match(sym->type, sym->decl->return_type)) {
+                    if (sym && sym->is_function) {
+                        return_type = sym->return_type ? sym->return_type : _type->type_def_void;
+
+                        if (sym->return_type && !check_that_types_match(return_type, sym->return_type)) {
                             report_error(fn, "Function '%s' return type mismatch", fn->name);
                         }
 
@@ -1218,8 +1213,8 @@ void CodeManager::infer_types_decl(Ast_Declaration* decl) {
         } else {
             // not declared with type so infer it through initializer's type instead
             decl->declared_type = init_type;
-            CM_Symbol *sym = lookup_symbol(decl->identifier->name);
-            if(sym) sym->type = init_type;
+            Ast_Declaration *sym = lookup_symbol(decl->identifier->name);
+            if(sym) sym->return_type = init_type;
         }
     } else {
         auto inf = decl->declared_type;
@@ -1269,7 +1264,7 @@ void CodeManager::infer_types_block(Ast_Block* block, Ast_Declaration *my_func)
                 } else {
                     infer_types_decl(decl);
 
-                    CM_Symbol* s = lookup_symbol_current_scope(decl->identifier ? decl->identifier->name : "");
+                    Ast_Declaration* s = lookup_symbol_current_scope(decl->identifier ? decl->identifier->name : "");
                     if (!s) {
                         declare_variable(decl);
                     }

@@ -69,6 +69,8 @@ struct Ast {
     int line_number = 0;
     int character_number = 0;
     // const char *file_name = nullptr;
+
+    virtual ~Ast() = default;  // DO NOT REMOVE THIS IT MESSES WITH DEBUGGER FUCKING HELL WHOLE 2 HOURS WASTED
 };
 
 

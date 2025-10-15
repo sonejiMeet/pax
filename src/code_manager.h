@@ -4,26 +4,6 @@
 #include "ast.h"
 #include "pool.h"
 
-struct CM_Symbol {
-    const char *name;
-    Ast_Declaration *decl = nullptr; // for var/funcs
-    Ast_Type_Definition *type = nullptr; // vars/func return type
-
-    // for vars
-    bool initialized = false;
-    bool inferred = false;
-
-    Array<Ast_Declaration *> parameters; // func decls
-    bool is_function = false;
-    bool is_function_body = false;
-    bool is_local_function = false;
-};
-
-// struct Scope {
-//     Array<Ast_Declaration *> decls;
-//     Scope *parent = nullptr;
-// };
-
 struct CM_Unresolved_Call {
     Ast_Procedure_Call_Expression* call;
     int line_number;
@@ -35,12 +15,12 @@ struct ReturnCheckResult {
     bool all_paths_return;
 };
 
-using CM_Scope = std::vector<CM_Symbol>;
-
 struct CodeManager {
-    std::vector<CM_Scope> scopes; // Temporary must replace with Array<>
-    std::vector<CM_Unresolved_Call> unresolved_calls;
+
     Pool *ast_pool;
+    Array<Ast_Block *> scope_stack;
+
+    std::vector<CM_Unresolved_Call> unresolved_calls;
     Def_Type *_type;
 
     CodeManager(Pool *pool, Def_Type *type);
@@ -69,9 +49,8 @@ struct CodeManager {
         return node->type == type ? static_cast<T *>(node) : nullptr;
     }
 
-    CM_Symbol *lookup_symbol(const char *name);
-    CM_Symbol *lookup_symbol_current_scope(const char *name);
-    void mark_initialized(const char *name);
+    Ast_Declaration *lookup_symbol(const char *name);
+    Ast_Declaration *lookup_symbol_current_scope(const char *name);
 
     ReturnCheckResult checkReturnPaths(Ast_Block *block);
     void checkFunctionReturns(Ast_Declaration *decl);
@@ -87,11 +66,11 @@ struct CodeManager {
     char *type_to_string(Ast_Type_Definition *type);
 
     void infer_types_return(Ast_Statement *ret, Ast_Declaration *func_decl);
-
     void infer_types_expr(Ast_Expression **expr_ptr);
 
     bool check_that_types_fit(long long value, Ast_Type_Definition *target);
     bool check_that_types_fit(double value, Ast_Type_Definition *target);
+
     long long wrap_integer_to_type(long long value, Ast_Type_Definition *target);
 
     void infer_types_decl(Ast_Declaration *decl);
