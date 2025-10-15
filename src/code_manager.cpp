@@ -259,7 +259,8 @@ void CodeManager::checkFunctionReturns(Ast_Declaration* decl) {
     }
 
     if (!result.all_paths_return) {
-        report_error(decl, "Not all paths return a value in non-void function '%s'", decl->identifier->name);
+        // checkin maybe should just be a warning
+        report_error(decl, "Not all control paths return a value in non-void function '%s'", decl->identifier->name);
     }
 }
 

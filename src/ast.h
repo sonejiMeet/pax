@@ -103,8 +103,8 @@ struct Ast_Declaration : public Ast_Statement {
     Array<Ast_Declaration*> parameters;     // function parameters
     Ast_Type_Definition* return_type = nullptr; // maybe return_type should be an Array too since we will support more than one return_type in a function
 
-    // bool initialized = false;
-    // bool inferred = false;
+    bool initialized = false; // For code_manager
+    bool inferred = false;
 };
 
 struct Ast_Comma_Separated_Args : public Ast_Expression {
