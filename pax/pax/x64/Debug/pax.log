@@ -1,2 +1,7 @@
-﻿  code_manager.cpp
+﻿  c_converter.cpp
+  code_manager.cpp
+  lexer.cpp
+  main.cpp
+  parser.cpp
+  Generating Code...
   pax.vcxproj -> C:\pax\pax\x64\Debug\pax.exe

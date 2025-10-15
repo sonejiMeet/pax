@@ -46,6 +46,13 @@ struct Array
     void push_back(T value);
     T pop();
     void release();
+
+    T &emplace_back(const T& value);
+    void pop_back();
+
+    // inline helpers
+    bool empty() const { return count == 0; }
+    long size() const { return count; }
 };
 
 template<typename T>
@@ -87,7 +94,8 @@ inline T Array<T>::pop()
         printf("*********** ATTEMPT TO POP AN EMPTY ARRAY!\n");
         return T();
     }
-    return data[--count];
+
+    return data[count-1];
 }
 
 template<typename T>
@@ -96,6 +104,42 @@ inline void Array<T>::release()
     data = nullptr;
     count = 0;
     capacity = 0;
+}
+
+template<typename T>
+inline T& Array<T>::emplace_back(const T& value) {
+    assert(pool && "Array's pool pointer is null!");
+
+    if (count >= capacity) {
+        long new_cap = capacity ? capacity * 2 : 4;
+
+        // allocate raw memory from pool
+        T *new_data = (T *)pool_alloc(pool, sizeof(T) * new_cap);
+        assert(new_data && "Memory allocation failed for Array");
+
+        // Move-construct existing elements into the new buffer (placement new).
+        // We don't call destructors on the old memory (pool-managed), because it's pool memory.
+        for (long i = 0; i < count; ++i) {
+            new (&new_data[i]) T(std::move(data[i]));
+        }
+
+        data = new_data;
+        capacity = new_cap;
+    }
+
+    // Construct the new element in-place
+    new (&data[count]) T(value);
+    ++count;
+    return data[count - 1];
+}
+
+template<typename T>
+inline void Array<T>::pop_back() {
+    assert(count > 0 && "Attempt to pop_back from empty Array!");
+    count--;
+
+    // Explicit destructor call only if non-trivial type
+    data[count].~T();
 }
 
 
@@ -179,7 +223,9 @@ inline void pool_init(Pool *pool) {
 inline void *pool_alloc(Pool *pool, size_t size) {
     assert(pool != nullptr);
 
+    // this version proves to be slighly more memory efficient since it considers the case when size is at perfect alignment and therefore no need to add any extra bytes
     size_t extra = (size % pool->alignment) ? pool->alignment - (size % pool->alignment) : 0;
+
     // size_t extra = pool->alignment - (size % pool->alignment); // how many bytes are we missing to alignment in size-to-be-allocated
     size += extra;
 
