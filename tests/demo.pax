@@ -255,3 +255,4 @@ func :: (aa: ^int, sssd: int) -> int {
 newline :: (){
     printf("\n");
 }
+

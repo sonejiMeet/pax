@@ -33,6 +33,9 @@
     <ClCompile Include="..\src\tools.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\src\interp.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\src\ast.h">
@@ -60,6 +63,9 @@
       <Filter>Source Files</Filter>
     </ClInclude>
     <ClInclude Include="..\src\tools.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\interp.h">
       <Filter>Source Files</Filter>
     </ClInclude>
   </ItemGroup>

@@ -1,11 +1,9 @@
 #include "ast.h"
+#include "c_converter.h"
+
 #include <cstdio>
 #include <string>
 #include <vector>
-
-
-extern const Def_Type *_type;
-
 
 const char *BOILTERPLATE_TOP =
     "/* GENERATED FILE */\n\n"
@@ -24,17 +22,7 @@ const char *BOILTERPLATE_TOP =
     "\n"
 ;
 
-void emitStatement(FILE* out, Ast_Statement* stmt, int indent = 0);
-void emitExpression(FILE* out, Ast_Expression* expr, int indent = 0);
-void emitBlock(FILE* out, Ast_Block* block, int indent = 0);
-void emitFunctionPrototype(FILE* out, Ast_Declaration* decl, int indent);
-void indentLine(FILE* out, int indent)
-{
-    for (int i = 0; i < indent; ++i)
-        fputc(' ', out);
-}
-
-void emitExpression(FILE* out, Ast_Expression* expr, int indent)
+void C_Converter::emitExpression(FILE* out, Ast_Expression* expr, int indent)
 {
     if (!expr) return;
 
@@ -43,7 +31,7 @@ void emitExpression(FILE* out, Ast_Expression* expr, int indent)
             auto* lit = static_cast<Ast_Literal*>(expr);
             switch (lit->value_type) {
                 case LITERAL_NUMBER: fprintf(out, "%lld", lit->integer_value); break;
-                case LITERAL_FLOAT:  fprintf(out, "%.17g", lit->float_value); break;
+                case LITERAL_FLOAT:  fprintf(out, "%.17f", lit->float_value); break;
                 case LITERAL_STRING: fprintf(out, "\"%s\"", lit->string_value); break;
                 case LITERAL_TRUE: {
                     char *s = (char *)"true";
@@ -104,6 +92,11 @@ void emitExpression(FILE* out, Ast_Expression* expr, int indent)
                 case BINOP_EQ:  fprintf(out, " == "); break;
                 case BINOP_NEQ: fprintf(out, " != "); break;
                 case BINOP_ASSIGN: fprintf(out, " = "); break;
+                case BINOP_LESS: fprintf(out, " < "); break;
+                case BINOP_GREATER: fprintf(out, " > "); break;
+                case BINOP_LESS_EQUAL: fprintf(out, " <= "); break;
+                case BINOP_GREATER_EQUAL: fprintf(out, " >= "); break;
+
                 default: fprintf(out, "/*BINOP OP ERROR*/"); break;
             }
             emitExpression(out, bin->rhs, indent);
@@ -137,7 +130,7 @@ void emitExpression(FILE* out, Ast_Expression* expr, int indent)
 }
 
 
-void type_to_c_string(FILE *out, Ast_Type_Definition* type, Ast_Declaration *decl, bool need_semicolon, int indent) {
+void C_Converter::type_to_c_string(FILE *out, Ast_Type_Definition* type, Ast_Declaration *decl, bool need_semicolon, int indent) {
     if (!type) return;
 
     std::string type_str;
@@ -176,7 +169,7 @@ void type_to_c_string(FILE *out, Ast_Type_Definition* type, Ast_Declaration *dec
 
 }
 
-void emitFunctionPrototype(FILE* out, Ast_Declaration* decl, int indent) {
+void C_Converter::emitFunctionPrototype(FILE* out, Ast_Declaration* decl, int indent) {
     if (!decl || !decl->is_function || !decl->identifier) return;
 
     indentLine(out, indent);
@@ -194,7 +187,7 @@ void emitFunctionPrototype(FILE* out, Ast_Declaration* decl, int indent) {
 }
 
 
-void emitStatement(FILE* out, Ast_Statement* stmt, int indent)
+void C_Converter::emitStatement(FILE* out, Ast_Statement* stmt, int indent)
 {
     if (!stmt) return;
 
@@ -288,7 +281,7 @@ void emitStatement(FILE* out, Ast_Statement* stmt, int indent)
     }
 }
 
-void emitBlock(FILE* out, Ast_Block* block, int indent)
+void C_Converter::emitBlock(FILE* out, Ast_Block* block, int indent)
 {
     if (!block) return;
 
@@ -305,7 +298,7 @@ void emitBlock(FILE* out, Ast_Block* block, int indent)
     fprintf(out, "}\n");
 }
 
-void generate_cpp_code(const char* filename, Ast_Block* program)
+void C_Converter::generate_cpp_code(const char* filename, Ast_Block* program)
 {
     FILE* out = nullptr;
 

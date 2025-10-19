@@ -27,11 +27,11 @@ s64 h = 1;
 int num = (2 * (5 - h));
 bool something = true;
 s64 cc = (((3 * 4) + 5) / 2);
-float dd = ((6 / 3) + (2 * 7));
+float dd = ((6 / 3.00000000000000000) + (2 * 7));
 s64 ee = ((10 - (4 / 2)) + (3 * 5));
 s64 ff = ((1 + (2 * 3)) - (4 / 5));
 s64 gg = (((7 * 8) + 9) / (10 - 2));
-float hh = ((5 * 2) + ((3 * 4) / 2));
+float hh = ((5 * 2) + ((3 * 4) / 2.00000000000000000));
 
 bool func1 () {
     int f = -100;
@@ -67,8 +67,8 @@ void newline () {
 void GENERATED_MAIN(){
     s8 gamba = 127;
     s16 fsdf = 3;
-    float32 bgiksd = 2.0000000999999998;
-    float bgiksd1 = 2.0000000999999998;
+    float32 bgiksd = 2.00000009999999984;
+    float bgiksd1 = 2.00000009999999984;
     printf("gamba = %d\n",gamba);
     {
         int a = 2;
@@ -157,10 +157,10 @@ void GENERATED_MAIN(){
     printf("\n");
     int v = 4;
     if((a != b)){
-        float x = ((2223434243434334 - 94) - 294.13435453457407);
+        float x = ((2223434243434334 - 94) - 294.13435453457407220);
         printf("x's value = %.8f\n",x);
         {
-            float block_inside_if = 3.1000000000000001;
+            float block_inside_if = 3.10000000000000009;
         }
         s64 block_inside_if = 0;
     }
@@ -173,8 +173,8 @@ void GENERATED_MAIN(){
     printf("d=%d\n",d);
     printf("e=%f\n",e);
     printf("h=%d\n",h);
-    float scopedint = 5;
-    (scopedint = 2);
+    float scopedint = 5.00000000000000000;
+    (scopedint = 2.00000000000000000);
     printf("scopedint=%f\n",scopedint);
     int zeroChild = 0;
     {

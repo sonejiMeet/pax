@@ -1,5 +1,6 @@
 C:\pax\src\code_manager.cpp;C:\pax\pax\pax\x64\Debug\code_manager.obj
 C:\pax\src\c_converter.cpp;C:\pax\pax\pax\x64\Debug\c_converter.obj
+C:\pax\src\interp.cpp;C:\pax\pax\pax\x64\Debug\interp.obj
 C:\pax\src\lexer.cpp;C:\pax\pax\pax\x64\Debug\lexer.obj
 C:\pax\src\main.cpp;C:\pax\pax\pax\x64\Debug\main.obj
 C:\pax\src\parser.cpp;C:\pax\pax\pax\x64\Debug\parser.obj

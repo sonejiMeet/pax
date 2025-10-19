@@ -1,0 +1,31 @@
+
+
+
+main :: () {
+
+    b := 4 + 5 * 7 / 2;
+    c := 1 + 2 + 3 + 4;
+    d := 4 > 5 < 3 >= 7 / 2;
+
+}
+
+// MORE EFFICIENT BY PRATT PARSING / top down operator precedence
+// https://tdop.github.io/
+/*
+
+    b := 4 + 5 * 7 / 2.0;
+
+    Cycle count 20304
+
+*/
+
+
+// OLD LESS EFFICIENT RECURSIVE DECENT FUNCTION COPY TYPE OF ALGORITHM
+
+/*
+
+    b := 4 + 5 * 7 / 2.0;
+
+    Cycle count 24448
+
+*/
