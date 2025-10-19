@@ -82,161 +82,326 @@ void Parser::synchronize()
     }
 }
 
-// in an expression
-Ast_Expression *Parser::parseFactor()
+//
+//  KEEP THIS OLD RECURSIVE DECENT
+//  MAYBE WANT TO COMPARE IN OUR THESIS WHY THIS IS SLOWER AND LESS EFFICIENT
+//
+
+
+// // in an expression
+// Ast_Expression *Parser::parseFactor()
+// {
+//     // Handle unary operators first: *, &
+//     if (current->type == TOK_STAR) { // dereference
+//         advance();
+//         Ast_Unary *node = AST_NEW(pool,Ast_Unary);
+//         node->op = UNARY_DEREFERENCE;
+//         node->operand = parseFactor();
+//         return node;
+//     }
+//     else if (current->type == TOK_AMPERSAND) { // address of
+//         advance();
+//         Ast_Unary *node = AST_NEW(pool,Ast_Unary);
+//         node->op = UNARY_ADDRESS_OF;
+//         node->operand = parseFactor();
+//         return node;
+//     }
+//     else if (current->type == TOK_MINUS) {
+//         Token *lookahead = lexer->peekNextToken();
+//         if (lookahead->type == TOK_MINUS) {
+//             parseError("Consecutive unary minus operators are not allowed.");
+//         }
+//         advance();
+//         Ast_Unary *node = AST_NEW(pool, Ast_Unary);
+//         node->op = UNARY_NEGATE;
+//         node->operand = parseFactor();
+//         return node;
+//     }
+//     else if (current->type == TOK_EXCLAMATION_MARK) {
+//         Token *lookahead = lexer->peekNextToken();
+//         if (lookahead->type == TOK_EXCLAMATION_MARK) {
+//             parseError("Consecutive unary exclamation mark operators are not allowed.");
+//         }
+//         advance();
+//         Ast_Unary *node = AST_NEW(pool, Ast_Unary);
+//         node->op = UNARY_NOT;
+//         node->operand = parseFactor();
+//         return node;
+//     }
+//     else if (current->type == TOK_NUMBER)
+//     {
+
+//         Ast_Literal *node = AST_NEW(pool,Ast_Literal);
+//         node->value_type = LITERAL_NUMBER;
+//         node->integer_value = current->int_value;
+//         advance();
+//         return node;
+//     }
+//     else if (current->type == TOK_FLOAT)
+//     {
+
+//         Ast_Literal *node = AST_NEW(pool,Ast_Literal);
+//         node->value_type = LITERAL_FLOAT;
+//         node->float_value = current->float64_value;
+//         advance();
+//         return node;
+//     }
+//     else if (current->type == TOK_STRING )
+//     {
+//         Ast_Literal *node = AST_NEW(pool,Ast_Literal);
+//         node->value_type = LITERAL_STRING;
+//         node->string_value = reinterpret_cast<const char*>(current->string_value.data);
+
+//         advance();
+//         return node;
+//     }
+//     else if (current->type == TOK_KEYWORD_TRUE || current->type == TOK_KEYWORD_FALSE)
+//     {
+//         Ast_Literal *node = AST_NEW(pool,Ast_Literal);
+//         if(current->type == TOK_KEYWORD_TRUE){
+//             node->value_type = LITERAL_TRUE;
+//         } else node->value_type = LITERAL_FALSE;
+
+//         advance();
+//         return node;
+//     }
+//     else if (current->type == TOK_IDENTIFIER)
+//     {
+//         Token *lookahead = lexer->peekNextToken();
+//         if(lookahead->type == TOK_LPAREN){
+//             return parseCall();
+//         } else {
+
+//             Ast_Ident *node = AST_NEW(pool,Ast_Ident);
+//             node->name = current->value;
+
+//             advance();
+//             return node;
+//         }
+//     }
+//     else if (current->type == TOK_LPAREN)
+//     {
+//         advance();
+//         Ast_Expression *expr = parseExpression();
+
+//         Expect(TOK_RPAREN, "Expected ')' after expression in parentheses.");
+
+//         return expr;
+//     }
+
+//     parseError("Expected a literal, identifier, or parenthesised expression factor.");
+
+//     return nullptr;
+// }
+
+// Ast_Expression *Parser::parseTerm()
+// {
+//     Ast_Expression *left = parseFactor();
+
+//     while (current->type == TOK_STAR || current->type == TOK_SLASH)
+//     {
+//         Ast_Binary *node = AST_NEW(pool,Ast_Binary);
+//         node->lhs = left;
+
+//         if(current->type == TOK_STAR) node->op = BINOP_MUL;
+//         else if (current->type == TOK_SLASH) node->op = BINOP_DIV;
+
+//         advance();
+//         node->rhs = parseFactor();
+
+//         left = node;
+//     }
+//     return left;
+// }
+
+// Ast_Expression *Parser::parseAdditive()
+// {
+//     Ast_Expression *left = parseTerm();
+
+//     while (current->type == TOK_PLUS || current->type == TOK_MINUS) {
+//         Ast_Binary *node = AST_NEW(pool, Ast_Binary);
+//         node->lhs = left;
+
+//         switch (current->type) {
+//             case TOK_PLUS: node->op = BINOP_ADD; break;
+//             case TOK_MINUS: node->op = BINOP_SUB; break;
+//             default: break;
+//         }
+
+//         advance();
+//         node->rhs = parseTerm();
+//         left = node;
+//     }
+//     return left;
+// }
+
+// Ast_Expression *Parser::parseExpression()
+// {
+//     Ast_Expression *left = parseAdditive();
+
+//     while (current->type == TOK_EQUAL || current->type == TOK_NOT_EQUAL ||
+//            current->type == TOK_LESS || current->type == TOK_GREATER ||
+//            current->type == TOK_LESS_EQUAL || current->type == TOK_GREATER_EQUAL) {
+
+//         Ast_Binary *node = AST_NEW(pool, Ast_Binary);
+//         node->lhs = left;
+
+//         switch (current->type) {
+//             case TOK_EQUAL: node->op = BINOP_EQ; break;
+//             case TOK_NOT_EQUAL: node->op = BINOP_NEQ; break;
+//             case TOK_LESS: node->op = BINOP_LESS; break;
+//             case TOK_GREATER: node->op = BINOP_GREATER; break;
+//             case TOK_LESS_EQUAL: node->op = BINOP_LESS_EQUAL; break;
+//             case TOK_GREATER_EQUAL: node->op = BINOP_GREATER_EQUAL; break;
+//             default: break;
+//         }
+
+//         advance();
+//         node->rhs = parseAdditive(); // Parse right-hand side with higher precedence
+//         left = node;
+//     }
+//     return left;
+// }
+
+Ast_Expression* Parser::parseExpression(int minPrecedence)
 {
-    // Handle unary operators first: *, &
+    Ast_Expression* left = nullptr;
+
+    // Handle unary operators and primary expressions
     if (current->type == TOK_STAR) { // dereference
         advance();
-        Ast_Unary *node = AST_NEW(pool,Ast_Unary);
+        Ast_Unary* node = AST_NEW(pool, Ast_Unary);
         node->op = UNARY_DEREFERENCE;
-        node->operand = parseFactor();
-        return node;
+        node->operand = parseExpression(100); // High precedence for unary
+        left = node;
     }
     else if (current->type == TOK_AMPERSAND) { // address of
         advance();
-        Ast_Unary *node = AST_NEW(pool,Ast_Unary);
+        Ast_Unary* node = AST_NEW(pool, Ast_Unary);
         node->op = UNARY_ADDRESS_OF;
-        node->operand = parseFactor();
-        return node;
+        node->operand = parseExpression(100);
+        left = node;
     }
     else if (current->type == TOK_MINUS) {
-        Token *lookahead = lexer->peekNextToken();
-        if (lookahead->type == TOK_MINUS) {
+        if (lexer->peekNextToken()->type == TOK_MINUS) {
             parseError("Consecutive unary minus operators are not allowed.");
         }
         advance();
-        Ast_Unary *node = AST_NEW(pool, Ast_Unary);
+        Ast_Unary* node = AST_NEW(pool, Ast_Unary);
         node->op = UNARY_NEGATE;
-        node->operand = parseFactor();
-        return node;
+        node->operand = parseExpression(100);
+        left = node;
     }
     else if (current->type == TOK_EXCLAMATION_MARK) {
-        Token *lookahead = lexer->peekNextToken();
-        if (lookahead->type == TOK_EXCLAMATION_MARK) {
+        if (lexer->peekNextToken()->type == TOK_EXCLAMATION_MARK) {
             parseError("Consecutive unary exclamation mark operators are not allowed.");
         }
         advance();
-        Ast_Unary *node = AST_NEW(pool, Ast_Unary);
+        Ast_Unary* node = AST_NEW(pool, Ast_Unary);
         node->op = UNARY_NOT;
-        node->operand = parseFactor();
-        return node;
+        node->operand = parseExpression(100);
+        left = node;
     }
-    else if (current->type == TOK_NUMBER)
-    {
-
-        Ast_Literal *node = AST_NEW(pool,Ast_Literal);
+    else if (current->type == TOK_NUMBER) {
+        Ast_Literal* node = AST_NEW(pool, Ast_Literal);
         node->value_type = LITERAL_NUMBER;
         node->integer_value = current->int_value;
         advance();
-        return node;
+        left = node;
     }
-    else if (current->type == TOK_FLOAT)
-    {
-
-        Ast_Literal *node = AST_NEW(pool,Ast_Literal);
+    else if (current->type == TOK_FLOAT) {
+        Ast_Literal* node = AST_NEW(pool, Ast_Literal);
         node->value_type = LITERAL_FLOAT;
         node->float_value = current->float64_value;
         advance();
-        return node;
+        left = node;
     }
-    else if (current->type == TOK_STRING )
-    {
-        Ast_Literal *node = AST_NEW(pool,Ast_Literal);
+    else if (current->type == TOK_STRING) {
+        Ast_Literal* node = AST_NEW(pool, Ast_Literal);
         node->value_type = LITERAL_STRING;
         node->string_value = reinterpret_cast<const char*>(current->string_value.data);
-
         advance();
-        return node;
+        left = node;
     }
-    else if (current->type == TOK_KEYWORD_TRUE || current->type == TOK_KEYWORD_FALSE)
-    {
-        Ast_Literal *node = AST_NEW(pool,Ast_Literal);
-        if(current->type == TOK_KEYWORD_TRUE){
-            node->value_type = LITERAL_TRUE;
-        } else node->value_type = LITERAL_FALSE;
-
+    else if (current->type == TOK_KEYWORD_TRUE || current->type == TOK_KEYWORD_FALSE) {
+        Ast_Literal* node = AST_NEW(pool, Ast_Literal);
+        node->value_type = (current->type == TOK_KEYWORD_TRUE) ? LITERAL_TRUE : LITERAL_FALSE;
         advance();
-        return node;
+        left = node;
     }
-    else if (current->type == TOK_IDENTIFIER)
-    {
-        Token *lookahead = lexer->peekNextToken();
-        if(lookahead->type == TOK_LPAREN){
-            return parseCall();
+    else if (current->type == TOK_IDENTIFIER) {
+        if (lexer->peekNextToken()->type == TOK_LPAREN) {
+            left = parseCall();
         } else {
-
-            Ast_Ident *node = AST_NEW(pool,Ast_Ident);
+            Ast_Ident* node = AST_NEW(pool, Ast_Ident);
             node->name = current->value;
-
             advance();
-            return node;
+            left = node;
         }
     }
-    else if (current->type == TOK_LPAREN)
-    {
+    else if (current->type == TOK_LPAREN) {
         advance();
-        Ast_Expression *expr = parseExpression();
-
+        left = parseExpression();
         Expect(TOK_RPAREN, "Expected ')' after expression in parentheses.");
-
-        return expr;
+    }
+    else {
+        parseError("Expected a literal, identifier, or parenthesized expression.");
+        return nullptr;
     }
 
-    parseError("Expected a literal, identifier, or parenthesised expression factor.");
+    // Handle binary operators based on precedence
+    while (true) {
+        int precedence = getPrecedence(current->type);
+        if (precedence < minPrecedence) return left;
 
-    return nullptr;
-}
-
-Ast_Expression *Parser::parseTerm()
-{
-    Ast_Expression *left = parseFactor();
-
-    while (current->type == TOK_STAR || current->type == TOK_SLASH)
-    {
-        Ast_Binary *node = AST_NEW(pool,Ast_Binary);
-        node->lhs = left;
-
-        if(current->type == TOK_STAR) node->op = BINOP_MUL;
-        else if (current->type == TOK_SLASH) node->op = BINOP_DIV;
-
+        TokenType op = current->type;
         advance();
-        node->rhs = parseFactor();
 
+        Ast_Binary* node = AST_NEW(pool, Ast_Binary);
+        node->lhs = left;
+        node->op = getBinaryOperator(op);
+        node->rhs = parseExpression(precedence + 1);
         left = node;
     }
+
     return left;
 }
 
-//  add, subtract, compare operations etc
-Ast_Expression *Parser::parseExpression()
-{
-    Ast_Expression *left = parseTerm();
-
-    while (current->type == TOK_PLUS || current->type == TOK_MINUS ||
-           current->type == TOK_EQUAL || current->type == TOK_NOT_EQUAL ||
-           current->type == TOK_LESS || current->type == TOK_GREATER ||
-           current->type == TOK_LESS_EQUAL || current->type == TOK_GREATER_EQUAL) {
-
-        Ast_Binary *node = AST_NEW(pool,Ast_Binary);
-        node->lhs = left;
-
-        switch(current->type){
-            case TOK_PLUS: node->op = BINOP_ADD; break;
-            case TOK_MINUS: node->op = BINOP_SUB; break;
-            case TOK_EQUAL: node->op = BINOP_EQ; break;
-            case TOK_NOT_EQUAL: node->op = BINOP_NEQ; break;
-            // rest still not done
-            default: break;
-        }
-
-        advance();
-        node->rhs = parseTerm();
-        left = node;
+int Parser::getPrecedence(TokenType type) {
+    switch (type) {
+        case TOK_STAR:
+        case TOK_SLASH:
+            return 90;
+        case TOK_PLUS:
+        case TOK_MINUS:
+            return 80;
+        case TOK_EQUAL:
+        case TOK_NOT_EQUAL:
+        case TOK_LESS:
+        case TOK_GREATER:
+        case TOK_LESS_EQUAL:
+        case TOK_GREATER_EQUAL:
+            return 70;
+        default:
+            return -1;
     }
-    return left;
 }
 
+Binary_Op Parser::getBinaryOperator(TokenType type) {
+    switch (type) {
+        case TOK_STAR: return BINOP_MUL;
+        case TOK_SLASH: return BINOP_DIV;
+        case TOK_PLUS: return BINOP_ADD;
+        case TOK_MINUS: return BINOP_SUB;
+        case TOK_EQUAL: return BINOP_EQ;
+        case TOK_NOT_EQUAL: return BINOP_NEQ;
+        case TOK_LESS: return BINOP_LESS;
+        case TOK_GREATER: return BINOP_GREATER;
+        case TOK_LESS_EQUAL: return BINOP_LESS_EQUAL;
+        case TOK_GREATER_EQUAL: return BINOP_GREATER_EQUAL;
+        default: return BINOP_UNKNOWN;
+    }
+}
 
 Ast_Type_Definition *Parser::parseTypeSpecifier() {
 
@@ -358,7 +523,15 @@ Ast_Declaration *Parser::parseVarDeclaration()
         if (current->type == TOK_ASSIGN) {
             // its non inferred but initialized form
             advance();
+
+            // uint64_t last_count = __rdtsc();
+
             initializer = parseExpression();
+
+            // uint64_t end_count = __rdtsc();
+            // uint64_t done = end_count - last_count;
+            // printf("\nCycle count %lld \n", done);
+
         } else if(current->type != TOK_SEMICOLON) {
             // maybe its inferred form
             typeDef = parseTypeSpecifier();
@@ -724,6 +897,7 @@ Ast_Block *Parser::parseProgram()
             program->statements.push_back(stmt);
         }
         else if (current->type == TOK_IDENTIFIER) {
+
             Token *next = lexer->peekNextToken();
             if (next->type == TOK_COLON) {
                 Ast_Declaration *decl = parseVarDeclaration();

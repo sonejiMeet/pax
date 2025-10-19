@@ -3,6 +3,7 @@
 
         to be FIXed
 
+mid priority: builtin type keywords cannot be used as variable names
 
 low-mid priority: replace function booleans (inside Ast_Declaration) to a single flag that have serialized value
 
@@ -41,7 +42,6 @@ int func (int * aa) {
 
 
 
-Mid-High priority: Fix floating point precision
 
 mid priority: impliment struct
 
@@ -61,6 +61,7 @@ Emit Debug Information
 emit #line directives so the compiler and debugger know the real source file and line.
 
 
+DONE: Mid-High priority: Fix floating point precision
 
 DONE: fix not all control paths return a value
 DONE: Mid-High priority: negative numbers can't be assigned yet
@@ -97,6 +98,7 @@ What should work?
 - simple new operator that just does malloc, maybe its possible to 0 initialize by default (using calloc) and not if explicitly told by programmer.
 - no need to forward declaring  functions/structs. it would be automatically done in .cpp
   -> If we encounter a function that isn't declared yet we could put it into a queue and come back to resolve it when we eventually find its declaration in the current scope
+- named arguements https://youtu.be/CttIYXCUeVY?list=PLmV5I2fxaiCKfxMBrNsU1kgKJXD3PkyxO&t=915
 
 Check things for correctness and proof of concept
 - should obey operator precedence (pemdas eg.)

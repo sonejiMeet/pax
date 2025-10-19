@@ -1,7 +1,57 @@
 #pragma once
+#include "lexer.h"
+#include "token.h"
+#include "tools.h"
+
 #include "ast.h"
 #include "pool.h"
+
 #include <iostream>
+
+
+
+inline void printLex(FileBuffer buf, Pool *pool){
+
+    Lexer lexer((const char*)buf.data, buf.size, pool);
+
+    while (true) {
+        Token *tok = lexer.nextToken();
+        printf("[%-2d:%-2d] Token: %-15s\t", tok->row, tok->col, tokenTypeToString(tok->type));
+
+        switch (tok->type) {
+            case TOK_NUMBER:
+                printf("Value: \"%llu\"\n", tok->int_value);
+                break;
+            case TOK_FLOAT:
+                printf("Value: \"%.17g\"\n", tok->float64_value);
+                break;
+
+                // printf("Value: \"%c\"\n",(char)tok.value);
+            case TOK_STRING:
+                printf("Value: \"%.*s\"\n", (int)tok->string_value.count, tok->string_value.data);
+                break;
+            case TOK_IDENTIFIER:
+            default:
+                // For simple tokens (operators, etc.)
+                if (tok->value) {
+                    printf("Value: \"%s\"\n", tok->value);
+                } else {
+                    printf("\n");
+                }
+                break;
+        }
+
+        if (tok->type == TOK_END_OF_FILE) {
+            break;
+        }
+    }
+
+    printf("\n");
+
+}
+
+
+
 
 extern const Def_Type *ttype;
 
@@ -14,6 +64,7 @@ struct Ast_Ident;
 struct Ast_Binary;
 struct Ast_If;
 struct Ast_Declaration;
+
 
 inline void printIndent(int indent) {
     for (int i = 0; i < indent; ++i) std::cout << "  ";

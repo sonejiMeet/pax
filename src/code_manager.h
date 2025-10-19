@@ -29,7 +29,6 @@ struct CodeManager {
     int count_errors = 0;
 
     char *pool_strdup(Pool *pool, const char* str);
-    int get_count_errors();
 
     template <typename T>
     void report_error(T type, const char *fmt, ...);

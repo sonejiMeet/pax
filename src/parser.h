@@ -25,9 +25,21 @@ struct Parser
     void synchronize();
     Ast_Block *parseProgram();
 
-    Ast_Expression *parseFactor();
-    Ast_Expression *parseTerm();
-    Ast_Expression *parseExpression();
+    //
+    //  KEEP THIS OLD RECURSIVE DECENT
+    //  MAYBE WANT TO COMPARE IN OUR THESIS WHY THIS IS SLOWER AND LESS EFFICIENT
+    //
+
+    // Ast_Expression *parseFactor();
+    // Ast_Expression *parseTerm();
+    // Ast_Expression *parseAdditive();
+    // Ast_Expression *parseExpression();
+
+    Ast_Expression *parseExpression(int minPrecedence = 0);
+    int getPrecedence(TokenType type);
+    Binary_Op getBinaryOperator(TokenType type);
+
+
     Ast_Type_Definition *parseTypeSpecifier();
     Ast_Declaration *parseVarDeclaration();
     Ast_If *parseIfStatement();

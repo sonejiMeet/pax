@@ -157,6 +157,10 @@ enum Binary_Op {
     BINOP_EQ,
     BINOP_NEQ,
     BINOP_ASSIGN,
+    BINOP_LESS,
+    BINOP_GREATER,
+    BINOP_LESS_EQUAL,
+    BINOP_GREATER_EQUAL,
 };
 
 struct Ast_Binary : public Ast_Expression {
