@@ -34,7 +34,7 @@ s64 gg = (((7 * 8) + 9) / (10 - 2));
 float hh = ((5 * 2) + ((3 * 4) / 2.00000000000000000));
 
 bool func1 () {
-    int f = -100;
+    int f = (-100);
     func(/*ADDRESS_OF*/ &f,a);
     if((f != 100)){
         (f = 2);
@@ -77,7 +77,7 @@ void GENERATED_MAIN(){
         printf("var = %x\n",/*ADDRESS_OF*/ &var);
         printf("var2 = %x\n",/*ADDRESS_OF*/ &var2);
     }
-    s64 vvv = (-2 - 4);
+    s64 vvv = ((-2) - 4);
     {
         int f = 100;
         printf("Address of f = %p\n",/*ADDRESS_OF*/ &f);

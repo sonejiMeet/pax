@@ -125,7 +125,8 @@ Why its will actually be a compiler and not just a stupid transpiler?
 
 
 
-
+https://abarker.github.io/typped/pratt_parsing_intro.html
+https://tdop.github.io/
 
 
 

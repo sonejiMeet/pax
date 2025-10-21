@@ -62,13 +62,16 @@ void C_Converter::emitExpression(FILE* out, Ast_Expression* expr, int indent)
                     break;
 
                 case UNARY_NEGATE:
-                    fprintf(out, "-");
+
+                    fprintf(out, "(-");
                     emitExpression(out, u->operand, indent);
+                    fprintf(out, ")");
                     break;
 
                 case UNARY_NOT:
-                    fprintf(out, "!");
+                    fprintf(out, "(!");
                     emitExpression(out, u->operand, indent);
+                    fprintf(out, ")");
                     break;
             }
             break;

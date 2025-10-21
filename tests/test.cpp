@@ -17,9 +17,12 @@ typedef double     float64;
 
 
 void GENERATED_MAIN(){
-    s64 b = (4 + ((5 * 7) / 2));
+    float b = (4 + ((5 * 7) / 2.00000000000000000));
     s64 c = (((1 + 2) + 3) + 4);
     bool d = (((4 > 5) < 3) >= (7 / 2));
+    s64 e = (4 - (-5));
+    s64 f = ((((4 * 5) + 3) / 7) + 2);
+    s64 g = ((2 + (4 * 5)) + (3 / 7));
 }
 
 int main(int argc, char **argv){

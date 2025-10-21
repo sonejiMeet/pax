@@ -71,6 +71,8 @@ struct Ast {
     // const char *file_name = nullptr;
 
     virtual ~Ast() = default;  // DO NOT REMOVE THIS IT MESSES WITH DEBUGGER FUCKING HELL WHOLE 2 HOURS WASTED
+                              // without this the debugger doesn't handle inheritance hierarchy correctly
+                              // since the debugger relies on vtable to identify actual type
 };
 
 
