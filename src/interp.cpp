@@ -8,6 +8,35 @@
     return node; \
 }())
 
+
+inline void __strncpy(char *input, const char *filename, size_t bytes) {
+#ifdef _WIN32
+    strncpy_s(input, bytes, filename, _TRUNCATE);
+#elif __linux__
+    strncpy(input, filename, bytes);
+    input[bytes - 1] = '\0';
+#endif
+}
+
+inline void __strcpy(char *base_name, const char *input_path, size_t bytes){
+#ifdef _WIN32
+    strcpy_s(base_name, bytes, input_path);
+#elif __linux__
+    strcpy(base_name, input_path);
+#endif
+}
+
+inline char *get_slash(char *base_name){
+
+#ifdef _WIN32
+    char *slash = strrchr(base_name, '\\');
+#elif __linux__
+    char *slash = strrchr(base_name, '/');
+#endif
+    return slash;
+}
+
+
 static void init_Def_Type(Def_Type* type, Pool* pool) {
     type->type_def_dummy   = AST_NEW(pool, Ast_Type_Definition);
     type->type_def_int     = AST_NEW(pool, Ast_Type_Definition);
@@ -60,7 +89,9 @@ Pax_Interp::~Pax_Interp() {
 }
 
 bool Pax_Interp::init(const char* filename) {
-    strncpy(input_path, filename, sizeof(input_path));
+
+    // copy the file path
+    __strncpy(input_path, filename, sizeof(input_path));
 
     buf = read_entire_file(filename);
     if (!buf.data) {
@@ -72,17 +103,17 @@ bool Pax_Interp::init(const char* filename) {
     parser = new Parser(lexer, &pool, &type);
 
     // make base name
-    strcpy(base_name, input_path);
+    __strcpy(base_name, input_path, sizeof(base_name));
+
     char* dot = strrchr(base_name, '.');
     if (dot) *dot = 0;
 
-#ifdef _WIN32
-    char* slash = strrchr(base_name, '\\');
-#else
-    char* slash = strrchr(base_name, '/');
-#endif
+    char *slash = get_slash(base_name);
+
     const char* name_only = (slash) ? slash + 1 : base_name;
-    strncpy(file_name_only, name_only, sizeof(file_name_only));
+
+    // copy just filename for naming the compiled generated code in linux side
+    __strncpy(file_name_only, name_only, sizeof(file_name_only));
 
     return true;
 }
@@ -157,8 +188,8 @@ void Pax_Interp::compile_cpp() {
     auto start = std::chrono::high_resolution_clock::now();
 
     char command[256];
-#ifdef _WIN32
-    snprintf(command, sizeof(command), "cl.exe /w /Od /EHsc /nologo %s.cpp", base_name);
+#ifdef _WIN32                               /* vvvvvvvvvvvvvv @Temporary */
+    snprintf(command, sizeof(command), "cl.exe /wd4477 /wd4313 /Od /EHsc /nologo %s.cpp", base_name);
     runCompiler(command);
 #else
     snprintf(command, sizeof(command), "g++ -w -o %s %s.cpp", file_name_only, base_name);

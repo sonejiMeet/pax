@@ -47,7 +47,6 @@ struct Array
     T pop();
     void release();
 
-    T &emplace_back(const T& value);
     void pop_back();
 
     // inline helpers
@@ -104,33 +103,6 @@ inline void Array<T>::release()
     data = nullptr;
     count = 0;
     capacity = 0;
-}
-
-template<typename T>
-inline T& Array<T>::emplace_back(const T& value) {
-    assert(pool && "Array's pool pointer is null!");
-
-    if (count >= capacity) {
-        long new_cap = capacity ? capacity * 2 : 4;
-
-        // allocate raw memory from pool
-        T *new_data = (T *)pool_alloc(pool, sizeof(T) * new_cap);
-        assert(new_data && "Memory allocation failed for Array");
-
-        // Move-construct existing elements into the new buffer (placement new).
-        // We don't call destructors on the old memory (pool-managed), because it's pool memory.
-        for (long i = 0; i < count; ++i) {
-            new (&new_data[i]) T(std::move(data[i]));
-        }
-
-        data = new_data;
-        capacity = new_cap;
-    }
-
-    // Construct the new element in-place
-    new (&data[count]) T(value);
-    ++count;
-    return data[count - 1];
 }
 
 template<typename T>

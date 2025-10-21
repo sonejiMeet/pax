@@ -15,7 +15,7 @@ CodeManager::CodeManager(Pool* pool, Def_Type *type) : ast_pool(pool)
 {
     scope_stack = ast_pool;
     Ast_Block *block = AST_NEW(ast_pool, Ast_Block);
-    scope_stack.emplace_back(block); // global scope
+    scope_stack.push_back(block); // global scope
     _type = type;
 }
 
@@ -79,7 +79,7 @@ void CodeManager::report_error(int row, int col, const char* fmt, ...)
 void CodeManager::push_scope()
 {
     Ast_Block *block = AST_NEW(ast_pool, Ast_Block);
-    scope_stack.emplace_back(block);
+    scope_stack.push_back(block);
 }
 
 void CodeManager::pop_scope()

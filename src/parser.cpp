@@ -3,6 +3,7 @@
 
 #include <iostream>
 #include <cstring>
+
 bool exitSuccess = true;
 
 #ifdef _DEBUG
@@ -83,8 +84,8 @@ void Parser::synchronize()
 }
 
 //
-//  KEEP THIS OLD RECURSIVE DECENT
-//  MAYBE WANT TO COMPARE IN OUR THESIS WHY THIS IS SLOWER AND LESS EFFICIENT
+//  KEEP THIS OLD RECURSIVE DECENT BELOW HERE
+//  MAYBE WANT TO COMPARE IN THESIS WHY IT'S SLOWER AND LESS EFFICIENT....s
 //
 
 
@@ -454,7 +455,8 @@ Ast_Type_Definition *Parser::parseTypeSpecifier() {
     Ast_Type_Definition *baseType = nullptr;
 
 
-    // Temporary replace this with hashmap later
+    // @Temporary
+    // replace this with hashmap later
     if (strcmp(current->value, "int") == 0) baseType = _type->type_def_int;
     else if (strcmp(current->value, "s8") == 0) baseType = _type->type_def_s8;
     else if (strcmp(current->value, "s16") == 0) baseType = _type->type_def_s16;
@@ -504,6 +506,7 @@ Ast_Type_Definition *Parser::parseTypeSpecifier() {
     return currentType;
 }
 
+// uint64_t total = 0; // @Temporary
 
 // statement
 Ast_Declaration *Parser::parseVarDeclaration()
@@ -530,7 +533,9 @@ Ast_Declaration *Parser::parseVarDeclaration()
 
             // uint64_t end_count = __rdtsc();
             // uint64_t done = end_count - last_count;
-            // printf("\nCycle count %lld \n", done);
+            // total += done;
+            // // printf("\nCycle count %lld \n", done);
+            // printf("\nTotal Cycle count %lld \n", total);
 
         } else if(current->type != TOK_SEMICOLON) {
             // maybe its inferred form
@@ -565,7 +570,9 @@ Ast_If *Parser::parseIfStatement(){
 
     advance();
     Expect(TOK_LPAREN, "Expected '(' before start of expression in if statement .");
+
     Ast_Expression *condition = parseExpression();
+
     Expect(TOK_RPAREN, "Expected ')' after end of expression in if statement.");
 
     Ast_Block *thenBlock = parseBlockStatement();
@@ -594,8 +601,9 @@ Ast_Block *Parser::parseBlockStatement(bool scoped_block) {
 
     while (current->type != TOK_RCURLY_PAREN && current->type != TOK_END_OF_FILE) {
         Ast_Statement *stmt = parseStatement();
-        if (stmt) block->statements.push_back(stmt);
-        else {
+        if (stmt) {
+            block->statements.push_back(stmt);
+        } else {
             parseError("Failed to parse statement within block.");
             exitSuccess = false;
             synchronize();
@@ -789,7 +797,6 @@ Ast_Statement *Parser::parseStatement()
             Ast_Statement* stmt = AST_NEW(pool, Ast_Statement);
             stmt->is_return = true;
 
-            // Optional return value
             if (current->type != TOK_SEMICOLON) {
                 stmt->expression = parseExpression();
             }
@@ -797,8 +804,8 @@ Ast_Statement *Parser::parseStatement()
             expect(TOK_SEMICOLON, "Expected ';' after return statement.");
             return stmt;
         }
-        case TOK_STAR:
-        case TOK_CARET:
+        case TOK_STAR: // fallthrough
+        case TOK_CARET:  // fallthrough
         case TOK_AMPERSAND: {
             // these can be in front of statement
             Ast_Expression *lhs = parseExpression(); // could be *p, ^x, &y
@@ -846,8 +853,8 @@ Ast_Statement *Parser::parseStatement()
             return stmt;
         }
 
-        case TOK_NUMBER:
-        case TOK_STRING:
+        case TOK_NUMBER: // fallthrough
+        case TOK_STRING: // fallthrough
         case TOK_FLOAT: {
             Ast_Expression *expr = parseExpression();
             expect(TOK_SEMICOLON, "Expected ';' after expression statement.");
@@ -867,6 +874,7 @@ Ast_Block *Parser::parseProgram()
 {
     Ast_Block *program = AST_NEW(pool,Ast_Block);
 
+    // printf("size of Ast %zu----------->>>>>>>>>>>>>>>>>>>\n", sizeof(Ast));
      // printf("size of Token %zu----------->>>>>>>>>>>>>>>>>>>\n", sizeof(Token));
     // printf("size of Ast_Ident %zu----------->>>>>>>>>>>>>>>>>>>\n", sizeof(Ast_Ident));
     // printf("size of Ast_Procedure_Call_Expression %zu----------->>>>>>>>>>>>>>>>>>>\n", sizeof(Ast_Procedure_Call_Expression));
