@@ -258,49 +258,42 @@ void CodeManager::checkFunctionReturns(Ast_Declaration* decl) {
 void CodeManager::resolve_idents(Ast_Block* block) {
     if (!block) return;
 
-    if (scope_stack.size() == 1) {
-        for (int i = 0; i < block->statements.count; i++) {
+    bool is_global_scope = (scope_stack.size() == 1);
 
-            Ast_Statement* stmt = block->statements.data[i];
+    for (int i = 0; i < block->statements.count; i++) {
 
-            if (!stmt) continue;
+        Ast_Statement* stmt = block->statements.data[i];
 
-            if (stmt->type != AST_DECLARATION) {
-                if(stmt->block && stmt->block->is_entry_point == false && !stmt->block->is_scoped_block) {
-                    report_error(stmt, "Non-declaration statements are not allowed in global scope");
-
-                }
-                continue;
-            }
-
-            Ast_Declaration* decl = static_cast<Ast_Declaration*>(stmt);
-            if (decl->is_function) {
-                declare_function(decl);
-
-                if (decl->is_function_body) {
-                    if (!decl->return_type) {
-                        report_error(decl, "Function '%s' must specify a return type", decl->identifier->name);
-                    } else if (decl->return_type != _type->type_def_void && decl->my_scope) {
-                        checkFunctionReturns(decl);
-                    }
-                }
-            } else {
-                declare_variable(decl);
-            }
+        if (!stmt) {
+            continue;
         }
 
-        // Second pass: Resolve initializers, function bodies, and expressions
-        for (int i = 0; i < block->statements.count; i++) {
-            Ast_Statement *stmt = block->statements.data[i];
-            if (!stmt) continue;
+        if (stmt->is_return) {
+            resolve_idents_in_expr(stmt->expression);
+            continue;
+        }
 
-            if (stmt->is_return) {
-                resolve_idents_in_expr(stmt->expression);
-                continue;
-            }
+        Ast_Declaration* decl = static_cast<Ast_Declaration*>(stmt);
+        if (stmt->type != AST_DECLARATION) {
+            continue;  // if its not a declaration then we skip this statement
+        } else if (stmt->type == AST_DECLARATION){
 
-            if (stmt->type == AST_DECLARATION) {
-                Ast_Declaration* decl = static_cast<Ast_Declaration*>(stmt);
+            if (is_global_scope) {
+
+                if (decl->is_function) {
+                    declare_function(decl);
+                    if (decl->is_function_body) {
+                        if (!decl->return_type) {
+                            report_error(decl, "Function '%s' must specify a return type", decl->identifier->name);
+                        } else if (decl->return_type != _type->type_def_void && decl->my_scope) {
+                            checkFunctionReturns(decl);
+                        }
+                    }
+                } else {
+                    declare_variable(decl);
+                }
+
+                // Resolve initializers and function bodies
                 resolve_idents_in_declaration(decl);
                 if (decl->is_function && decl->my_scope && decl->is_function_body) {
                     push_scope();
@@ -310,48 +303,8 @@ void CodeManager::resolve_idents(Ast_Block* block) {
                     resolve_idents(decl->my_scope);
                     pop_scope();
                 }
-            }
-/*
-            else if (stmt->type == AST_IF) {
-                printf("IFFFFFFFFFFFFFFFFFFF\n");
-                Ast_If *ifn = static_cast<Ast_If*>(stmt);
-                if (ifn->condition) resolve_idents_in_expr(ifn->condition);
-                if (ifn->then_block) {
-                    push_scope();
-                    resolve_idents(ifn->then_block);
-                    pop_scope();
-                }
-                if (ifn->else_block) {
-                    push_scope();
-                    resolve_idents(ifn->else_block);
-                    pop_scope();
-                }
-            }
-            else if (stmt->expression) {
-                printf("EXPRRRRRRRRRRRRRRRRRRRRRR\n");
-                resolve_idents_in_expr(stmt->expression);
-            }
-*/
-            else if (stmt->block) {
-                // main entry point and other toplevel blocks like function declarations
-                push_scope();
-                resolve_idents(stmt->block);
-                pop_scope();
-            }
-        }
-    } else {
-
-        for (int i = 0; i < block->statements.count; i++) {
-            Ast_Statement* stmt = block->statements.data[i];
-            if (!stmt) continue;
-
-            if (stmt->is_return) {
-                    resolve_idents_in_expr(stmt->expression);
-                continue;
-            }
-
-            if (stmt->type == AST_DECLARATION) {
-                Ast_Declaration* decl = static_cast<Ast_Declaration*>(stmt);
+            } else {
+                // Non-global scope
                 if (decl->is_function) {
                     declare_function(decl);
                     if (decl->my_scope && decl->is_function_body) {
@@ -363,20 +316,25 @@ void CodeManager::resolve_idents(Ast_Block* block) {
                         pop_scope();
                     }
                 } else {
-                    Ast_Declaration *is_decl= lookup_symbol_current_scope(decl->identifier->name);
-                    if(!is_decl) {
+                    Ast_Declaration* is_decl = lookup_symbol_current_scope(decl->identifier->name);
+                    if (!is_decl) {
                         declare_variable(decl, true);
                     }
                     if (decl->initializer && decl->initializer->type == AST_PROCEDURE_CALL_EXPRESSION) {
                         resolve_idents_in_declaration(decl);
                     }
-
                 }
-                continue;
             }
+            continue;
+        } else if (is_global_scope && stmt->block){
+            push_scope();
+            resolve_idents(stmt->block);
+            pop_scope();
+        }
 
+        // Handle non-declaration statements in non-global scope
+        if (!is_global_scope) {
             if (stmt->type == AST_IF) {
-
                 Ast_If* ifn = static_cast<Ast_If*>(stmt);
                 if (ifn->condition) resolve_idents_in_expr(ifn->condition);
                 if (ifn->then_block) {
@@ -393,11 +351,11 @@ void CodeManager::resolve_idents(Ast_Block* block) {
                 resolve_idents_in_expr(stmt->expression);
             } else if (stmt->block) {
                 push_scope();
-                if (stmt->block->is_scoped_block){
+                if (stmt->block->is_scoped_block) {
                     push_scope();
                 }
                 resolve_idents(stmt->block);
-                if (stmt->block->is_scoped_block){
+                if (stmt->block->is_scoped_block) {
                     pop_scope();
                 }
                 pop_scope();

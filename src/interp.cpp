@@ -125,6 +125,7 @@ void Pax_Interp::run_frontend() {
     // printAst(ast);
 
     CodeManager cm(&pool, &type);
+
     cm.resolve_idents(ast);
     cm.resolve_unresolved_calls();
     cm.infer_types_block(ast);

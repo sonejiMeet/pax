@@ -759,11 +759,12 @@ Ast_Statement *Parser::parseStatement()
             }
             else if (next->type == TOK_ASSIGN) {
                 const char *varName = current->value;
+                Ast_Ident *lhs = AST_NEW(pool,Ast_Ident); // do this before we advance any further for accurate line info
+
                 advance(); // consume ident
                 advance(); // and '='
                 Ast_Expression *rhs = parseExpression();
 
-                Ast_Ident *lhs = AST_NEW(pool,Ast_Ident);
                 lhs->name = varName;
 
                 Ast_Binary *assignExpr = AST_NEW(pool,Ast_Binary);
@@ -771,9 +772,9 @@ Ast_Statement *Parser::parseStatement()
                 assignExpr->lhs = lhs;
                 assignExpr->rhs = rhs;
 
+                Ast_Statement *stmt = AST_NEW(pool,Ast_Statement);
                 Expect(TOK_SEMICOLON, "Expected ';' after assignment");
 
-                Ast_Statement *stmt = AST_NEW(pool,Ast_Statement);
                 stmt->expression = assignExpr;
                 return stmt;
             }
