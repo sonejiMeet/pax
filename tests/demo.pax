@@ -61,6 +61,7 @@ main :: () {
         f: int = 100;
         printf("Address of f = %p\n", &f);
 
+        // func(&f, a);
         af := func(&f, a);
         printf("f = %d\n", f);
 
