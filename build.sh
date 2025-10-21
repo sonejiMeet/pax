@@ -7,7 +7,7 @@ fi
 
 cd src/
 
-COMMAND="g++ $DEBUG_FLAG -O2 -w -o main main.cpp lexer.cpp parser.cpp tools.cpp code_manager.cpp c_converter.cpp"
+COMMAND="g++ $DEBUG_FLAG -O2 -w -o main main.cpp lexer.cpp parser.cpp tools.cpp code_manager.cpp c_converter.cpp interp.cpp"
 echo $COMMAND
 
 $COMMAND
