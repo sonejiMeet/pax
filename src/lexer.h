@@ -14,6 +14,8 @@ struct Lexer
     int Row;
     int Col;
 
+    int row;
+    int col;
     Token* peeked_token = nullptr;
 
     Pool *lex_pool;
@@ -34,7 +36,7 @@ struct Lexer
 
     char* pool_strdup(Pool* pool, const char* str);
 
-    inline void lexerError(const char *message, int row, int col);
+    inline void lexerError(const char *message);
 
     inline char get_and_advance() {
         char c = Source[Pos];
@@ -97,7 +99,7 @@ struct Lexer
                     get_and_advance();
                 }
                 if (!closed) {
-                    lexerError("Unterminated multi-line comment", Row, Col);
+                    lexerError("Unterminated multi-line comment");
                 }
                 continue;
             }
@@ -106,13 +108,13 @@ struct Lexer
         }
     }
 
-    Token* makeToken(TokenType type, const char* value, int row, int col);
-    Token* makeIntToken(TokenType type, unsigned long long val, int row, int col);
-    Token* makeFloatToken(TokenType type, double val, int row, int col);
+    Token* makeToken(TokenType type, const char* value);
+    Token* makeIntToken(TokenType type, unsigned long long val);
+    Token* makeFloatToken(TokenType type, double val);
 
-    Token* stringToken(int row, int col);
-    Token* numberToken(char first, int row, int col);
-    Token* identifierToken(char first, int row, int col);
+    Token* stringToken();
+    Token* numberToken(char first);
+    Token* identifierToken(char first);
 
     Token* nextToken();
     Token* peekNextToken(int lookahead = 1);

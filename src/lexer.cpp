@@ -17,7 +17,7 @@ char *Lexer::pool_strdup(Pool *pool, const char *str) {
     return p;
 }
 
-Token *Lexer::makeToken(TokenType type, const char *value, int row, int col) {
+Token *Lexer::makeToken(TokenType type, const char *value) {
 
 #ifdef _DEBUG
     printf("First pool_alloc in makeToken\n");
@@ -41,7 +41,7 @@ Token *Lexer::makeToken(TokenType type, const char *value, int row, int col) {
     return t;
 }
 
-Token *Lexer::makeIntToken(TokenType type, unsigned long long val, int row, int col)
+Token *Lexer::makeIntToken(TokenType type, unsigned long long val)
 {
     Token *t = (Token*)pool_alloc(lex_pool, sizeof(Token));
     t->type = type;
@@ -51,7 +51,7 @@ Token *Lexer::makeIntToken(TokenType type, unsigned long long val, int row, int 
     return t;
 }
 
-Token *Lexer::makeFloatToken(TokenType type, double val, int row, int col)
+Token *Lexer::makeFloatToken(TokenType type, double val)
 {
     Token *t = (Token*)pool_alloc(lex_pool, sizeof(Token));
     t->type = type;
@@ -61,12 +61,12 @@ Token *Lexer::makeFloatToken(TokenType type, double val, int row, int col)
     return t;
 }
 
-inline void Lexer::lexerError(const char *message, int row, int col) {
+inline void Lexer::lexerError(const char *message) {
     printf("\nLexer Error [%d:%d]: %s", row, col, message);
     exit(1);
 }
 
-Token *Lexer::stringToken(int row, int col)
+Token *Lexer::stringToken()
 {
     const char *startPtr = Source + Pos+1; // start after quote
     while (Pos < size && Source[Pos+1] != '"') {
@@ -74,8 +74,8 @@ Token *Lexer::stringToken(int row, int col)
     }
 
     if (Pos >= size) {
-        lexerError("Unterminated string literal", row, col);
-        return makeToken(TOK_ERROR, "", row, col);
+        lexerError("Unterminated string literal");
+        return makeToken(TOK_ERROR, "");
     }
 
     size_t len = (Source + Pos+1) - startPtr;
@@ -96,7 +96,7 @@ Token *Lexer::stringToken(int row, int col)
     return t;
 }
 
-Token *Lexer::numberToken(char first, int row, int col)
+Token *Lexer::numberToken(char first)
 {
     static char num_str_buffer[MAX_NUM_STR_LEN];
 
@@ -109,9 +109,9 @@ Token *Lexer::numberToken(char first, int row, int col)
         if (buffer_idx < MAX_NUM_STR_LEN - 1) {
             num_str_buffer[buffer_idx++] = get_and_advance();
         } else {
-            lexerError("Number literal too long", row, col);
+            lexerError("Number literal too long");
             while (Pos < size && isNumeric(Source[Pos])) get_and_advance();
-            return makeToken(TOK_ERROR, "", row, col);
+            return makeToken(TOK_ERROR, "");
         }
     }
 
@@ -122,8 +122,8 @@ Token *Lexer::numberToken(char first, int row, int col)
         if (buffer_idx < MAX_NUM_STR_LEN - 1) {
             num_str_buffer[buffer_idx++] = get_and_advance(); // Consume the '.'
         } else {
-            lexerError("Number literal too long (decimal part)", row, col);
-            return makeToken(TOK_ERROR, "", row, col);
+            lexerError("Number literal too long (decimal part)");
+            return makeToken(TOK_ERROR, "");
         }
 
         // since its a float type parse  fractional part
@@ -133,15 +133,15 @@ Token *Lexer::numberToken(char first, int row, int col)
                 num_str_buffer[buffer_idx++] = get_and_advance();
                 has_fractional_digits = true;
             } else {
-                lexerError("Number literal too long (fractional part)", row, col);
+                lexerError("Number literal too long (fractional part)");
                 while (Pos < size && isNumeric(Source[Pos])) get_and_advance();
-                return makeToken(TOK_ERROR, "", row, col);
+                return makeToken(TOK_ERROR, "");
             }
         }
 
         if (!has_fractional_digits /* && num_str_buffer[buffer_idx - 1] == '.'*/) {
-            lexerError("Malformed float literal (missing fractional digits)", row, col);
-            return makeToken(TOK_ERROR, "", row, col);
+            lexerError("Malformed float literal (missing fractional digits)");
+            return makeToken(TOK_ERROR, "");
         }
     }
     num_str_buffer[buffer_idx] = '\0';
@@ -152,32 +152,32 @@ Token *Lexer::numberToken(char first, int row, int col)
         double val = strtod(num_str_buffer, &end_ptr);
 
         if (*end_ptr != '\0') {
-            lexerError("Invalid float literal conversion", row, col);
-            return makeToken(TOK_ERROR, num_str_buffer, row, col);
+            lexerError("Invalid float literal conversion");
+            return makeToken(TOK_ERROR, num_str_buffer);
         }
 
-        return makeFloatToken(TOK_FLOAT, val, row, col);
+        return makeFloatToken(TOK_FLOAT, val);
     } else {
         // If no decimal point, it's an integer
         char *end_ptr;
 
         unsigned long long val = strtoull(num_str_buffer, &end_ptr, 10);
         if (errno == ERANGE) {
-            lexerError("Integer literal overflow.", row, col);
-            return makeToken(TOK_ERROR, num_str_buffer, row, col);
+            lexerError("Integer literal overflow.");
+            return makeToken(TOK_ERROR, num_str_buffer);
         }
 
         if (*end_ptr != '\0') {
-            lexerError("Invalid integer literal conversion", row, col);
-            return makeToken(TOK_ERROR, num_str_buffer, row, col);
+            lexerError("Invalid integer literal conversion");
+            return makeToken(TOK_ERROR, num_str_buffer);
         }
 
-        return makeIntToken(TOK_NUMBER, val, row, col);
+        return makeIntToken(TOK_NUMBER, val);
     }
 }
 
 
-Token *Lexer::identifierToken(char first, int row, int col)
+Token *Lexer::identifierToken(char first)
 {
     const char *startPtr = Source + Pos - 1;
     while (Pos < size && (isAlphaNumeric(Source[Pos]) || Source[Pos] == '_')) {
@@ -207,7 +207,7 @@ Token *Lexer::identifierToken(char first, int row, int col)
 
     else if (strcmp(ident, "return") == 0) type = TOK_RETURN;
 
-    Token *t = makeToken(type, ident, row, col);
+    Token *t = makeToken(type, ident);
 
     free(ident);
     return t;
@@ -220,66 +220,67 @@ Token *Lexer::nextToken()
     skipUnwantedChar();
 
     if (Pos >= size) {
-        return makeToken(TOK_END_OF_FILE, "EOF", Row, Col);
+        return makeToken(TOK_END_OF_FILE, "EOF");
     }
-    int sRow = Row;
-    int sCol = Col;
+    row = Row;
+    col = Col;
 
     char c = get_and_advance();
 
     // the String[Pos] pointer at this point is no longer on the same character as c above but the next character. its like consuming and moving forward
 
     switch (c) {
-        case '(': return makeToken(TOK_LPAREN, "(", sRow, sCol);
-        case ')': return makeToken(TOK_RPAREN, ")", sRow, sCol);
-        case '{': return makeToken(TOK_LCURLY_PAREN, "{", sRow, sCol);
-        case '}': return makeToken(TOK_RCURLY_PAREN, "}", sRow, sCol);
-        case '[': return makeToken(TOK_LBRACKET, "[", sRow, sCol);
-        case ']': return makeToken(TOK_RBRACKET, "]", sRow, sCol);
+        case '(': return makeToken(TOK_LPAREN, "(");
+        case ')': return makeToken(TOK_RPAREN, ")");
+        case '{': return makeToken(TOK_LCURLY_PAREN, "{");
+        case '}': return makeToken(TOK_RCURLY_PAREN, "}");
+        case '[': return makeToken(TOK_LBRACKET, "[");
+        case ']': return makeToken(TOK_RBRACKET, "]");
         case ':':
-            if (match_and_advance(':')) return makeToken(TOK_DOUBLECOLON, "::", sRow, sCol);
-            return makeToken(TOK_COLON, ":", sRow, sCol);
-        case ';': return makeToken(TOK_SEMICOLON, ";", sRow, sCol);
-        case ',': return makeToken(TOK_COMMA, ",", sRow, sCol);
-        case '\'':return makeToken(TOK_SINGLEQOUTE, "'", sRow, sCol);
-        case '+': return makeToken(TOK_PLUS, "+", sRow, sCol);
+            if (match_and_advance(':')) return makeToken(TOK_DOUBLECOLON, "::");
+            return makeToken(TOK_COLON, ":");
+        case ';': return makeToken(TOK_SEMICOLON, ";");
+        case ',': return makeToken(TOK_COMMA, ",");
+        case '\'':return makeToken(TOK_SINGLEQOUTE, "'");
+        case '.': return makeToken(TOK_DOT, ".");
+        case '+': return makeToken(TOK_PLUS, "+");
         case '-':
-            if (match_and_advance('>')) return makeToken(TOK_ARROW, "->", sRow, sCol);
-            return makeToken(TOK_MINUS, "-", sRow, sCol);
+            if (match_and_advance('>')) return makeToken(TOK_ARROW, "->");
+            return makeToken(TOK_MINUS, "-");
         case '*':
-            return makeToken(TOK_STAR, "*", sRow, sCol);
+            return makeToken(TOK_STAR, "*");
 
         case '=':
-            if (match_and_advance('=')) return makeToken(TOK_EQUAL, "==", sRow, sCol);
-            return makeToken(TOK_ASSIGN, "=", sRow, sCol);
+            if (match_and_advance('=')) return makeToken(TOK_EQUAL, "==");
+            return makeToken(TOK_ASSIGN, "=");
         case '!':
-            if (match_and_advance('=')) return makeToken(TOK_NOT_EQUAL, "!=", sRow, sCol);
-            return makeToken(TOK_EXCLAMATION_MARK, "!", sRow, sCol);
+            if (match_and_advance('=')) return makeToken(TOK_NOT_EQUAL, "!=");
+            return makeToken(TOK_EXCLAMATION_MARK, "!");
             break;
         case '<':
-            if (match_and_advance('=')) return makeToken(TOK_LESS_EQUAL, "<=", sRow, sCol);
-            return makeToken(TOK_LESS, "<", sRow, sCol);
+            if (match_and_advance('=')) return makeToken(TOK_LESS_EQUAL, "<=");
+            return makeToken(TOK_LESS, "<");
         case '>':
-            if (match_and_advance('=')) return makeToken(TOK_GREATER_EQUAL, ">=", sRow, sCol);
-            return makeToken(TOK_GREATER, ">", sRow, sCol);
+            if (match_and_advance('=')) return makeToken(TOK_GREATER_EQUAL, ">=");
+            return makeToken(TOK_GREATER, ">");
         case '"':
             if(check_prev_char('\'') && match_and_advance('\''))
-                return makeToken(TOK_DOUBLEQUOTE, "\"", sRow, sCol);
-            return stringToken(Row, Col);
+                return makeToken(TOK_DOUBLEQUOTE, "\"");
+            return stringToken();
         case '/':
-            return makeToken(TOK_SLASH, "/", sRow, sCol);
+            return makeToken(TOK_SLASH, "/");
         case '^':
-            return makeToken(TOK_CARET, "^", sRow, sCol);
+            return makeToken(TOK_CARET, "^");
         case '&':
-            return makeToken(TOK_AMPERSAND, "&", sRow, sCol);
+            return makeToken(TOK_AMPERSAND, "&");
             break;
     }
 
-    if (isNumeric(c)) return numberToken(c, sRow, sCol);
-    if (isAlpha(c)) return identifierToken(c, sRow, sCol);
+    if (isNumeric(c)) return numberToken(c);
+    if (isAlpha(c)) return identifierToken(c);
 
     // nothing matches
-    return makeToken(TOK_ERROR, "", sRow, sCol);
+    return makeToken(TOK_ERROR, "");
 
 }
 

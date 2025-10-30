@@ -1,0 +1,170 @@
+
+//
+// COMPLEX TEST CASE BY CHATGPT FOR STRUCT DEPENDENCIES SORTING BY TOPOLOGICAL ORDER BEFORE OUTPUTING C CODE
+//
+
+// Test 1: Multi-level dependency chain (A -> B -> C -> D)
+Document :: struct {
+    title: string;
+    author: Person;  // Depends on Person
+};
+
+Person :: struct {
+    name: string;
+    address: Address;  // Depends on Address
+};
+
+Address :: struct {
+    street: string;
+    city: City;  // Depends on City
+};
+
+City :: struct {
+    name: string;
+    population: int;
+};
+
+// Expected C output order: City, Address, Person, Document
+
+// Test 2: Multiple dependencies at same level
+Course :: struct {
+    name: string;
+    instructor: Teacher;  // Depends on Teacher
+    classroom: Room;      // Depends on Room
+    textbook: Book;       // Depends on Book
+};
+
+Teacher :: struct {
+    name: string;
+    id: int;
+};
+
+Room :: struct {
+    number: int;
+    building: string;
+};
+
+Book :: struct {
+    title: string;
+    author: string;
+};
+
+// Expected C output order: Teacher, Room, Book (any order), then Course
+
+// Test 3: Diamond dependency (A depends on B and C, both depend on D)
+University :: struct {
+    name: string;
+    faculty: Faculty;      // Depends on Faculty
+    facilities: Campus;    // Depends on Campus
+};
+
+Faculty :: struct {
+    dean: string;
+    location: Building;    // Both depend on Building
+};
+
+Campus :: struct {
+    size: int;
+    main_building: Building;  // Both depend on Building
+};
+
+Building :: struct {
+    name: string;
+    floors: int;
+};
+
+// Expected C output order: Building, Faculty, Campus (any order), then University
+
+// Test 4: Self-referential with pointer (should work fine)
+Node :: struct {
+    value: int;
+    next: ^Node;     // Pointer - no ordering constraint
+    prev: ^Node;     // Pointer - no ordering constraint
+};
+
+// Test 5: Mutual pointers (should work fine)
+Company :: struct {
+    name: string;
+    employees: ^Employee;  // Pointer - OK
+};
+
+Employee :: struct {
+    name: string;
+    employer: ^Company;    // Pointer - OK
+};
+
+// Test 6: Complex real-world scenario
+Database :: struct {
+    name: string;
+    tables: ^Table;     // Pointer to linked list
+    metadata: Schema;   // Value dependency
+};
+
+Schema :: struct {
+    version: int;
+    config: Config;  // Value dependency
+};
+
+Config :: struct {
+    timeout: int;
+    retry_count: int;
+};
+
+Table :: struct {
+    name: string;
+    columns: ^Column;    // Pointer - OK
+    next_table: ^Table;  // Self-reference pointer - OK
+    stats: Statistics;   // Value dependency
+};
+
+Statistics :: struct {
+    row_count: int;
+    size_bytes: int;
+};
+
+Column :: struct {
+    name: string;
+    type_info: DataType;  // Value dependency
+    next: ^Column;        // Pointer - OK
+};
+
+DataType :: struct {
+    name: string;
+    size: int;
+};
+
+// Expected order: DataType, Statistics, Config, Column (needs DataType),
+//                 Schema (needs Config), Table (needs Statistics),
+//                 Database (needs Schema)
+
+// Test 7: INVALID - Circular value dependency (should error)
+// CircularA :: struct {
+//     b: CircularB;  // Error: circular dependency
+// };
+
+// CircularB :: struct {
+//     a: CircularA;  // Error: circular dependency
+// };
+
+// Test 8: Array of structs (should be treated like value member)
+Classroom :: struct {
+    teacher: Teacher_;
+    students: Student_;  // Array of Student values - needs Student defined first
+};
+
+Student_ :: struct {
+    name: string;
+    grade: int;
+};
+
+Teacher_ :: struct {
+    name: string;
+    subject: string;
+};
+
+// Expected order: Student, Teacher, Classroom
+
+
+main :: () {
+
+}

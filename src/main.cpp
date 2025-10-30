@@ -1,5 +1,5 @@
 #include "interp.h"
-
+#include "tools.h"
 
 #ifdef _WIN32
 #include <windows.h>
@@ -18,6 +18,8 @@
 int totalNbyte = 0;
 #endif
 
+// #define PRINT_LEX
+
 int main(int argc, char** argv) {
 
 #ifdef _WIN32
@@ -35,14 +37,20 @@ int main(int argc, char** argv) {
     }
 
     Pax_Interp interp;
+#ifndef PRINT_LEX
     if (!interp.init(argv[1]))
         return 1;
 
+    // defer interp.release();
     auto start = std::chrono::high_resolution_clock::now();
 
     interp.run_frontend();
     interp.generate_cpp();
     interp.compile_cpp();
+#else
+    auto start = std::chrono::high_resolution_clock::now();
+    interp.printLexer(argv[1]);
+#endif
 
     auto end = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> elapsed = end - start;
@@ -58,6 +66,6 @@ int main(int argc, char** argv) {
         _CrtSetReportMode(_CRT_WARN, _CRTDBG_MODE_DEBUG);
     #endif
     #endif
-
+    
     return 0;
 }

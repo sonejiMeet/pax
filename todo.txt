@@ -3,6 +3,8 @@
 
         to be FIXed
 
+high priority: when structs that have dependencies and if these dependencies come later then c compiler complains because of out of order. 
+
 mid priority: builtin type keywords cannot be used as variable names
 
 low-mid priority: replace function booleans (inside Ast_Declaration) to a single flag that have serialized value
@@ -91,6 +93,7 @@ What should work?
 - types integer, float, string, bool, (including different sizes of types)
 - struct (c style but slightly differnt)
 - array using ( [] ) operators
+- should be robust we can go crazy on testing to find corner cases... for elabarate error messages and and shit
 
 - defer
 - functions inside functions
@@ -103,7 +106,6 @@ What should work?
 Check things for correctness and proof of concept
 - should obey operator precedence (pemdas eg.)
 - some simple programs like computing factorial, estimating arctan with taylor series or something (this could be hard)
--
 
 
 things to implement
@@ -125,6 +127,7 @@ Why its will actually be a compiler and not just a stupid transpiler?
 
 
 
+PARSER STUFF will be useful for referencing in our thesis:
 https://abarker.github.io/typped/pratt_parsing_intro.html
 https://tdop.github.io/
 

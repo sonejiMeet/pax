@@ -128,6 +128,7 @@ struct BlockList
 
 inline void blocklist_push(BlockList *list, void *value)
 {
+    assert(list && "BlockList == null");
     if (list->count >= list->capacity) {
         long new_capacity = (list->capacity == 0) ? 4 : list->capacity * 2;
         void **new_data = (void**)realloc(list->data, sizeof(void*) * new_capacity);

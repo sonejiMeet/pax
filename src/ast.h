@@ -22,7 +22,9 @@ struct Ast_If;
 struct Ast_While;
 
 struct Ast_Declaration;
-struct Ast_Struct_Description;
+struct Ast_New_Or_Delete;
+
+struct Ast_Struct;
 struct Ast_Type_Definition;
 
 enum Ast_Type {
@@ -37,9 +39,10 @@ enum Ast_Type {
     AST_LITERAL,
     AST_UNARY,
     AST_DECLARATION,
+    AST_NEW_OR_DELETE,
     AST_PROCEDURE_CALL_EXPRESSION,
     AST_COMMA_SEPARATED_ARGS,
-    AST_STRUCT_DESCRIPTION,
+    AST_STRUCT,
     AST_TYPE_DEFINITION,
 };
 
@@ -56,9 +59,10 @@ inline std::string astTypeToString(Ast_Type type) {
         case AST_WHILE:             return "WhileStmt";
         case AST_LITERAL:        return "Literal";
         case AST_DECLARATION:    return "Declaration";
+        case AST_NEW_OR_DELETE: return "NewOrDelete";
         case AST_PROCEDURE_CALL_EXPRESSION:    return "ProcCallExpr";
         case AST_COMMA_SEPARATED_ARGS: return "CommaSeparatedArg";
-        case AST_STRUCT_DESCRIPTION: return "StructDescription";
+        case AST_STRUCT: return "Struct";
         case AST_TYPE_DEFINITION: return "TypeDefinition";
         default:                 return "Unknown";
     }
@@ -87,6 +91,7 @@ struct Ast_Statement : public Ast {
 struct Ast_Expression : public Ast {
     Ast_Expression(Pool* = nullptr) { type = AST_EXPRESSION; }
     Ast_Type_Definition *inferred_type = nullptr;
+    // bool is_unresolved = false;
 };
 
 struct Ast_Declaration : public Ast_Statement {
@@ -163,6 +168,7 @@ enum Binary_Op {
     BINOP_GREATER,
     BINOP_LESS_EQUAL,
     BINOP_GREATER_EQUAL,
+    BINOP_DOT,
 };
 
 struct Ast_Binary : public Ast_Expression {
@@ -214,15 +220,30 @@ struct Ast_While : public Ast_Expression {  // not done yet
 };
 
 
-struct Ast_Struct_Description : public Ast_Expression {
-    Ast_Struct_Description(Pool* p) : declarations_who_own_memory(p) { type = AST_STRUCT_DESCRIPTION; }
+const int STRUCT_IS_A_UNION = 0x2;
+const int STRUCT_IS_FOREIGN = 0x8;
+const int STRUCT_HAS_IMPLICIT_CONSTRUCTOR = 0x10;
+const int STRUCT_HAS_IMPLICIT_DESTRUCTOR = 0x20;
+
+struct Ast_Struct : public Ast_Expression {
+    Ast_Struct(Pool* p) : members(p) { type = AST_STRUCT; }
 
     const char* name = nullptr;
 
     Ast_Block *block = nullptr;
 
-    Array<Ast_Declaration *> declarations_who_own_memory;
+    bool STRUCT_HAS_IMPLICIT_CONSTRUCTOR = false;
+    bool STRUCT_HAS_IMPLICIT_DESTRUCTOR = false;
+    int struct_flags = 0;
 
+    Array<Ast_Declaration *> members;
+
+};
+
+struct Ast_New_Or_Delete : public Ast_Expression { // not done yett
+     Ast_New_Or_Delete(Pool * = nullptr) {type = AST_NEW_OR_DELETE; }
+     Ast_Type_Definition *type_definition = nullptr; // if new
+     Ast_Expression *expression = nullptr; // if delete
 };
 
 
@@ -265,11 +286,12 @@ struct Ast_Type_Definition : public Ast {
 
     Array_Kind array_kind = ARRAY_NONE;
     Ast_Type_Definition *element_type = nullptr; // for arrays
-    int static_array_size = 0;
+     int static_array_size = 0;
 
+    const char * name = nullptr;
     bool is_reference = false;
-    Ast_Struct_Description *struct_def = nullptr;
-
+    Ast_Struct *struct_def = nullptr;
+    bool is_unresolved = false;
     // char *foreign_function_name = nullptr;
     // void *foreign_function_resolved_pointer = nullptr;
 
@@ -295,7 +317,7 @@ struct Ast_Type_Definition : public Ast {
 
         else if (base == types.type_def_void) base_name = "void";
         else if (base == types.type_def_bool) base_name = "bool";
-        else if (base == types.type_def_string) base_name = "string";
+        else if (base == types.type_def_string) base_name = "char *";
 
         else if (struct_def) base_name = std::string(struct_def->name ? struct_def->name : "unknown_struct");
         else base_name = "unknown_builtin_type";

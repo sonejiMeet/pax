@@ -203,9 +203,8 @@ bool CodeManager::declare_struct(Ast_Statement* struct_stmt) {
     if (!struct_stmt) return false;
     if (!struct_stmt->expression || struct_stmt->expression->type != AST_STRUCT) return false;
 
-    auto *struct_name = struct_stmt->type_definition->struct_def->name;
-    if (lookup_symbol(struct_name)) {
-        report_error(struct_stmt, "Struct '%s' already defined in this scope.", struct_name);
+    if (lookup_symbol(struct_stmt->type_definition->struct_def) && decl->is_function_body) {
+        report_error(decl, "Function '%s' already declared in this scope", decl->identifier->name);
         return false;
     }
 
@@ -439,22 +438,22 @@ void CodeManager::resolve_idents(Ast_Block* block) {
 
 void CodeManager::resolve_idents_in_declaration(Ast_Declaration* decl)
 {
-    if (!decl) return;
+    if (!decl) return;  // guard [web:100]
 
     if (decl->initializer) {
-        resolve_idents_in_expr(decl->initializer);
+        resolve_idents_in_expr(decl->initializer);  // resolve IDs in RHS [web:100]
     }
 
     // declared_type -> enqueue base unresolved
     if (decl->declared_type) {
         Ast_Type_Definition* t = decl->declared_type;
         while (t->pointed_to_type || t->element_type) {
-            if (t->pointed_to_type) { t = t->pointed_to_type; continue; }
-            if (t->element_type)     { t = t->element_type;     continue; }
+            if (t->pointed_to_type) { t = t->pointed_to_type; continue; }  // pointer chain [web:100]
+            if (t->element_type)     { t = t->element_type;     continue; } // array element [web:100]
         }
         if (t->is_unresolved && t->name) {
             CM_Unresolved_Type u{decl, t, decl->line_number, decl->character_number};
-            unresolved_types.push_back(u);
+            unresolved_types.push_back(u);  // defer to queue [web:100]
         }
     }
 
@@ -462,56 +461,56 @@ void CodeManager::resolve_idents_in_declaration(Ast_Declaration* decl)
     if (decl->return_type) {
         Ast_Type_Definition* t = decl->return_type;
         while (t->pointed_to_type || t->element_type) {
-            if (t->pointed_to_type) { t = t->pointed_to_type; continue; }
-            if (t->element_type)     { t = t->element_type;     continue; }
+            if (t->pointed_to_type) { t = t->pointed_to_type; continue; }  // pointer [web:100]
+            if (t->element_type)     { t = t->element_type;     continue; } // array [web:100]
         }
         if (t->is_unresolved && t->name) {
             CM_Unresolved_Type u{decl, t, decl->line_number, decl->character_number};
-            unresolved_types.push_back(u);
+            unresolved_types.push_back(u);  // defer [web:100]
         }
     }
 }
 
 Ast_Type_Definition* CodeManager::find_struct_type_in_scopes(const char* name) const {
-    if (!name) return nullptr;
-    for (int si = (int)scope_stack.size() - 1; si >= 0; --si) {
+    if (!name) return nullptr;  // guard [web:100]
+    for (int si = (int)scope_stack.size() - 1; si >= 0; --si) {  // innermost to outermost [web:174]
         Ast_Block* b = scope_stack.data[si];
-        if (!b) continue;
+        if (!b) continue;  // guard [web:100]
         for (int i = 0; i < b->statements.count; ++i) {
             Ast_Statement* s = b->statements.data[i];
-            if (!s) continue;
+            if (!s) continue;  // guard [web:100]
             if (s->expression && s->expression->type == AST_STRUCT && s->type_definition) {
                 Ast_Struct* st = static_cast<Ast_Struct*>(s->expression);
                 if (st->name && strcmp(st->name, name) == 0) {
-                    return s->type_definition;
+                    return s->type_definition;  // has struct_def set by parser [web:100]
                 }
             }
         }
     }
-    return nullptr;
+    return nullptr;  // not found [web:100]
 }
 
 void CodeManager::resolve_unresolved_types_queue() {
-    std::vector<CM_Unresolved_Type> still_unresolved;
+    std::vector<CM_Unresolved_Type> still_unresolved;  // keep those not yet bound [web:100]
 
     for (const auto& u : unresolved_types) {
         Ast_Type_Definition* base = u.base_type;
-        if (!base) continue;
-        if (!base->is_unresolved) continue;
-        if (base->struct_def) { base->is_unresolved = false; continue; }
-        if (!base->name) { still_unresolved.push_back(u); continue; }
+        if (!base) continue;  // guard [web:100]
+        if (!base->is_unresolved) continue;  // already bound [web:100]
+        if (base->struct_def) { base->is_unresolved = false; continue; }  // already linked [web:100]
+        if (!base->name) { still_unresolved.push_back(u); continue; }  // no name to search [web:100]
 
         if (Ast_Type_Definition* def = find_struct_type_in_scopes(base->name)) {
             if (def->struct_def) {
-                base->struct_def = def->struct_def;
-                base->is_unresolved = false;
+                base->struct_def = def->struct_def;  // link struct definition [web:100]
+                base->is_unresolved = false;         // mark resolved [web:100]
                 continue;
             }
         }
-        still_unresolved.push_back(u);
+        still_unresolved.push_back(u);  // try again later or error at end [web:100]
     }
 
-    unresolved_types.swap(still_unresolved);
+    unresolved_types.swap(still_unresolved);  // update queue [web:100]
 }
 
 void CodeManager::resolve_unresolved_member_accesses_queue() {
@@ -1188,6 +1187,7 @@ void CodeManager::infer_types_expr(Ast_Expression** expr_ptr)
                         break;
                     }
 
+                    // Auto-dereference all pointer levels
                     while (base_type->pointed_to_type) {
                         base_type = base_type->pointed_to_type;
                     }
@@ -1199,6 +1199,7 @@ void CodeManager::infer_types_expr(Ast_Expression** expr_ptr)
                         break;
                     }
 
+                    // Parser guarantees RHS is an identifier
                     Ast_Ident* member = static_cast<Ast_Ident*>(b->rhs);
                     Ast_Struct* sd = base_type->struct_def;
 
@@ -1208,7 +1209,7 @@ void CodeManager::infer_types_expr(Ast_Expression** expr_ptr)
                         if (m && m->identifier && m->identifier->name &&
                             strcmp(m->identifier->name, member->name) == 0) {
                             expr->inferred_type = m->declared_type ? m->declared_type : _type->type_def_dummy;
-                            break;
+                            break;  // Early exit after finding member
                         }
                     }
 
@@ -1226,7 +1227,8 @@ void CodeManager::infer_types_expr(Ast_Expression** expr_ptr)
                     infer_types_expr(&b->rhs);
                     Ast_Type_Definition *rhsType = b->rhs->inferred_type;
                     if (rhsType == _type->type_def_dummy) {
-                        report_error(b, "Right-hand side of assignment has unknown type");
+                        report_error(b,
+                                     "Right-hand side of assignment has unknown type");
                         expr->inferred_type = _type->type_def_dummy;
                         return;
                     }
@@ -1563,7 +1565,7 @@ void CodeManager::infer_types_decl(Ast_Declaration* decl) {
                 if (!check_that_types_fit(signed_value, decl_type)) {
                     long long wrapped = wrap_integer_to_type(signed_value, decl_type); // TEMPORARY Is this a good idea?
                     // TEMPORARY WE CAN implement the flag during compilation to only throw this warning if the programmer wants it thrown or not, (just like c compilers)
-                    printf("Warning: Constant overflow in identifier '%s'. %lld wrapped to %lld for type '%s'\n",
+                    printf("Warning: Constant overflow in '%s'. %lld wrapped to %lld for type '%s'\n",
                            decl->identifier->name, signed_value, wrapped, type_to_string(decl_type));
 
                     signed_value = wrapped;
