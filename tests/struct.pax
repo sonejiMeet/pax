@@ -1,0 +1,179 @@
+// // 0x00000280191e7f38
+
+
+// ff :: (a: int){ // this should throw error
+//     // a: int = 2;
+// }
+
+
+f :: struct {
+
+};
+
+f :: struct {
+
+};
+
+func1 :: (stud: ^Student){
+    // we copy to base type and make a change
+    local := *stud;
+    local.grade = 000;
+    print_struct(&local, "local");
+
+    // copy the pointer
+    local2:= &local;
+
+    // assign new pointer
+    stud = local2;
+}
+
+func2 :: (stud: ^Student){
+    // implicit dereference member accessing
+    stud.grade = 10;
+    stud.name = "Skibidi";
+    stud.sub.name = "Architecture";
+}
+
+func3 :: (stud: Student) {
+
+    sstud: ^Student = &stud;
+    sstud.grade = 10;
+    sstud.name = "Ligma";
+    sstud.sub.name = "Operating sytem";
+    print_struct(&stud, "func3 stud");
+}
+
+
+Student :: struct {
+    grade: int;
+    gpa: ^float;
+    name: string = "Default";
+    // student: ^Student;
+    sub: Subject;
+};
+
+Subject :: struct {
+    name: string = "Math";
+    // inside: int = 4;
+};
+
+print_struct :: (stud: ^Student, str: string){
+    newline();
+    printf("%s.grade = %d\n", str, stud.grade);
+    printf("%s.name = %s\n", str, stud.name);
+    printf("%s.sub.name = %s\n", str, stud.sub.name);
+
+}
+
+main :: () {
+
+    // str: Student;
+    // str.grade = 3434;
+    // str.sub.inside = 4000;
+
+    // ss1(); // example of a recursive function
+    printf("------------------------------------");
+
+    {
+        stud: Student;
+        stud.grade = 5902;
+        stud.name = "idkkkk";
+        print_struct(&stud, "stud");
+
+        func1(&stud);
+        print_struct(&stud, "stud");
+
+    }
+    printf("------------------------------------");
+    {
+        stud: Student;
+        stud.grade = 5902;
+        stud.name = "idkkkk";
+        print_struct(&stud, "stud");
+
+        func2(&stud);
+        print_struct(&stud, "stud");
+
+    }
+    printf("------------------------------------");
+
+    {
+        stud: Student;
+        stud.grade = 5902;
+        stud.name = "idkkkk";
+        print_struct(&stud, "stud");
+        func3(stud);
+    }
+
+    printf("------------------------------------");
+
+
+// /*
+    { // struct implicit dereference with multiple pointer depths
+        newline();
+
+        b : Student;
+        b.grade = 1;
+        printf("b.grade = %d\n", b.grade);
+
+        newline();
+        // v := b;
+        // v.grade = 1000;
+        // printf("v.grade = %d\n", v.grade);
+
+
+        s := &b;
+        s.grade = 2332; // single pointer implicit deereference
+        printf("b.grade = %d\n", b.grade);
+        printf("s.grade = %d\n", s.grade);
+        newline();
+
+        ss := &s;
+        ss.grade = 2000;  // double pointer implicit dereference
+        printf("b.grade = %d\n", b.grade);
+        printf("ss.grade = %d\n", ss.grade);
+        newline();
+
+        sss := &ss;
+        sss.grade = 3000; // triple pointer implicit dereference
+        printf("b.grade = %d\n", b.grade);
+        printf("sss.grade = %d\n", sss.grade);
+        newline();
+    }
+// /*
+    printf("------------------------------------");
+
+    {
+        newline();
+        b : Student;
+        s := &b;
+        f : float = 4;
+        printf("&f = %p\n", &f);
+        s.gpa = &f;
+        printf("s.gpa = %f\n", *s.gpa);
+        printf("s.gpa = %p\n", s.gpa);
+
+        *(*s).gpa = 5.0;
+        printf("s.gpa = %f\n", *s.gpa);
+    }
+// */
+    printf("------------------------------------");
+
+    // a := Student.{1, 4.5, "Meet"};
+
+
+}
+
+
+x := 0;
+
+ss1 :: () {
+    if(x == 10){
+        return;
+    }
+    x = x + 1;
+    printf("x = %d\n", x);
+    ss1();
+}
+
+newline :: () {printf("\n");}

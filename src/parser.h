@@ -46,10 +46,12 @@ struct Parser
     Ast_Block *parseBlockStatement(bool scoped_block = false);
     Ast_Procedure_Call_Expression *parseCall();
 
-    Ast_Struct_Description *parseStructDefinition();
+    // Ast_Struct *parseStructDefinition();
+    Ast_Statement *parseStructDefinition();
 
     Ast_Declaration* parseFunctionDeclaration(bool is_local = false);
-    Ast_Statement *parseStatement();
 
+    bool is_lhs_assignment();
+    Ast_Statement *parseStatement();
 
 };

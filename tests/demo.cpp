@@ -13,10 +13,14 @@ typedef char       s8;
 typedef float      float32;
 typedef double     float64;
 
+/*STRUCT FORWARD DECLARATIONS*/
+
 /*GLOBAL FUNCTION FORWARD DECLARATIONS*/
 bool func1(void);
 int func(int * aa, int sssd);
 void newline(void);
+
+/*STRUCTS DEFINITIONS*/
 
 s64 a = (((1 + ((2 * 3) * 4)) + 5) / 2);
 s64 b = (4 + (5 * 2));
@@ -35,7 +39,7 @@ float hh = ((5 * 2) + ((3 * 4) / 2.00000000000000000));
 
 bool func1 () {
     int f = (-100);
-    func(/*ADDRESS_OF*/ &f,a);
+    func((&f),a);
     if((f != 100)){
         (f = 2);
         return true;
@@ -50,11 +54,11 @@ bool boolean = true;
 
 int func (int * aa, int sssd) {
     printf("Address of aa = %p\n",aa);
-    s64 something = (/*DEREF*/ * aa * 2);
-    (/*DEREF*/ * aa = 699);
+    s64 something = ((*aa) * 2);
+    ((*aa) = 699);
     int * ss = aa;
     printf("Address of ss = %p\n",ss);
-    (/*DEREF*/ * ss = (/*DEREF*/ * ss + 2));
+    ((*ss) = ((*ss) + 2));
     return something;
 }
 
@@ -72,16 +76,16 @@ void GENERATED_MAIN(){
     printf("gamba = %d\n",gamba);
     {
         int a = 2;
-        int * var = /*ADDRESS_OF*/ &a;
-        int * * var2 = (/*ADDRESS_OF*/ &var + 1);
-        printf("var = %x\n",/*ADDRESS_OF*/ &var);
-        printf("var2 = %x\n",/*ADDRESS_OF*/ &var2);
+        int * var = (&a);
+        int * * var2 = ((&var) + 1);
+        printf("var = %x\n",(&var));
+        printf("var2 = %x\n",(&var2));
     }
     s64 vvv = ((-2) - 4);
     {
         int f = 100;
-        printf("Address of f = %p\n",/*ADDRESS_OF*/ &f);
-        int af = func(/*ADDRESS_OF*/ &f,a);
+        printf("Address of f = %p\n",(&f));
+        int af = func((&f),a);
         printf("f = %d\n",f);
         bool ret2 = func1();
         printf("af =  %d\n",af);
@@ -95,10 +99,10 @@ void GENERATED_MAIN(){
     {
         s64 Name = 100;
         printf("Name = %d\n",Name);
-        s64 * Name2 = /*ADDRESS_OF*/ &Name;
-        (/*DEREF*/ * Name2 = (/*DEREF*/ * Name2 * 420));
+        s64 * Name2 = (&Name);
+        ((*Name2) = ((*Name2) * 420));
         printf("Name = %d\n",Name);
-        s64 Name3 = /*DEREF*/ * Name2;
+        s64 Name3 = (*Name2);
         printf("Name3 = %d\n",Name3);
     }
     {
@@ -106,53 +110,53 @@ void GENERATED_MAIN(){
         int aint = 5;
         (aint = 10);
         printf("aint = %d\n",aint);
-        printf("aint = %p\n",/*ADDRESS_OF*/ &aint);
-        int * pInt = /*ADDRESS_OF*/ &aint;
+        printf("aint = %p\n",(&aint));
+        int * pInt = (&aint);
         printf("pInt = %p\n",pInt);
         int * p_uninit_int;
         (p_uninit_int = pInt);
-        printf("p_uninit_int = %d\n",/*DEREF*/ * p_uninit_int);
-        (/*DEREF*/ * p_uninit_int = 20);
-        printf("p_uninit_int = %d\n",/*DEREF*/ * p_uninit_int);
+        printf("p_uninit_int = %d\n",(*p_uninit_int));
+        ((*p_uninit_int) = 20);
+        printf("p_uninit_int = %d\n",(*p_uninit_int));
         printf("aint = %d\n",aint);
-        int * rint = /*ADDRESS_OF*/ &aint;
+        int * rint = (&aint);
         printf("rint = %p\n",rint);
-        (/*DEREF*/ * rint = 30);
+        ((*rint) = 30);
         printf("aint = %d\n",aint);
-        (/*DEREF*/ * p_uninit_int = 40);
-        printf("p_uninit_int = %d\n",/*DEREF*/ * p_uninit_int);
+        ((*p_uninit_int) = 40);
+        printf("p_uninit_int = %d\n",(*p_uninit_int));
         printf("aint = %d\n",aint);
     }
     {
         newline();
         int what = 999;
         printf("what = %d\n",what);
-        int * ligma = /*ADDRESS_OF*/ &what;
-        (/*DEREF*/ * ligma = 68);
-        int what1 = /*DEREF*/ * ligma;
+        int * ligma = (&what);
+        ((*ligma) = 68);
+        int what1 = (*ligma);
         printf("what1 = %d\n",what1);
         printf("what = %d\n",what);
-        int * * whatever = /*ADDRESS_OF*/ &ligma;
-        (/*DEREF*/ * /*DEREF*/ * whatever = 82);
+        int * * whatever = (&ligma);
+        ((*(*whatever)) = 82);
         printf("what = %d\n",what);
-        int * * * whatever2 = /*ADDRESS_OF*/ &whatever;
-        (/*DEREF*/ * /*DEREF*/ * /*DEREF*/ * whatever2 = /*DEREF*/ * /*DEREF*/ * whatever);
+        int * * * whatever2 = (&whatever);
+        ((*(*(*whatever2))) = (*(*whatever)));
         printf("what = %d\n",what);
-        (/*DEREF*/ * /*DEREF*/ * /*DEREF*/ * whatever2 = 96);
+        ((*(*(*whatever2))) = 96);
         printf("what = %d\n",what);
     }
     int arrStaticInt[4];
     {
         s64 me = 5;
-        s64 * mee = /*ADDRESS_OF*/ &me;
-        int meee = (/*DEREF*/ * mee * /*DEREF*/ * mee);
+        s64 * mee = (&me);
+        int meee = ((*mee) * (*mee));
         printf("meee = %d\n",meee);
-        s64 * * m2 = /*ADDRESS_OF*/ &mee;
-        int m3 = (/*DEREF*/ * /*DEREF*/ * m2 * /*DEREF*/ * /*DEREF*/ * m2);
+        s64 * * m2 = (&mee);
+        int m3 = ((*(*m2)) * (*(*m2)));
         printf("m3 = %d\n",m3);
-        printf("me = %p\n",/*ADDRESS_OF*/ &me);
+        printf("me = %p\n",(&me));
         printf("mee = %p\n",mee);
-        printf("m2 = %p\n",/*DEREF*/ * m2);
+        printf("m2 = %p\n",(*m2));
     }
     printf("\n");
     int v = 4;

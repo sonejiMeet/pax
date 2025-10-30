@@ -90,9 +90,6 @@ Pax_Interp::~Pax_Interp() {
 
 bool Pax_Interp::init(const char* filename) {
 
-    // copy the file path
-    __strncpy(input_path, filename, sizeof(input_path));
-
     buf = read_entire_file(filename);
     if (!buf.data) {
         printf("Failed to read file: %s\n", filename);
@@ -101,6 +98,14 @@ bool Pax_Interp::init(const char* filename) {
 
     lexer = new Lexer((const char*)buf.data, buf.size, &pool);
     parser = new Parser(lexer, &pool, &type);
+
+    parse_filename(filename);
+    return true;
+}
+void Pax_Interp::parse_filename(const char *filename){
+
+    // copy the file path
+    __strncpy(input_path, filename, sizeof(input_path));
 
     // make base name
     __strcpy(base_name, input_path, sizeof(base_name));
@@ -115,9 +120,22 @@ bool Pax_Interp::init(const char* filename) {
     // copy just filename for naming the compiled generated code in linux side
     __strncpy(file_name_only, name_only, sizeof(file_name_only));
 
-    return true;
 }
+void Pax_Interp::printLexer(const char *filename){
+    pool_init(&pool);
+    pool.block_allocator = default_allocator;
 
+    buf = read_entire_file(filename);
+    if (!buf.data) {
+        printf("Failed to read file: %s\n", filename);
+        return;
+    }
+
+    lexer = new Lexer((const char*)buf.data, buf.size, &pool);
+
+    printLex(buf, &pool);
+
+}
 void Pax_Interp::run_frontend() {
     auto start = std::chrono::high_resolution_clock::now();
 
@@ -127,7 +145,11 @@ void Pax_Interp::run_frontend() {
     CodeManager cm(&pool, &type);
 
     cm.resolve_idents(ast);
+    cm.resolve_unresolved_vars();
     cm.resolve_unresolved_calls();
+
+    cm.resolve_unresolved_types_queue();
+    cm.resolve_unresolved_member_accesses_queue();
     cm.infer_types_block(ast);
 
     if (cm.count_errors != 0) {

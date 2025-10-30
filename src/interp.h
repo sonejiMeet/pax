@@ -15,6 +15,9 @@
 #endif
 
 struct Pax_Interp {
+    Pax_Interp();
+    ~Pax_Interp();
+
     Pool pool;
     Def_Type type;
     FileBuffer buf;
@@ -26,11 +29,10 @@ struct Pax_Interp {
     char input_path[256];
     char base_name[256];
     char file_name_only[256];
-
-    Pax_Interp();
-    ~Pax_Interp();
-
+    void parse_filename(const char *filename);
     bool init(const char* filename);
+
+    void printLexer(const char *filename);
 
     void run_frontend();
     void generate_cpp();

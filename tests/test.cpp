@@ -13,7 +13,11 @@ typedef char       s8;
 typedef float      float32;
 typedef double     float64;
 
+/*STRUCT FORWARD DECLARATIONS*/
+
 /*GLOBAL FUNCTION FORWARD DECLARATIONS*/
+
+/*STRUCTS DEFINITIONS*/
 
 
 void GENERATED_MAIN(){

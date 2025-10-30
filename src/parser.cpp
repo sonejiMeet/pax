@@ -370,6 +370,8 @@ Ast_Expression* Parser::parseExpression(int minPrecedence)
 
 int Parser::getPrecedence(TokenType type) {
     switch (type) {
+        case TOK_DOT:
+            return 100;
         case TOK_STAR:
         case TOK_SLASH:
             return 90;
@@ -390,6 +392,7 @@ int Parser::getPrecedence(TokenType type) {
 
 Binary_Op Parser::getBinaryOperator(TokenType type) {
     switch (type) {
+        case TOK_DOT: return BINOP_DOT;
         case TOK_STAR: return BINOP_MUL;
         case TOK_SLASH: return BINOP_DIV;
         case TOK_PLUS: return BINOP_ADD;
@@ -472,12 +475,16 @@ Ast_Type_Definition *Parser::parseTypeSpecifier() {
     else if (strcmp(current->value, "void") == 0) baseType = _type->type_def_void;
     else if (strcmp(current->value, "bool") == 0) baseType = _type->type_def_bool;
     else if (strcmp(current->value, "string") == 0) baseType = _type->type_def_string;
-    else {
-        parseError("Expected a base type (e.g 'int', 'float', 'string', 'bool')");
+    else if(current->type == TOK_IDENTIFIER) { // for now just structs
+        Ast_Type_Definition *user_defined_type = AST_NEW(pool, Ast_Type_Definition);
+        user_defined_type->name = current->value;
+        user_defined_type->is_unresolved = true;
+        baseType = user_defined_type;
+    } else {
+        parseError("Expected a base type (e.g 'int', 'float', 'string', 'bool')"); // should this error be more clear now that we allow user defined types? idk
         synchronize();
-    return nullptr;
+        return nullptr;
     }
-
     advance();
 
     if (!currentType) // it was a pure type
@@ -661,13 +668,35 @@ Ast_Procedure_Call_Expression *Parser::parseCall()
 
 }
 
-// Ast_Struct_Description *Parser::parseStructDefinition()
-// {
-//     char *structName = current->value;
-//     advance();
-//     advance();
-//     advance();
-// }
+Ast_Statement *Parser::parseStructDefinition()
+{
+    Ast_Struct *struct_decs = AST_NEW(pool, Ast_Struct);
+
+    struct_decs->name = current->value;
+
+    Ast_Statement *stmt = AST_NEW(pool, Ast_Statement);
+    auto *td = AST_NEW(pool, Ast_Type_Definition);
+    td->struct_def = struct_decs;
+    stmt->type_definition = td;
+
+    advance();
+    expect(TOK_DOUBLECOLON, "Expected '::' after struct name");
+
+    advance(); // consume struct keyword
+
+    expect(TOK_LCURLY_PAREN, "Expected '{' after struct keyword.");
+
+    while(current->type == TOK_IDENTIFIER) {
+        Ast_Declaration *decl = parseVarDeclaration();
+        struct_decs->members.push_back(decl);
+    }
+
+    expect(TOK_RCURLY_PAREN, "Expected '}' after struct description.");
+    expect(TOK_SEMICOLON, "Expected ';' after struct description.");
+    // return struct_decs;
+    stmt->expression = static_cast<Ast_Expression *> (struct_decs);
+    return stmt;
+}
 
 Ast_Declaration* Parser::parseFunctionDeclaration(bool is_local) {
     if (current->type != TOK_IDENTIFIER) {
@@ -738,6 +767,40 @@ Ast_Declaration* Parser::parseFunctionDeclaration(bool is_local) {
     return func_decl;
 }
 
+bool Parser::is_lhs_assignment() {
+    // We are at TOK_IDENTIFIER already. Scan a dotted/call chain until we see '=' or a stopper.
+    int offset = 1; // peek after the current identifier
+    Token* t = lexer->peekNextToken(offset);
+
+    // Allow chains like: .ident, .ident(...), nested calls, etc.
+    while (t && (t->type == TOK_DOT || t->type == TOK_LPAREN)) {
+        if (t->type == TOK_DOT) {
+            // Must be followed by an identifier to be a valid member access
+            Token* afterDot = lexer->peekNextToken(offset + 1);
+            if (!afterDot || afterDot->type != TOK_IDENTIFIER) break;
+            offset += 2; // consumed ". ident"
+            t = lexer->peekNextToken(offset);
+            continue;
+        }
+        if (t->type == TOK_LPAREN) {
+            // Skip balanced parentheses for a call
+            int depth = 1;
+            offset += 1;
+            while (depth > 0) {
+                Token* p = lexer->peekNextToken(offset);
+                if (!p) break;
+                if (p->type == TOK_LPAREN) depth++;
+                else if (p->type == TOK_RPAREN) depth--;
+                offset++;
+            }
+            t = lexer->peekNextToken(offset);
+            continue;
+        }
+    }
+
+    // After consuming any .member/call chain, check if next token is '='
+    return t && t->type == TOK_ASSIGN;
+}
 
 Ast_Statement *Parser::parseStatement()
 {
@@ -750,23 +813,18 @@ Ast_Statement *Parser::parseStatement()
                 Token *lookahead = lexer->peekNextToken(2);
                 if(lookahead->type == TOK_STRUCT){
 
-                    // parse struct
+                    return parseStructDefinition();
                 }
                 else {
                     // parse function def
                     return parseFunctionDeclaration(/*is_local=*/false);
                 }
             }
-            else if (next->type == TOK_ASSIGN) {
-                const char *varName = current->value;
-                Ast_Ident *lhs = AST_NEW(pool,Ast_Ident); // do this before we advance any further for accurate line info
-
-                advance(); // consume ident
-                advance(); // and '='
+            else if (is_lhs_assignment()) {
+                Ast_Expression *lhs = parseExpression();
+                Expect(TOK_ASSIGN, "Expected '=' in assignment");
                 Ast_Expression *rhs = parseExpression();
-
-                lhs->name = varName;
-
+                
                 Ast_Binary *assignExpr = AST_NEW(pool,Ast_Binary);
                 assignExpr->op = BINOP_ASSIGN;
                 assignExpr->lhs = lhs;
@@ -787,10 +845,16 @@ Ast_Statement *Parser::parseStatement()
                 stmt->expression = expr;
                 return stmt;
             }
-            else {
+            else if (next->type == TOK_COLON){
                 Ast_Declaration *decl = parseVarDeclaration();
                 return decl;
             }
+            else {
+                parseError("This a fucked up statement." );
+                synchronize();
+                return nullptr;
+            }
+
         }
         case TOK_RETURN: {
             advance(); // consume 'return'
@@ -875,6 +939,8 @@ Ast_Block *Parser::parseProgram()
 {
     Ast_Block *program = AST_NEW(pool,Ast_Block);
 
+    // printf("size of Ast_Type_Definition %zu----------->>>>>>>>>>>>>>>>>>>\n", sizeof(Ast_Type_Definition));
+
     // printf("size of Ast %zu----------->>>>>>>>>>>>>>>>>>>\n", sizeof(Ast));
      // printf("size of Token %zu----------->>>>>>>>>>>>>>>>>>>\n", sizeof(Token));
     // printf("size of Ast_Ident %zu----------->>>>>>>>>>>>>>>>>>>\n", sizeof(Ast_Ident));
@@ -913,10 +979,18 @@ Ast_Block *Parser::parseProgram()
                 program->statements.push_back(static_cast<Ast_Statement*>(decl));
             }
             else if(next->type == TOK_DOUBLECOLON) {
-                // Ast_Statement *stmt = parseStatement();
-                // **function declaration or definition**
-                Ast_Declaration *funcDecl = parseFunctionDeclaration(/*is_local=*/false);
-                program->statements.push_back(static_cast<Ast_Statement*>(funcDecl));
+
+                Token *n = lexer->peekNextToken(2);
+                if(n->type == TOK_STRUCT){
+                    program->statements.push_back(parseStatement());
+                }
+                else {
+
+                    // Ast_Statement *stmt = parseStatement();
+                    // **function declaration or definition**
+                    Ast_Declaration *funcDecl = parseFunctionDeclaration(/*is_local=*/false);
+                    program->statements.push_back(static_cast<Ast_Statement*>(funcDecl));
+                }
             }
             else {
                 parseError("Top-level executable statements not allowed. Only declarations and main.");

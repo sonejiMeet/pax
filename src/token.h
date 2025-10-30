@@ -32,6 +32,7 @@ enum TokenType {
     TOK_COMMA,          // ,
     TOK_SINGLEQOUTE,    // '
     TOK_DOUBLEQUOTE,    // "
+    TOK_DOT,
 
     TOK_PLUS,           // +
     TOK_MINUS,          // -
@@ -84,12 +85,15 @@ inline const char* tokenTypeToString(TokenType type) {
         case TOK_RCURLY_PAREN: return "TOK_RCURLY_PAREN";
         case TOK_LBRACKET: return "TOK_LBRACKET";
         case TOK_RBRACKET: return "TOK_RBRACKET";
+
         case TOK_COLON: return "TOK_COLON";
         case TOK_DOUBLECOLON: return "TOK_DOUBLECOLON";
         case TOK_SEMICOLON: return "TOK_SEMICOLON";
         case TOK_COMMA: return "TOK_COMMA";
         case TOK_SINGLEQOUTE: return "TOK_SINGLEQOUTE";
         case TOK_DOUBLEQUOTE: return "TOK_DOUBLEQUOTE";
+        case TOK_DOT: return "TOK_DOT";
+
         case TOK_PLUS: return "TOK_PLUS";
         case TOK_MINUS: return "TOK_MINUS";
         case TOK_STAR: return "TOK_STAR";
@@ -105,6 +109,7 @@ inline const char* tokenTypeToString(TokenType type) {
         case TOK_GREATER: return "TOK_GREATER";
         case TOK_LESS_EQUAL: return "TOK_LESS_EQUAL";
         case TOK_GREATER_EQUAL: return "TOK_GREATER_EQUAL";
+
         case TOK_ARROW: return "TOK_ARROW";
 
         case TOK_COMMENT: return "TOK_COMMENT";
