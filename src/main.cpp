@@ -21,6 +21,7 @@ int totalNbyte = 0;
 // #define PRINT_LEX
 
 int main(int argc, char** argv) {
+    printf(" %s RUNNING %s \n", "\x1B[0;33m", "\x1B[0m");
 
 #ifdef _WIN32
 
@@ -35,26 +36,25 @@ int main(int argc, char** argv) {
         printf("Usage: %s <file>.pax\n", argv[0]);
         return 1;
     }
+    auto start = std::chrono::high_resolution_clock::now();
 
     Pax_Interp interp;
 #ifndef PRINT_LEX
     if (!interp.init(argv[1]))
         return 1;
 
-    // defer interp.release();
-    auto start = std::chrono::high_resolution_clock::now();
+    defer {interp.release();};
 
     interp.run_frontend();
     interp.generate_cpp();
     interp.compile_cpp();
 #else
-    auto start = std::chrono::high_resolution_clock::now();
     interp.printLexer(argv[1]);
 #endif
 
     auto end = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> elapsed = end - start;
-    printf("Total time: %.6f seconds\n\n", elapsed.count());
+    // printf("Total time: %.6f seconds\n\n", elapsed.count());
 
     // printf("\nDONE. Total mallocs: %d\n", total_malloc);
     #ifdef _WIN32
@@ -66,6 +66,7 @@ int main(int argc, char** argv) {
         _CrtSetReportMode(_CRT_WARN, _CRTDBG_MODE_DEBUG);
     #endif
     #endif
-    
+
+    printf(" %s SUCCESS %s \n", "\x1B[0;32m", "\x1B[0m");
     return 0;
 }

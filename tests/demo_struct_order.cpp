@@ -13,6 +13,8 @@ typedef char       s8;
 typedef float      float32;
 typedef double     float64;
 
+/*BSS SECTION GLOBAL VARIAABLES*/
+
 /*STRUCT FORWARD DECLARATIONS*/
 struct City;
 struct Address;
@@ -45,7 +47,7 @@ struct Classroom;
 /*STRUCTS DEFINITIONS*/
 struct City {
 char * name;
-int population;
+int population = -24;
 };
 struct Address {
 char * street;
@@ -61,10 +63,10 @@ Person author;
 };
 struct Teacher {
 char * name;
-int id;
+int id = -24;
 };
 struct Room {
-int number;
+int number = -24;
 char * building;
 };
 struct Book {
@@ -79,14 +81,14 @@ Book textbook;
 };
 struct Building {
 char * name;
-int floors;
+int floors = -24;
 };
 struct Faculty {
 char * dean;
 Building location;
 };
 struct Campus {
-int size;
+int size = -24;
 Building main_building;
 };
 struct University {
@@ -95,7 +97,7 @@ Faculty faculty;
 Campus facilities;
 };
 struct Node {
-int value;
+int value = -24;
 Node * next;
 Node * prev;
 };
@@ -108,11 +110,11 @@ char * name;
 Company * employer;
 };
 struct Config {
-int timeout;
-int retry_count;
+int timeout = -24;
+int retry_count = -24;
 };
 struct Schema {
-int version;
+int version = -24;
 Config config;
 };
 struct Database {
@@ -121,8 +123,8 @@ Table * tables;
 Schema metadata;
 };
 struct Statistics {
-int row_count;
-int size_bytes;
+int row_count = -24;
+int size_bytes = -24;
 };
 struct Table {
 char * name;
@@ -132,7 +134,7 @@ Statistics stats;
 };
 struct DataType {
 char * name;
-int size;
+int size = -24;
 };
 struct Column {
 char * name;
@@ -141,7 +143,7 @@ Column * next;
 };
 struct Student_ {
 char * name;
-int grade;
+int grade = -24;
 };
 struct Teacher_ {
 char * name;
@@ -152,8 +154,11 @@ Teacher_ teacher;
 Student_ students;
 };
 
+/*FUNCTION BODIES*/
+
 
 void GENERATED_MAIN(){
+    printf("test ended");
 }
 
 int main(int argc, char **argv){

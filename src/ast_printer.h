@@ -16,7 +16,7 @@ inline void printLex(FileBuffer buf, Pool *pool){
 
     while (true) {
         Token *tok = lexer.nextToken();
-        printf("[%-2d:%-2d] Token: %-15s\t", tok->row, tok->col, tokenTypeToString(tok->type));
+        printf("[%-2d:%-2d] %-15s\t", tok->row, tok->col, tokenTypeToString(tok->type));
 
         switch (tok->type) {
             case TOK_NUMBER:

@@ -14,23 +14,51 @@ typedef float      float32;
 typedef double     float64;
 
 /*BSS SECTION GLOBAL VARIAABLES*/
+s64 x = 0;
 
 /*STRUCT FORWARD DECLARATIONS*/
 
 /*GLOBAL FUNCTION FORWARD DECLARATIONS*/
+void recurse(void);
+void recurse_1(int a);
+void newline(void);
 
 /*STRUCTS DEFINITIONS*/
 
 /*FUNCTION BODIES*/
 
+void recurse () {
+    if((x == 10)){
+        return;
+    }
+    (x = (x + 1));
+    printf("x = %d\n",x);
+    recurse();
+}
+
+
+void recurse_1 (int a) {
+    if((a == 10)){
+        return;
+    }
+    (a = (a + 1));
+    recurse_1(a);
+    printf("a = %d\n",a);
+}
+
+
+void newline () {
+    printf("\n");
+}
+
+
 
 void GENERATED_MAIN(){
-    float b = (4 + ((5 * 7) / 2.00000000000000000));
-    s64 c = (((1 + 2) + 3) + 4);
-    bool d = (((4 > 5) < 3) >= (7 / 2));
-    s64 e = (4 - (-5));
-    s64 f = ((((4 * 5) + 3) / 7) + 2);
-    s64 g = ((2 + (4 * 5)) + (3 / 7));
+    printf("print on way down recursion\n");
+    recurse();
+    newline();
+    printf("print on way up recursion\n");
+    recurse_1(0);
 }
 
 int main(int argc, char **argv){

@@ -1,0 +1,85 @@
+
+
+
+// malloc :: ();
+
+x := 434;
+
+Node :: struct {
+    value: int = x;
+    next: ^Node;
+};
+
+main :: () {
+
+
+    sdf: AA;
+    a: ^AA = &sdf;
+    // a: A;
+    _b: BB;
+    a.b = &_b;
+    _c: CC;
+    a.b.c = &_c;
+
+    a.b.c.d.e.num = 87;
+    local : float = a.b.c.d.e.num;
+    printf("local = %f\n", local);
+
+
+
+    first: A;
+
+    second: B;
+    first.b = &second;
+    third: C;
+    // third.final = 2;
+    // printf("third.final = %d\n", third.final);
+    first.b.c = &third;
+    first.b.c.final = 24606;
+    some := first.b.c.final;
+    printf("some =  %d\n", some);
+
+
+
+    first1: A;
+    second1: B;
+    first1.b = &second1;
+    third1: C;
+    first1.b.c = &third1;
+    some1 := first1.b.c.final;
+    printf("some1 =  %d\n", some1);
+
+}
+
+
+
+AA :: struct {
+    b : ^BB;
+};
+
+BB :: struct {
+    c : ^CC;
+};
+CC :: struct {
+    d : DD;
+};
+DD :: struct {
+    e : EE;
+};
+
+EE :: struct {
+    num := 343;
+};
+
+
+A :: struct {
+    b : ^B;
+};
+
+B :: struct {
+    c : ^C;
+};
+
+C :: struct {
+    final : int;
+};

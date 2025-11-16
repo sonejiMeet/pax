@@ -29,7 +29,8 @@ inline void __strcpy(char *base_name, const char *input_path, size_t bytes){
 inline char *get_slash(char *base_name){
 
 #ifdef _WIN32
-    char *slash = strrchr(base_name, '\\');
+    char *slash = strrchr(base_name, '/');
+    // char *slash = strrchr(base_name, '\\');
 #elif __linux__
     char *slash = strrchr(base_name, '/');
 #endif
@@ -85,7 +86,7 @@ Pax_Interp::Pax_Interp()
 }
 
 Pax_Interp::~Pax_Interp() {
-    release();
+    // release();
 }
 
 bool Pax_Interp::init(const char* filename) {
@@ -139,7 +140,10 @@ void Pax_Interp::printLexer(const char *filename){
 void Pax_Interp::run_frontend() {
     auto start = std::chrono::high_resolution_clock::now();
 
+
     ast = parser->parseProgram();
+
+    ast->file_name = (const char *) input_path;
     // printAst(ast);
 
     CodeManager cm(&pool, &type);
@@ -150,6 +154,7 @@ void Pax_Interp::run_frontend() {
 
     cm.resolve_unresolved_types_queue();
     cm.resolve_unresolved_member_accesses_queue();
+
     cm.infer_types_block(ast);
 
     if (cm.count_errors != 0) {
@@ -159,7 +164,8 @@ void Pax_Interp::run_frontend() {
 
     auto end = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> elapsed = end - start;
-    printf("\n\tFrontend finished in %.6f seconds (lexer,parser,semantic checker)\n\n", elapsed.count());
+
+    // printf("\n\tFrontend finished in %.6f seconds (lexer,parser,semantic checker)\n\n", elapsed.count());
 }
 
 void Pax_Interp::generate_cpp() {
@@ -170,16 +176,18 @@ void Pax_Interp::generate_cpp() {
 
     C_Converter cconv(&type);
     cconv.generate_cpp_code(cpp_name, ast);
-    printf("Generated: %s\n", cpp_name);
+
+    // printf("Generated: %s\n", cpp_name);
 
     auto end = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> elapsed = end - start;
-    printf("\n\t -Time to output c code: %.6f seconds\n\n", elapsed.count());
+
+    // printf("\n\t -Time to output c code: %.6f seconds\n\n", elapsed.count());
 }
 
 void Pax_Interp::runCompiler(char * command)
 {
-    printf("Running: %s\n", command);
+    // printf("Running: %s\n", command);
 
 #ifdef _WIN32
 
@@ -221,7 +229,8 @@ void Pax_Interp::compile_cpp() {
 
     auto end = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> elapsed = end - start;
-    printf("\n\t -C compilation finished in %.6f seconds\n\n", elapsed.count());
+
+    // printf("\n\t -C compilation finished in %.6f seconds\n\n", elapsed.count());
 }
 
 void Pax_Interp::release() {

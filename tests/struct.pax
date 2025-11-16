@@ -1,18 +1,4 @@
-// // 0x00000280191e7f38
 
-
-// ff :: (a: int){ // this should throw error
-//     // a: int = 2;
-// }
-
-
-f :: struct {
-
-};
-
-f :: struct {
-
-};
 
 func1 :: (stud: ^Student){
     // we copy to base type and make a change
@@ -48,13 +34,11 @@ Student :: struct {
     grade: int;
     gpa: ^float;
     name: string = "Default";
-    // student: ^Student;
     sub: Subject;
 };
 
 Subject :: struct {
     name: string = "Math";
-    // inside: int = 4;
 };
 
 print_struct :: (stud: ^Student, str: string){
@@ -67,11 +51,7 @@ print_struct :: (stud: ^Student, str: string){
 
 main :: () {
 
-    // str: Student;
-    // str.grade = 3434;
-    // str.sub.inside = 4000;
 
-    // ss1(); // example of a recursive function
     printf("------------------------------------");
 
     {
@@ -153,8 +133,16 @@ main :: () {
         printf("s.gpa = %f\n", *s.gpa);
         printf("s.gpa = %p\n", s.gpa);
 
-        *(*s).gpa = 5.0;
+
+        printf("\nf = %f\n", f);
+        *s.gpa = 6420.0;
+
         printf("s.gpa = %f\n", *s.gpa);
+        printf("f = %f\n", f);
+
+        printf("^s.gpa = %p\n", &*s.gpa);
+        printf("^f = %p\n", &f);
+
     }
 // */
     printf("------------------------------------");
@@ -165,15 +153,257 @@ main :: () {
 }
 
 
-x := 0;
-
-ss1 :: () {
-    if(x == 10){
-        return;
-    }
-    x = x + 1;
-    printf("x = %d\n", x);
-    ss1();
-}
-
 newline :: () {printf("\n");}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// /* GENERATED FILE */
+
+// #include <stdlib.h>
+// #include <stdio.h>
+// typedef unsigned long long u64;
+// typedef unsigned int       u32;
+// typedef unsigned short     u16;
+// typedef unsigned char      u8;
+// typedef long long  s64;
+// typedef int        s32;
+// typedef short      s16;
+// typedef char       s8;
+// typedef float      float32;
+// typedef double     float64;
+
+// /*BSS SECTION GLOBAL VARIAABLES*/
+
+// /*STRUCT FORWARD DECLARATIONS*/
+// struct Subject;
+// struct Student;
+
+// /*GLOBAL FUNCTION FORWARD DECLARATIONS*/
+// void func1(Student * stud);
+// void func2(Student * stud);
+// void func3(Student stud);
+// void print_struct(Student * stud, char * str);
+// void newline(void);
+
+// /*STRUCTS DEFINITIONS*/
+// struct Subject {
+// char * name = "Math";
+// };
+// struct Student {
+// int grade = -24;
+// float * gpa;
+// char * name = "Default";
+// Subject sub;
+// };
+
+// /*FUNCTION BODIES*/
+// #line 3 "(null)"
+
+// void func1 (Student * stud) {
+// #line 5 "(null)"
+//     Student local = (*stud);
+// #line 6 "(null)"
+//     ((local.grade) = 0);
+// #line 10 "(null)"
+//     print_struct((&local),"local");
+// #line 10 "(null)"
+//     Student * local2 = (&local);
+// #line 13 "(null)"
+//     (stud = local2);
+// }
+
+// #line 16 "(null)"
+
+// void func2 (Student * stud) {
+// #line 18 "(null)"
+//     (((*stud).grade) = 10);
+// #line 19 "(null)"
+//     (((*stud).name) = "Skibidi");
+// #line 20 "(null)"
+//     ((((*stud).sub).name) = "Architecture");
+// }
+
+// #line 23 "(null)"
+
+// void func3 (Student stud) {
+// #line 25 "(null)"
+//     Student * sstud = (&stud);
+// #line 26 "(null)"
+//     (((*sstud).grade) = 10);
+// #line 27 "(null)"
+//     (((*sstud).name) = "Ligma");
+// #line 28 "(null)"
+//     ((((*sstud).sub).name) = "Operating sytem");
+// #line 30 "(null)"
+//     print_struct((&stud),"func3 stud");
+// }
+
+// #line 46 "(null)"
+
+// void print_struct (Student * stud, char * str) {
+// #line 48 "(null)"
+//     newline();
+// #line 49 "(null)"
+//     printf("%s.grade = %d\n",str,((*stud).grade));
+// #line 50 "(null)"
+//     printf("%s.name = %s\n",str,((*stud).name));
+// #line 52 "(null)"
+//     printf("%s.sub.name = %s\n",str,(((*stud).sub).name));
+// }
+
+// #line 153 "(null)"
+
+// void newline () {
+// #line 153 "(null)"
+//     printf("\n");
+// }
+
+
+// #line 60 "(null)"
+
+// void GENERATED_MAIN(){
+// #line 62 "(null)"
+//     printf("------------------------------------");
+// #line 72 "(null)"
+//     {
+// #line 63 "(null)"
+//         Student stud;
+// #line 64 "(null)"
+//         ((stud.grade) = 5902);
+// #line 65 "(null)"
+//         ((stud.name) = "idkkkk");
+// #line 68 "(null)"
+//         print_struct((&stud),"stud");
+// #line 69 "(null)"
+//         func1((&stud));
+// #line 71 "(null)"
+//         print_struct((&stud),"stud");
+//     }
+// #line 73 "(null)"
+//     printf("------------------------------------");
+// #line 83 "(null)"
+//     {
+// #line 74 "(null)"
+//         Student stud;
+// #line 75 "(null)"
+//         ((stud.grade) = 5902);
+// #line 76 "(null)"
+//         ((stud.name) = "idkkkk");
+// #line 79 "(null)"
+//         print_struct((&stud),"stud");
+// #line 80 "(null)"
+//         func2((&stud));
+// #line 82 "(null)"
+//         print_struct((&stud),"stud");
+//     }
+// #line 85 "(null)"
+//     printf("------------------------------------");
+// #line 93 "(null)"
+//     {
+// #line 86 "(null)"
+//         Student stud;
+// #line 87 "(null)"
+//         ((stud.grade) = 5902);
+// #line 88 "(null)"
+//         ((stud.name) = "idkkkk");
+// #line 90 "(null)"
+//         print_struct((&stud),"stud");
+// #line 91 "(null)"
+//         func3(stud);
+//     }
+// #line 97 "(null)"
+//     printf("------------------------------------");
+// #line 129 "(null)"
+//     {
+// #line 100 "(null)"
+//         newline();
+// #line 100 "(null)"
+//         Student b;
+// #line 101 "(null)"
+//         ((b.grade) = 1);
+// #line 104 "(null)"
+//         printf("b.grade = %d\n",(b.grade));
+// #line 110 "(null)"
+//         newline();
+// #line 110 "(null)"
+//         Student * s = (&b);
+// #line 111 "(null)"
+//         (((*s).grade) = 2332);
+// #line 113 "(null)"
+//         printf("b.grade = %d\n",(b.grade));
+// #line 114 "(null)"
+//         printf("s.grade = %d\n",((*s).grade));
+// #line 116 "(null)"
+//         newline();
+// #line 116 "(null)"
+//         Student * * ss = (&s);
+// #line 117 "(null)"
+//         (((**ss).grade) = 2000);
+// #line 119 "(null)"
+//         printf("b.grade = %d\n",(b.grade));
+// #line 120 "(null)"
+//         printf("ss.grade = %d\n",((**ss).grade));
+// #line 122 "(null)"
+//         newline();
+// #line 122 "(null)"
+//         Student * * * sss = (&ss);
+// #line 123 "(null)"
+//         (((***sss).grade) = 3000);
+// #line 125 "(null)"
+//         printf("b.grade = %d\n",(b.grade));
+// #line 126 "(null)"
+//         printf("sss.grade = %d\n",((***sss).grade));
+// #line 127 "(null)"
+//         newline();
+//     }
+// #line 131 "(null)"
+//     printf("------------------------------------");
+// #line 145 "(null)"
+//     {
+// #line 133 "(null)"
+//         newline();
+// #line 133 "(null)"
+//         Student b;
+// #line 134 "(null)"
+//         Student * s = (&b);
+// #line 135 "(null)"
+//         float f = 4;
+// #line 137 "(null)"
+//         printf("&f = %p\n",(&f));
+// #line 137 "(null)"
+//         (((*s).gpa) = (&f));
+// #line 139 "(null)"
+//         printf("s.gpa = %f\n",(*((*s).gpa)));
+// #line 141 "(null)"
+//         printf("s.gpa = %p\n",((*s).gpa));
+// #line 142 "(null)"
+//         ((*((*s).gpa)) = 5.00000000000000000);
+// #line 143 "(null)"
+//         printf("s.gpa = %f\n",(*((*s).gpa)));
+//     }
+// #line 150 "(null)"
+//     printf("------------------------------------");
+// }
+
+// int main(int argc, char **argv){
+//     GENERATED_MAIN();
+//     return 0;
+// }

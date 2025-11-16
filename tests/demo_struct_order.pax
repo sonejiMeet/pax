@@ -3,6 +3,8 @@
 // COMPLEX TEST CASE BY CHATGPT FOR STRUCT DEPENDENCIES SORTING BY TOPOLOGICAL ORDER BEFORE OUTPUTING C CODE
 //
 
+// C requires dependency order because it compiles in one pass and needs to know a type exists (and its size, for non-pointers) before you use it.
+
 // Test 1: Multi-level dependency chain (A -> B -> C -> D)
 Document :: struct {
     title: string;
@@ -167,4 +169,5 @@ Teacher_ :: struct {
 
 main :: () {
 
+    printf("test ended");
 }

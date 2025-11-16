@@ -1,0 +1,38 @@
+
+
+
+
+main :: (){
+    printf("print on way down recursion\n");
+    recurse();
+
+    newline();
+
+    printf("print on way up recursion\n");
+    recurse_1(0);
+}
+
+x := 0;
+
+recurse :: () {
+    if(x == 10){
+        return;
+    }
+    x = x + 1;
+    printf("x = %d\n", x);
+    recurse();
+}
+
+
+
+recurse_1 :: (a: int) {
+    if(a == 10){
+        return;
+    }
+    a = a + 1;
+    recurse_1(a);
+    printf("a = %d\n", a);
+
+}
+
+newline :: () {printf("\n");}

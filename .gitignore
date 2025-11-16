@@ -9,3 +9,6 @@
 *.rdi
 main
 demo
+
+*.txt
+benchmarks/

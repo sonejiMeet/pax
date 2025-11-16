@@ -5,29 +5,32 @@
 #include "pool.h"
 
 struct CM_Unresolved_Call {
-    Ast_Procedure_Call_Expression* call;
+    Ast_Procedure_Call_Expression *call;
     int line_number;
     int character_number;
 };
 
 struct CM_Unresolved_Variable {
-    Ast_Ident* ident;
+    Ast_Ident *ident;
     int line_number;
     int character_number;
 };
 struct CM_Unresolved_Type {
-    Ast_Declaration* decl;
-    Ast_Type_Definition* base_type;
+    Ast_Declaration *decl;
+    Ast_Type_Definition *base_type;
     int line_number;
     int character_number;
 };
 
 struct CM_Unresolved_Member_Access {
-    Ast_Binary* dot_expr;
+    Ast_Binary *dot_expr = nullptr;
+    Ast_Binary *assignment_expr = nullptr;
+    Ast_Declaration *decl = nullptr;
     int line_number;
     int character_number;
     Ast_Block *my_scope;
 };
+
 
 struct ReturnCheckResult {
     bool has_return;
@@ -60,7 +63,6 @@ struct CodeManager {
     void push_scope();
     void pop_scope();
 
-    bool is_function_parameter(const char* name);
 
     bool declare_variable(Ast_Declaration *decl, bool force_decl = false);
     bool declare_function(Ast_Declaration *decl);
@@ -71,7 +73,7 @@ struct CodeManager {
         return node->type == type ? static_cast<T *>(node) : nullptr;
     }
 
-    Ast_Declaration *lookup_symbol(const char *name, Ast_Block *scope = nullptr); // here scope is for the case where we can't rely on scope_stack.pop() when going through queued unresolved statements, we pass in the scope. 
+    Ast_Declaration *lookup_symbol(const char *name, Ast_Block *scope = nullptr); // here scope is for the case where we can't rely on scope_stack.pop() when going through queued unresolved statements, we pass in the scope.
     Ast_Declaration *lookup_symbol_current_scope(const char *name);
 
     ReturnCheckResult checkReturnPaths(Ast_Block *block);
@@ -80,20 +82,28 @@ struct CodeManager {
     bool all_paths_return(Ast_Block *block);
 
     void resolve_idents(Ast_Block *block);
+
     void resolve_idents_in_declaration(Ast_Declaration *decl);
 
-    Ast_Declaration *resolve_member_access(Ast_Binary* dot_expr, Ast_Block* my_scope = nullptr);
+    Ast_Declaration *resolve_member_access(Ast_Binary* dot_expr, Ast_Block* my_scope = nullptr, bool skip_init_check =false, bool skip_queuing = false, bool should_infer = false);
+
+    Ast_Type_Definition* clone_type_definition(Ast_Type_Definition* original);
+    void create_type_instantiation(Ast_Type_Definition* type);
+
+    Ast_Type_Definition* find_struct_type_in_scopes(const char* name) const;
+
+    void push_unresolved_type(Ast_Declaration *decl, Ast_Type_Definition *base_type);
+    void push_unresolved_member_access(Ast_Binary *dot_expr);
 
     void resolve_idents_in_expr(Ast_Expression *expr);
     void resolve_unresolved_vars();
     void resolve_unresolved_calls();
 
-    Ast_Type_Definition* find_struct_type_in_scopes(const char* name) const;
 
     void resolve_unresolved_types_queue();
     void resolve_unresolved_member_accesses_queue();
 
-
+    
     char *type_to_string(Ast_Type_Definition *type);
 
     void infer_types_return(Ast_Statement *ret, Ast_Declaration *func_decl);

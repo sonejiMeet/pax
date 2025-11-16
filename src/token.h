@@ -51,7 +51,7 @@ enum TokenType {
     TOK_GREATER_EQUAL,  // >=
 
     TOK_ARROW,          // ->
-
+    TOK_UNDERSCORE,   // _
     TOK_COMMENT,
     TOK_L_MULTILINE_COMMENT, // /*
     TOK_R_MULTILINE_COMMENT, // */
@@ -111,7 +111,7 @@ inline const char* tokenTypeToString(TokenType type) {
         case TOK_GREATER_EQUAL: return "TOK_GREATER_EQUAL";
 
         case TOK_ARROW: return "TOK_ARROW";
-
+        case TOK_UNDERSCORE: return "TOK_UNDERSCORE";
         case TOK_COMMENT: return "TOK_COMMENT";
         case TOK_L_MULTILINE_COMMENT: return "TOK_L_MULTILINE_COMMENT";
         case TOK_R_MULTILINE_COMMENT: return "TOK_R_MULTILINE_COMMENT";

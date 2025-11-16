@@ -35,8 +35,13 @@ void Parser::advance() {
     current = lexer->nextToken();
 }
 
-void Parser::parseError(const char *message) {
-    printf("\nParsing Error[%d:%d] %s", current->row, current->col, message);
+void Parser::parseError(const char *message, bool print_token_type) {
+
+    if(!print_token_type)
+        printf("\nParsing Error[%d:%d] %s", current->row, current->col, message);
+    else
+        printf("\nParsing Error: %s TokenType: '%s'", message, tokenTypeToString(current->type));
+
     exitSuccess = false;
     synchronize();
 
@@ -74,9 +79,9 @@ void Parser::synchronize()
         switch (current->type) {
             case TOK_IF:
             case TOK_PRINT:
-            case TOK_IDENTIFIER:
             case TOK_MAIN_ENTRY_POINT:
             case TOK_LCURLY_PAREN:
+            case TOK_RCURLY_PAREN:
                 return;
         }
         advance();
@@ -692,8 +697,10 @@ Ast_Statement *Parser::parseStructDefinition()
     }
 
     expect(TOK_RCURLY_PAREN, "Expected '}' after struct description.");
-    expect(TOK_SEMICOLON, "Expected ';' after struct description.");
-    // return struct_decs;
+
+    if(current->type == TOK_SEMICOLON) // we dont wanna force struct definition to end with semicolon!
+        advance();
+
     stmt->expression = static_cast<Ast_Expression *> (struct_decs);
     return stmt;
 }
@@ -725,6 +732,7 @@ Ast_Declaration* Parser::parseFunctionDeclaration(bool is_local) {
             Ast_Declaration* param = AST_NEW(pool, Ast_Declaration);
             param->identifier = AST_NEW(pool, Ast_Ident);
             param->identifier->name = current->value;
+            param->is_declaration_function_argument = true;
             advance(); // consume param name
 
             expect(TOK_COLON, "Expected ':' after parameter name");
@@ -768,37 +776,22 @@ Ast_Declaration* Parser::parseFunctionDeclaration(bool is_local) {
 }
 
 bool Parser::is_lhs_assignment() {
-    // We are at TOK_IDENTIFIER already. Scan a dotted/call chain until we see '=' or a stopper.
-    int offset = 1; // peek after the current identifier
+
+    int offset = 1;
     Token* t = lexer->peekNextToken(offset);
 
-    // Allow chains like: .ident, .ident(...), nested calls, etc.
-    while (t && (t->type == TOK_DOT || t->type == TOK_LPAREN)) {
+    // chains of dot expressions
+    while (t && t->type == TOK_DOT) {
         if (t->type == TOK_DOT) {
-            // Must be followed by an identifier to be a valid member access
             Token* afterDot = lexer->peekNextToken(offset + 1);
             if (!afterDot || afterDot->type != TOK_IDENTIFIER) break;
-            offset += 2; // consumed ". ident"
-            t = lexer->peekNextToken(offset);
-            continue;
-        }
-        if (t->type == TOK_LPAREN) {
-            // Skip balanced parentheses for a call
-            int depth = 1;
-            offset += 1;
-            while (depth > 0) {
-                Token* p = lexer->peekNextToken(offset);
-                if (!p) break;
-                if (p->type == TOK_LPAREN) depth++;
-                else if (p->type == TOK_RPAREN) depth--;
-                offset++;
-            }
+            offset += 2;
             t = lexer->peekNextToken(offset);
             continue;
         }
     }
 
-    // After consuming any .member/call chain, check if next token is '='
+    // After seeing all dot expressions, check if next token is '='
     return t && t->type == TOK_ASSIGN;
 }
 
@@ -824,7 +817,7 @@ Ast_Statement *Parser::parseStatement()
                 Ast_Expression *lhs = parseExpression();
                 Expect(TOK_ASSIGN, "Expected '=' in assignment");
                 Ast_Expression *rhs = parseExpression();
-                
+
                 Ast_Binary *assignExpr = AST_NEW(pool,Ast_Binary);
                 assignExpr->op = BINOP_ASSIGN;
                 assignExpr->lhs = lhs;
@@ -953,8 +946,6 @@ Ast_Block *Parser::parseProgram()
         if (current->type == TOK_MAIN_ENTRY_POINT) {
             if (mainFound) {
                 parseError("Multiple 'main' functions not allowed.");
-                exitSuccess = false;
-                advance();
             }
             mainFound = true;
             Ast_Statement *stmt = AST_NEW(pool,Ast_Statement);
@@ -994,24 +985,20 @@ Ast_Block *Parser::parseProgram()
             }
             else {
                 parseError("Top-level executable statements not allowed. Only declarations and main.");
-                exitSuccess = false;
-                synchronize();
                 break;
             }
         }
         else {
             parseError("Unexpected token at top-level. Only declarations and main function allowed.");
-            exitSuccess = false;
-            synchronize();
             break;
         }
     }
 
 
     if (!mainFound && exitSuccess) {
-        parseError("No 'main' function found. An entry point is required.");
-        exit(1);
+        parseError("No 'main' entry point was found in the program.", true);
     }
+
     if(!exitSuccess){
         printf("\n\nExiting... There were errors.\n\n");
         exit(1);

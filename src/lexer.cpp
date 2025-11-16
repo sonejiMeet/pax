@@ -256,7 +256,6 @@ Token *Lexer::nextToken()
         case '!':
             if (match_and_advance('=')) return makeToken(TOK_NOT_EQUAL, "!=");
             return makeToken(TOK_EXCLAMATION_MARK, "!");
-            break;
         case '<':
             if (match_and_advance('=')) return makeToken(TOK_LESS_EQUAL, "<=");
             return makeToken(TOK_LESS, "<");
@@ -273,7 +272,15 @@ Token *Lexer::nextToken()
             return makeToken(TOK_CARET, "^");
         case '&':
             return makeToken(TOK_AMPERSAND, "&");
-            break;
+        case '_': {
+            Token *next = peekNextToken();
+            if(next->type != TOK_IDENTIFIER)
+                return makeToken(TOK_UNDERSCORE, "_");
+            else{
+                return identifierToken(c);
+            }
+        }
+        default: break;
     }
 
     if (isNumeric(c)) return numberToken(c);

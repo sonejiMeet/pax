@@ -13,15 +13,7 @@ typedef char       s8;
 typedef float      float32;
 typedef double     float64;
 
-/*STRUCT FORWARD DECLARATIONS*/
-
-/*GLOBAL FUNCTION FORWARD DECLARATIONS*/
-bool func1(void);
-int func(int * aa, int sssd);
-void newline(void);
-
-/*STRUCTS DEFINITIONS*/
-
+/*BSS SECTION GLOBAL VARIAABLES*/
 s64 a = (((1 + ((2 * 3) * 4)) + 5) / 2);
 s64 b = (4 + (5 * 2));
 s64 c = ((5 * 2) + 4);
@@ -36,6 +28,19 @@ s64 ee = ((10 - (4 / 2)) + (3 * 5));
 s64 ff = ((1 + (2 * 3)) - (4 / 5));
 s64 gg = (((7 * 8) + 9) / (10 - 2));
 float hh = ((5 * 2) + ((3 * 4) / 2.00000000000000000));
+int idk = 1;
+bool boolean = true;
+
+/*STRUCT FORWARD DECLARATIONS*/
+
+/*GLOBAL FUNCTION FORWARD DECLARATIONS*/
+bool func1(void);
+int func(int * aa, int sssd);
+void newline(void);
+
+/*STRUCTS DEFINITIONS*/
+
+/*FUNCTION BODIES*/
 
 bool func1 () {
     int f = (-100);
@@ -49,8 +54,6 @@ bool func1 () {
     }
 }
 
-int idk = 1;
-bool boolean = true;
 
 int func (int * aa, int sssd) {
     printf("Address of aa = %p\n",aa);
@@ -66,6 +69,7 @@ int func (int * aa, int sssd) {
 void newline () {
     printf("\n");
 }
+
 
 
 void GENERATED_MAIN(){

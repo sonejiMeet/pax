@@ -209,12 +209,12 @@ inline void *pool_alloc(Pool *pool, size_t size) {
     pool->current_pos = (void*)((uintptr_t)pool->current_pos + size);
     pool->bytes_left -= size;
 
-#ifdef _DEBUG
-    totalNbyte += (int) size;
-    printf("[POOL_ALLOC] extra=%zu\n", extra);
-    printf("[POOL_ALLOC] %zu bytes %p\n", size, retval);
-    printf("[POOL_ALLOC TOTAL SO FAR] %d bytes, %f KiB\n", totalNbyte, (float)totalNbyte/1024);
-#endif
+ // #ifdef _DEBUG
+ //     totalNbyte += (int) size;
+ //     printf("[POOL_ALLOC] extra=%zu\n", extra);
+ //     printf("[POOL_ALLOC] %zu bytes %p\n", size, retval);
+ //     printf("[POOL_ALLOC TOTAL SO FAR] %d bytes, %f KiB\n", totalNbyte, (float)totalNbyte/1024);
+ // #endif
 
     return retval;
 }
@@ -265,9 +265,9 @@ inline void cycle_new_block(Pool *pool)
         assert(pool->block_allocator != nullptr);
         new_block = pool->block_allocator(ALLOCATE, pool->memblock_size, 0, nullptr, pool->block_allocator_data, 0);
 
-#ifdef _DEBUG
-        printf("allocated NEW BLOCK in cycle_new_block\n");
-#endif
+// #ifdef _DEBUG
+//         printf("allocated NEW BLOCK in cycle_new_block\n");
+// #endif
 
     }
 

@@ -1,0 +1,349 @@
+
+// This tests show robustness of error checking for dereferencing unitialized struct members.
+// what C does not catch most of the time and crashes at runtime instead of throwing proper errors during compilation.
+
+
+// simple instance test
+// /*
+main :: () {
+    a: A;
+    a.b.c.d.e.f.value = 42;
+    printf("a.b.c.d.e.f.value = %d\n", a.b.c.d.e.f.value);
+}
+
+A :: struct { b: B; };
+B :: struct { c: C; };
+C :: struct { d: D; };
+D :: struct { e: E; };
+E :: struct { f: F; };
+F :: struct { value: int; };
+
+// */
+
+
+
+
+/*
+main :: () {
+    a: A;
+    b: B;
+    d: D;
+    f: F;
+
+    // a.b = &b; // since this line is commented out
+    b.c.d = &d;  // this should throw error
+    d.e.f = &f; // this should throw error
+
+    a.b.c.d.e.f.value = 42;  //  requires all pointers initialized
+    printf("a.b.c.d.e.f.value = %d\n", a.b.c.d.e.f.value);
+    printf("Sucess\n");
+}
+
+A :: struct { b: ^B; };
+B :: struct { c: C; };
+C :: struct { d: ^D; };
+D :: struct { e: E; };
+E :: struct { f: ^F; };
+F :: struct { value: int; };
+
+*/
+
+
+
+
+/*
+main :: () {
+    o1: Outer;
+
+    val: int = 42;
+    val2 : int = 69;
+
+    o1.a.data = &val;
+    // o1.b.data = &val2; // when this is commented out
+
+    x := *o1.a.data;
+    y := *o1.b.data; // this should throw error
+
+
+}
+
+Inner :: struct {
+    data: ^int;
+};
+
+Outer :: struct {
+    a: Inner;
+    b: Inner;
+};
+
+*/
+
+
+
+
+
+/*
+Data :: struct {
+    value: int;
+}
+
+main :: () {
+    d: Data;
+    p1: ^Data;
+    p2: ^Data;
+
+    p1 = &d;
+    p2 = p1;  // Copy pointer
+
+    p2.value = 100;  // Should work
+
+    printf("p2.value = %d\n", p2.value);
+
+}
+
+*/
+
+
+
+
+
+/*
+main :: () {
+    d1: Data;
+    d2: Data;
+
+    d1.nested = &d2;
+
+    copy := *d1.nested;  //  should get new instance
+
+    printf("d1.nested = %p\n", &d1.nested);
+    printf("copy.nested = %p\n", &copy.nested);
+
+}
+Data :: struct {
+    nested: ^Data;
+};
+
+*/
+
+
+
+
+
+/*
+main :: () {
+    a: A;
+    b: B;
+    a.b = &b;
+
+    c : C;
+
+    // a.b.c = &c;  // this
+    b.c = &c;   // and this should have same instance.
+    a.b.c.value = 42699;
+    printf("a.b.c.value = %d\n", a.b.c.value);
+}
+
+A :: struct { b: ^B; };
+B :: struct { c: ^C; };
+C :: struct { value: s64; };
+
+*/
+
+
+
+
+
+
+/*
+main :: () {
+    c: Config;
+    val: int = 42;
+    c.data = &val;
+    x := *c.data;
+}
+Config :: struct { // should be inferred
+    name:= "default";
+    count := 10;
+    data: ^int;
+};
+*/
+
+
+
+
+
+
+/*
+
+main :: () {
+    local: Data;
+
+    modify(&local);
+    y := *local.ptr; // this will fail unless atleast this declaration is passed through function. In which case it gets marked as is_declaration_passed_through_function
+}
+
+Data :: struct {
+    ptr: ^int;
+};
+
+modify :: (d: ^Data) {
+    val: int = 10;
+    d.ptr = &val;  // Function param so no init check done
+}
+
+*/
+
+
+
+
+
+//
+// similar example like from above, BUT for unitialized pointer member passed by value and not reference
+
+
+/*
+main :: () {
+    local: Data;
+
+    // s_local: S;
+    // local.ptr = &s_local;
+
+    modify(local);
+    y := *local.ptr; // this will now throw error (Cannot dereference uninitialized) because this declaration was passed by value through function call
+}
+
+Data :: struct {
+    ptr: ^S;
+};
+
+S :: struct {
+    a: int;
+};
+
+modify :: (d: Data) {
+    s : S;
+    d.ptr = &s;
+    asd := *d.ptr;
+
+}
+
+*/
+
+
+
+
+
+
+
+/*
+Data :: struct {
+    ptr: ^int;
+};
+
+main :: () {
+    d: Data;
+
+    i: int = 2544;
+
+    d.ptr = &i;
+
+    *d.ptr = 224; // this should be auto dereferenced by the c_converter too maybe?
+                  // for that to happen we should check if the rhs type is either of acceptable types like ^int or int. then we determine it ourselves.
+    printf("*d.ptr = %d\n", *d.ptr);
+}
+
+*/
+
+
+
+
+
+/*
+frame := 0;
+simulate :: (obj: ^PhysicsObject) {
+    update(obj);
+    frame = frame + 1;
+    printf("Frame %d: (%d, %d)\n", frame, obj.position.x, obj.position.y);
+
+}
+main :: () {
+    obj: PhysicsObject;
+
+    obj.position.x = 0;
+    obj.position.y = 0;
+    obj.velocity.x = 5;
+    obj.velocity.y = 3;
+
+    printf("Initial position: %d, %d\n", obj.position.x, obj.position.y);
+    printf("Velocity: %d, %d\n", obj.velocity.x, obj.velocity.y);
+
+
+    simulate(&obj);
+    simulate(&obj);
+    simulate(&obj);
+    simulate(&obj);
+    simulate(&obj);
+    simulate(&obj);
+    simulate(&obj);
+    simulate(&obj);
+
+    // Apply acceleration g
+    obj.velocity.y = obj.velocity.y - 10;
+    update(&obj);
+    printf("After gravity: (%d, %d) velocity.y=%d\n", obj.position.x, obj.position.y, obj.velocity.y);
+}
+
+update :: (obj: ^PhysicsObject) {
+    obj.position.x = obj.position.x + obj.velocity.x;
+    obj.position.y = obj.position.y + obj.velocity.y;
+}
+
+PhysicsObject :: struct {
+    position: Vec2;
+    velocity: Vec2;
+};
+
+Vec2 :: struct {
+    x: int;
+    y: int;
+};
+*/
+
+
+
+
+
+
+//
+// cirucular uninitialized pointer checking breaks....
+//
+
+// 0x0000029ff48993f8
+/*
+Node :: struct {
+    value: int;
+    next: ^Node;
+    prev: ^Node;
+};
+
+main :: () {
+    a: Node;
+    b: Node;
+    c: Node;
+
+    a.next = &b;
+    // b.next = &c; // if this is commented out
+    c.next = &a;
+
+    a.next.next.next.value = 100;  // this should throw error because a.next.next is uninitialized
+    printf("a.value = %d\n", a.value);
+    printf("a.next.value = %d\n", a.next.value);
+    printf("a.next.next.value = %d\n", a.next.next.value);
+    printf("a.next.next.next.value = %d\n", a.next.next.next.value);
+
+
+    printf("\nsueces\n");
+}
+
+*/

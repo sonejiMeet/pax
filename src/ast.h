@@ -25,7 +25,10 @@ struct Ast_Declaration;
 struct Ast_New_Or_Delete;
 
 struct Ast_Struct;
+struct Ast_Type_Instantiation;
 struct Ast_Type_Definition;
+
+struct Ast_Cast;
 
 enum Ast_Type {
     AST_UNKNOWN,
@@ -43,8 +46,12 @@ enum Ast_Type {
     AST_PROCEDURE_CALL_EXPRESSION,
     AST_COMMA_SEPARATED_ARGS,
     AST_STRUCT,
+    AST_TYPE_INSTANTIATION,
+
     AST_TYPE_DEFINITION,
+    AST_CAST,
 };
+
 
 
 inline std::string astTypeToString(Ast_Type type) {
@@ -63,7 +70,9 @@ inline std::string astTypeToString(Ast_Type type) {
         case AST_PROCEDURE_CALL_EXPRESSION:    return "ProcCallExpr";
         case AST_COMMA_SEPARATED_ARGS: return "CommaSeparatedArg";
         case AST_STRUCT: return "Struct";
+        case AST_TYPE_INSTANTIATION: return "TypeInstance";
         case AST_TYPE_DEFINITION: return "TypeDefinition";
+        case AST_CAST: return "Cast";
         default:                 return "Unknown";
     }
 }
@@ -72,7 +81,7 @@ struct Ast {
     Ast_Type type = AST_UNKNOWN;
     int line_number = 0;
     int character_number = 0;
-    // const char *file_name = nullptr;
+    const char *file_name = nullptr;
 
     virtual ~Ast() = default;  // DO NOT REMOVE THIS IT MESSES WITH DEBUGGER FUCKING HELL WHOLE 2 HOURS WASTED
                               // without this the debugger doesn't handle inheritance hierarchy correctly
@@ -109,12 +118,18 @@ struct Ast_Declaration : public Ast_Statement {
     bool is_function_body = false;
     bool is_local_function = false;
 
+
     Array<Ast_Declaration*> parameters;     // function parameters
+
+    bool is_declaration_function_argument = false;
+    bool is_declaration_passed_through_function = false;
+
     Ast_Type_Definition* return_type = nullptr; // maybe return_type should be an Array too since we will support more than one return_type in a function
 
     bool initialized = false; // For code_manager
     bool inferred = false;
 };
+
 
 struct Ast_Comma_Separated_Args : public Ast_Expression {
     Ast_Comma_Separated_Args(Pool * p) :arguments(p) { type = AST_COMMA_SEPARATED_ARGS; }
@@ -219,7 +234,7 @@ struct Ast_While : public Ast_Expression {  // not done yet
     Ast_Block *block = nullptr;
 };
 
-
+// not implemetented these serializers yett
 const int STRUCT_IS_A_UNION = 0x2;
 const int STRUCT_IS_FOREIGN = 0x8;
 const int STRUCT_HAS_IMPLICIT_CONSTRUCTOR = 0x10;
@@ -232,13 +247,22 @@ struct Ast_Struct : public Ast_Expression {
 
     Ast_Block *block = nullptr;
 
-    bool STRUCT_HAS_IMPLICIT_CONSTRUCTOR = false;
-    bool STRUCT_HAS_IMPLICIT_DESTRUCTOR = false;
+    // bool STRUCT_HAS_IMPLICIT_CONSTRUCTOR = false;
+    // bool STRUCT_HAS_IMPLICIT_DESTRUCTOR = false;
     int struct_flags = 0;
 
     Array<Ast_Declaration *> members;
 
 };
+
+struct Ast_Type_Instantiation : public Ast {
+    Ast_Type_Instantiation(Pool* p) : member_instances(p) { type = AST_TYPE_INSTANTIATION; }
+
+    Array<Ast_Declaration *> member_instances;
+};
+
+
+    // Future: could add array element tracking, pointer tracking, etc.
 
 struct Ast_New_Or_Delete : public Ast_Expression { // not done yett
      Ast_New_Or_Delete(Pool * = nullptr) {type = AST_NEW_OR_DELETE; }
@@ -290,8 +314,11 @@ struct Ast_Type_Definition : public Ast {
 
     const char * name = nullptr;
     bool is_reference = false;
+
     Ast_Struct *struct_def = nullptr;
+    Ast_Type_Instantiation *type_instance = nullptr;
     bool is_unresolved = false;
+
     // char *foreign_function_name = nullptr;
     // void *foreign_function_resolved_pointer = nullptr;
 
@@ -324,4 +351,13 @@ struct Ast_Type_Definition : public Ast {
 
         return base_name;
     }
+};
+
+
+struct Ast_Cast : public Ast_Expression {
+   Ast_Cast() {type = AST_CAST; }
+
+   Ast_Type_Definition *target_type = nullptr;
+   Ast_Expression *expression = nullptr;
+
 };

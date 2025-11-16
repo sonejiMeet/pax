@@ -87,58 +87,28 @@ void CodeManager::pop_scope()
     if (!scope_stack.empty()) scope_stack.pop_back();
 }
 
-bool CodeManager::is_function_parameter(const char* name) {
-    if (scope_stack.empty()) return false;
-
-    // start with innermost
-    for (int i = (int)scope_stack.size() - 1; i >= 0; --i) {
-        Ast_Block *block = scope_stack.data[i];
-
-        if(!block) continue;
-        // look for func decl in this scope
-        for (int j = 0; j < block->statements.count; ++j) {
-                Ast_Statement *stmt = block->statements.data[j];
-                if(!stmt || stmt->type == AST_DECLARATION) continue;
-
-                Ast_Declaration *decl = static_cast<Ast_Declaration *>(stmt);
-
-                if (decl && decl->is_function && decl->is_function_body) {
-
-                // go through function's parameter lists
-                for (int i = 0; i < decl->parameters.count; ++i) {
-                    Ast_Declaration* param = decl->parameters.data[i];
-                    if (param && param->identifier && strcmp(param->identifier->name, name) == 0) {
-                        return true;
-                    }
-                }
-                return false;
-            }
-        }
-    }
-    return false;
-}
-
 Ast_Declaration* CodeManager::lookup_symbol(const char* name, Ast_Block *scope) {
     for (int i = (int)scope_stack.size() - 1; i >= 0; --i) {
-        Ast_Block* block;
-        if(scope) block = scope;
-        else block = scope_stack.data[i];
+
+        Ast_Block* block = scope ? scope : scope_stack.data[i]; // this is for the case where we can't rely on scope_stack.pop() during resolve_member_access, we have to pass the scope of the unresolved dot expression that was saved during initial queuing. Its kinda messy i dont wanna deal with it right now ugh,.........
         if(!block) continue;
+
         for (int j = 0; j < block->statements.count; ++j) {
             Ast_Statement* stmt = block->statements.data[j];
             if (!stmt) continue;
+
             if(stmt->type == AST_DECLARATION){
                 Ast_Declaration* decl = static_cast<Ast_Declaration*>(stmt);
                 if (decl->identifier && strcmp(decl->identifier->name, name) == 0) {
                     return decl;
                 }
             }
+
             if(stmt->expression && stmt->expression->type == AST_STRUCT){
                 auto *str_def = static_cast<Ast_Struct *>(stmt->expression);
                 if(str_def && strcmp(str_def->name, name) == 0){
                     return static_cast<Ast_Declaration *>(stmt);
                 }
-
             }
         }
     }
@@ -147,12 +117,14 @@ Ast_Declaration* CodeManager::lookup_symbol(const char* name, Ast_Block *scope) 
 
 Ast_Declaration* CodeManager::lookup_symbol_current_scope(const char* name) {
     if (scope_stack.empty()) return nullptr;
+
     Ast_Block* block = scope_stack.pop();
     if(!block) return nullptr;
 
     for (int j = 0; j < block->statements.count; ++j) {
         Ast_Statement* stmt = block->statements.data[j];
         if (!stmt || stmt->type != AST_DECLARATION) continue;
+
         Ast_Declaration* decl = static_cast<Ast_Declaration*>(stmt);
         if (decl->identifier && strcmp(decl->identifier->name, name) == 0) {
             return decl;
@@ -164,11 +136,9 @@ Ast_Declaration* CodeManager::lookup_symbol_current_scope(const char* name) {
 bool CodeManager::declare_variable(Ast_Declaration* decl, bool force_decl) {
     if (!decl || !decl->identifier) return false;
 
-    if (!force_decl) {
-        if (lookup_symbol_current_scope(decl->identifier->name)) {
-            report_error(decl, "Variable '%s' already declared in this scope", decl->identifier->name);
-            return false;
-        }
+    if (!force_decl && lookup_symbol_current_scope(decl->identifier->name)) {
+        report_error(decl, "Variable '%s' already declared in this scope", decl->identifier->name);
+        return false;
     }
 
     Ast_Block* current_block = scope_stack.pop();
@@ -212,7 +182,6 @@ bool CodeManager::declare_struct(Ast_Statement* struct_stmt) {
     if (scope_stack.count == 0) return false;
     Ast_Block* current_block = scope_stack.data[scope_stack.count - 1];
 
-    // Make the struct visible in this scope
     current_block->statements.push_back(struct_stmt);
     return true;
 }
@@ -227,11 +196,7 @@ ReturnCheckResult CodeManager::checkReturnPaths(Ast_Block* block)
 
     for (size_t i = 0; i < block->statements.count; ++i) {
         Ast_Statement* stmt = block->statements.data[i];
-        if (!stmt) continue;
-
-        if (!fallthrough) {
-            continue;
-        }
+        if (!stmt || !fallthrough) continue;
 
         if (stmt->is_return) {
             result.has_return = true;
@@ -268,9 +233,7 @@ ReturnCheckResult CodeManager::checkReturnPaths(Ast_Block* block)
 }
 
 void CodeManager::checkFunctionReturns(Ast_Declaration* decl) {
-    if (decl->return_type == _type->type_def_void) {
-        return;
-    }
+    if (decl->return_type == _type->type_def_void) return;
 
     ReturnCheckResult result = checkReturnPaths(decl->my_scope);
 
@@ -280,7 +243,7 @@ void CodeManager::checkFunctionReturns(Ast_Declaration* decl) {
     }
 
     if (!result.all_paths_return) {
-        // checkin maybe should just be a warning
+        // checkin maybe should just be a warning instead of error, but c++ will end up complaining. Or maybe just supress that shit through supressing that warning flag?
         report_error(decl, "Not all control paths return a value in non-void function '%s'", decl->identifier->name);
     }
 }
@@ -293,10 +256,7 @@ void CodeManager::resolve_idents(Ast_Block* block) {
     for (int i = 0; i < block->statements.count; i++) {
 
         Ast_Statement* stmt = block->statements.data[i];
-
-        if (!stmt) {
-            continue;
-        }
+        if (!stmt) continue;
 
         if (stmt->is_return) {
             resolve_idents_in_expr(stmt->expression);
@@ -343,7 +303,9 @@ void CodeManager::resolve_idents(Ast_Block* block) {
                     if (decl->my_scope && decl->is_function_body) {
                         push_scope();
                         for (int j = 0; j < decl->parameters.count; ++j) {
-                            declare_variable(decl->parameters.data[j]);
+                            Ast_Declaration* param = decl->parameters.data[j];
+                            declare_variable(param);
+                            resolve_idents_in_declaration(param);
                         }
                         resolve_idents(decl->my_scope);
                         pop_scope();
@@ -354,15 +316,29 @@ void CodeManager::resolve_idents(Ast_Block* block) {
                     if (!is_decl) {
                         declare_variable(decl, true);
                     }
+                    else {
+                        report_error(decl, "Variable '%s' already declared.", decl->identifier->name);
+                    }
 
-                    // Resolve initializer identifiers if it’s a call (your existing behavior)
-                    if (decl->initializer && decl->initializer->type == AST_PROCEDURE_CALL_EXPRESSION) {
+                    if (decl->declared_type && !decl->is_function) {
+                        Ast_Type_Definition* base = decl->declared_type;
+                        while (base->pointed_to_type || base->element_type) {
+                            if (base->pointed_to_type) { base = base->pointed_to_type; continue; }
+                            if (base->element_type) { base = base->element_type; continue; }
+                        }
+
+                        if (base->struct_def) {
+                            decl->declared_type = clone_type_definition(decl->declared_type);
+                            create_type_instantiation(decl->declared_type);
+                        }
+                    }
+
+                    if (decl->initializer /* && decl->initializer->type == AST_PROCEDURE_CALL_EXPRESSION */) {
                         resolve_idents_in_declaration(decl);
                     }
-                    // Try to resolve declared_type if it was parsed as an unresolved user type
+                    // if declared_type is_unresolved user type (struct), try to resolve it
                     else if (decl->declared_type && decl->declared_type->is_unresolved || (decl->declared_type && decl->declared_type->pointed_to_type)) {
 
-                        // Walk to base type node (unwrap pointers/arrays) once
                         Ast_Type_Definition* base = decl->declared_type;
                         while (base->pointed_to_type || base->element_type) {
                             if (base->pointed_to_type) { base = base->pointed_to_type; continue; }
@@ -370,24 +346,20 @@ void CodeManager::resolve_idents(Ast_Block* block) {
                         }
 
                         if (base->is_unresolved && base->name) {
-                            // Attempt immediate resolution against visible scopes
                             Ast_Type_Definition* def = find_struct_type_in_scopes(base->name);
                             if (def && def->struct_def) {
-                                // Patch the node in-place for immediate inference later
+
                                 base->struct_def = def->struct_def;
                                 base->is_unresolved = false;
+
+                                decl->declared_type = clone_type_definition(decl->declared_type);
+                                create_type_instantiation(decl->declared_type);
                             } else {
-                                // Could not resolve now; queue for the batch pass
-                                CM_Unresolved_Type u;
-                                u.decl = decl;
-                                u.base_type = base;
-                                u.line_number = decl->line_number;
-                                u.character_number = decl->character_number;
-                                unresolved_types.push_back(u);
+                                // unresolvable at first pass, so queue it
+                                push_unresolved_type(decl, base);
                             }
                         }
                     }
-
                 }
 
             }
@@ -437,6 +409,100 @@ void CodeManager::resolve_idents(Ast_Block* block) {
 }
 
 
+Ast_Type_Definition* CodeManager::clone_type_definition(Ast_Type_Definition* original) {
+    if (!original) return nullptr;
+
+    if (!original->pointed_to_type /* && !original->element_type && original->array_kind == ARRAY_NONE */) {
+        return original;
+    }
+
+    Ast_Type_Definition* clone = AST_NEW(ast_pool, Ast_Type_Definition);
+
+    clone->line_number = original->line_number;
+    clone->character_number = original->character_number;
+
+    clone->struct_def = original->struct_def;
+    clone->name = original->name;
+    clone->is_reference = original->is_reference;
+    clone->is_unresolved = original->is_unresolved;
+    clone->type_instance = nullptr;
+
+    clone->pointed_to_type = clone_type_definition(original->pointed_to_type);
+    clone->array_kind = original->array_kind;
+    clone->element_type = clone_type_definition(original->element_type);
+    clone->static_array_size = original->static_array_size;
+
+    return clone;
+}
+
+void CodeManager::create_type_instantiation(Ast_Type_Definition* type) {
+    if (!type) return;
+
+    Ast_Type_Definition* base_type = type;
+    while (base_type->pointed_to_type) {
+        base_type = base_type->pointed_to_type;
+    }
+
+    if (!base_type->struct_def) return;
+    if (base_type->type_instance) return;
+
+    Ast_Type_Instantiation* instance = AST_NEW(ast_pool, Ast_Type_Instantiation);
+    base_type->type_instance = instance; // this must be set first
+
+    Ast_Struct* struct_def = base_type->struct_def;
+    for (int i = 0; i < struct_def->members.count; ++i) {
+        Ast_Declaration* def_member = struct_def->members.data[i];
+
+        Ast_Declaration* instance_member = AST_NEW(ast_pool, Ast_Declaration);
+        instance_member->identifier = def_member->identifier;
+
+        // **Handle inferred types (no declared_type)**
+        if (def_member->declared_type) {
+            instance_member->declared_type = clone_type_definition(def_member->declared_type);
+        } else if (def_member->initializer) {
+            // Member has inferred type - don't clone, share the inferred type
+            // The type will be inferred from initializer later
+            instance_member->declared_type = nullptr;
+            instance_member->inferred = false;
+        } else {
+            instance_member->declared_type = nullptr;
+        }
+
+        instance_member->initializer = def_member->initializer;
+        instance_member->initialized = false;
+        instance_member->is_declaration_function_argument = false;
+
+        // recurse and create non pointer type struct instances within struct definitions
+        if (instance_member->declared_type) {
+            Ast_Type_Definition* member_base = instance_member->declared_type;
+            while (member_base->pointed_to_type || member_base->element_type) {
+                if (member_base->pointed_to_type) { member_base = member_base->pointed_to_type; continue; }
+                /*if (member_base->element_type) { member_base = member_base->element_type; continue; } */
+            }
+
+            if (member_base->name && !member_base->struct_def) {
+                Ast_Type_Definition* resolved = find_struct_type_in_scopes(member_base->name);
+                if (resolved && resolved->struct_def) {
+                    member_base->struct_def = resolved->struct_def;
+                    member_base->is_unresolved = false;
+                }
+            }
+
+            create_type_instantiation(instance_member->declared_type);
+        }
+
+        // else if (instance_member->initializer && !instance_member->declared_type) {
+        //     // infer_types_expr(&instance_member->initializer);
+        //     // instance_member->declared_type = instance_member->initializer->inferred_type;
+        // }
+
+        instance->member_instances.push_back(instance_member);
+    }
+
+}
+
+
+
 void CodeManager::resolve_idents_in_declaration(Ast_Declaration* decl)
 {
     if (!decl) return;
@@ -453,8 +519,7 @@ void CodeManager::resolve_idents_in_declaration(Ast_Declaration* decl)
             if (t->element_type)     { t = t->element_type;     continue; }
         }
         if (t->is_unresolved && t->name) {
-            CM_Unresolved_Type u{decl, t, decl->line_number, decl->character_number};
-            unresolved_types.push_back(u);
+            push_unresolved_type(decl, t);
         }
     }
 
@@ -466,8 +531,7 @@ void CodeManager::resolve_idents_in_declaration(Ast_Declaration* decl)
             if (t->element_type)     { t = t->element_type;     continue; }
         }
         if (t->is_unresolved && t->name) {
-            CM_Unresolved_Type u{decl, t, decl->line_number, decl->character_number};
-            unresolved_types.push_back(u);
+            push_unresolved_type(decl, t);
         }
     }
 }
@@ -491,378 +555,6 @@ Ast_Type_Definition* CodeManager::find_struct_type_in_scopes(const char* name) c
     return nullptr;
 }
 
-void CodeManager::resolve_unresolved_types_queue() {
-    std::vector<CM_Unresolved_Type> still_unresolved;
-
-    for (const auto& u : unresolved_types) {
-        Ast_Type_Definition* base = u.base_type;
-        if (!base) continue;
-        if (!base->is_unresolved) continue;
-        if (base->struct_def) { base->is_unresolved = false; continue; }
-        if (!base->name) { still_unresolved.push_back(u); continue; }
-
-        if (Ast_Type_Definition* def = find_struct_type_in_scopes(base->name)) {
-            if (def->struct_def) {
-                base->struct_def = def->struct_def;
-                base->is_unresolved = false;
-                continue;
-            }
-        }
-        still_unresolved.push_back(u);
-    }
-
-    unresolved_types.swap(still_unresolved);
-}
-
-void CodeManager::resolve_unresolved_member_accesses_queue() {
-    std::vector<CM_Unresolved_Member_Access> still_unresolved;
-
-    for (const auto& u : unresolved_member_accesses) {
-        // Try resolving again now that more types might be inferred
-        Ast_Declaration* field = resolve_member_access(u.dot_expr, u.my_scope);
-        if (!field) {
-            still_unresolved.push_back(u);
-        }
-    }
-
-    unresolved_member_accesses.swap(still_unresolved);
-
-    // If any still unresolved at the end, report errors
-    if (!unresolved_member_accesses.empty()) {
-        for (const auto& u : unresolved_member_accesses) {
-            report_error(u.line_number, u.character_number,
-                "Cannot resolve member access: base expression has unknown type");
-        }
-        unresolved_member_accesses.clear();
-    }
-}
-
-static Ast_Declaration* find_struct_member(Ast_Type_Definition* struct_type, const char* member_name) {
-    if (!struct_type || !struct_type->struct_def || !member_name) return nullptr;
-    Ast_Struct* sd = struct_type->struct_def;
-    for (int i = 0; i < sd->members.count; ++i) {
-        Ast_Declaration* m = sd->members.data[i];
-        if (m && m->identifier && m->identifier->name && strcmp(m->identifier->name, member_name) == 0) {
-            return m;
-        }
-    }
-    return nullptr;
-}
-
-Ast_Declaration* CodeManager::resolve_member_access(Ast_Binary* dot_expr, Ast_Block *my_scope) {
-    Ast_Type_Definition* base_type = nullptr;
-
-    // Handle nested dots recursively
-    if (dot_expr->lhs->type == AST_BINARY) {
-        Ast_Binary* base_dot = static_cast<Ast_Binary*>(dot_expr->lhs);
-        if (base_dot->op == BINOP_DOT) {
-            Ast_Declaration* nested_field = resolve_member_access(base_dot, my_scope);
-            if (!nested_field) {
-                CM_Unresolved_Member_Access u;
-                u.dot_expr = dot_expr;
-                u.line_number = dot_expr->line_number;
-                u.character_number = dot_expr->character_number;
-                u.my_scope = scope_stack.pop();
-                unresolved_member_accesses.push_back(u);
-                return nullptr;
-            }
-            base_type = nested_field->declared_type;
-
-            // NEW: Check if nested field's type is resolved
-            if (!base_type) {
-                // Nested field exists but type not resolved yet - queue
-                CM_Unresolved_Member_Access u;
-                u.dot_expr = dot_expr;
-                u.line_number = dot_expr->line_number;
-                u.character_number = dot_expr->character_number;
-                u.my_scope = scope_stack.pop();
-                unresolved_member_accesses.push_back(u);
-                return nullptr;
-            }
-
-            // NEW: Check if it's still marked unresolved
-            Ast_Type_Definition* check_resolved = base_type;
-            while (check_resolved->pointed_to_type || check_resolved->element_type) {
-                if (check_resolved->pointed_to_type) { check_resolved = check_resolved->pointed_to_type; continue; }
-                if (check_resolved->element_type) { check_resolved = check_resolved->element_type; continue; }
-            }
-            if (check_resolved->is_unresolved) {
-                // Type not fully resolved yet - queue
-                CM_Unresolved_Member_Access u;
-                u.dot_expr = dot_expr;
-                u.line_number = dot_expr->line_number;
-                u.character_number = dot_expr->character_number;
-                u.my_scope = scope_stack.pop();
-                unresolved_member_accesses.push_back(u);
-                return nullptr;
-            }
-        }
-    }
-    Ast_Declaration* base_decl = nullptr;
-    // Handle identifier base
-    if (!base_type && dot_expr->lhs->type == AST_IDENT) {
-        Ast_Ident* base_id = static_cast<Ast_Ident*>(dot_expr->lhs);
-        base_decl = lookup_symbol(base_id->name, my_scope);
-
-        if (!base_decl) {
-            report_error(base_id, "Undeclared variable '%s'", base_id->name);
-            return nullptr;
-        }
-
-        base_type = base_decl->declared_type;
-
-        // Try eager inference if no type yet
-        if (!base_type && base_decl->initializer) {
-            infer_types_expr(&base_decl->initializer);
-            base_type = base_decl->initializer->inferred_type;
-            if (base_type) {
-                dot_expr->lhs->inferred_type = base_type;
-            }
-        }
-
-        // Queue if still unresolved
-        if (!base_type) {
-            CM_Unresolved_Member_Access u;
-            u.dot_expr = dot_expr;
-            u.line_number = dot_expr->line_number;
-            u.character_number = dot_expr->character_number;
-            u.my_scope = scope_stack.pop();
-            unresolved_member_accesses.push_back(u);
-            return nullptr;
-        }
-    }
-
-    // Handle other expressions via inferred_type
-    if (!base_type) {
-        if (!dot_expr->lhs->inferred_type) {
-            resolve_idents_in_expr(dot_expr->lhs);
-        }
-        base_type = dot_expr->lhs->inferred_type;
-
-        if (!base_type) {
-            report_error(dot_expr->lhs, "Cannot determine type of base expression");
-            return nullptr;
-        }
-    }
-
-    // Auto-dereference all pointer levels
-    while (base_type->pointed_to_type) {
-        base_type = base_type->pointed_to_type;
-    }
-
-    // Validate base is a struct
-    if (!base_type->struct_def) {
-
-        if (base_type->is_unresolved) {
-            CM_Unresolved_Member_Access u;
-            u.dot_expr = dot_expr;
-            u.line_number = dot_expr->line_number;
-            u.character_number = dot_expr->character_number;
-            u.my_scope = scope_stack.pop();
-            unresolved_member_accesses.push_back(u);
-        }
-        return nullptr;
-    }
-
-    // Look up member in struct
-    Ast_Ident* member_id = static_cast<Ast_Ident*>(dot_expr->rhs);
-    Ast_Struct* sd = base_type->struct_def;
-
-    for (int i = 0; i < sd->members.count; ++i) {
-        Ast_Declaration* m = sd->members.data[i];
-        if (m && m->identifier && m->identifier->name &&
-            strcmp(m->identifier->name, member_id->name) == 0) {
-            return m;
-        }
-    }
-
-    report_error(member_id, "Struct '%s' has no member '%s'",
-        sd->name ? sd->name : "(unknown)", member_id->name);
-    return nullptr;
-}
-
-
-void CodeManager::resolve_idents_in_expr(Ast_Expression* expr)
-{
-    if (!expr) return;
-
-    switch (expr->type) {
-    case AST_IDENT: {
-        auto *id = static_cast<Ast_Ident*>(expr);
-        Ast_Declaration* decl = lookup_symbol(id->name);
-        if (!decl) {
-            // report_error(id, "Use of undeclared identifier '%s'", id->name);
-            CM_Unresolved_Variable unresolved;
-            unresolved.ident = id;
-            unresolved.line_number = id->line_number;
-            unresolved.character_number = id->character_number;
-            unresolved_vars.push_back(unresolved);
-        }
-        break;
-    }
-
-    case AST_LITERAL:
-        break;
-
-    case AST_UNARY: {
-        auto *u = static_cast<Ast_Unary*>(expr);
-        if (!u->operand) break;
-
-        resolve_idents_in_expr(u->operand);
-
-        break;
-    }
-
-
-    case AST_BINARY: {
-        auto *b = static_cast<Ast_Binary*>(expr);
-
-        if (b->op == BINOP_ASSIGN)
-        {
-            if (b->rhs) {
-                resolve_idents_in_expr(b->rhs);
-            }
-
-
-            if (Ast_Binary* lhs_dot = ast_static_cast<Ast_Binary>(b->lhs, AST_BINARY)) {
-                    Ast_Declaration* field = resolve_member_access(lhs_dot);
-                    return;
-            } else if (Ast_Ident* lhs_ident = ast_static_cast<Ast_Ident>(b->lhs, AST_IDENT)) {
-                Ast_Declaration *is_decl= lookup_symbol(lhs_ident->name);
-                if (!is_decl) {
-                    // report_error(lhs_ident, "Assignment to undeclared variable '%s'", lhs_ident->name);
-                    CM_Unresolved_Variable unresolved;
-                    unresolved.ident = lhs_ident;
-                    unresolved.line_number = lhs_ident->line_number;
-                    unresolved.character_number = lhs_ident->character_number;
-                    unresolved_vars.push_back(unresolved);
-
-                    expr->inferred_type = _type->type_def_dummy;
-                } else {
-                    is_decl->initialized = true;
-                }
-            } else if (Ast_Unary* lhs_unary = ast_static_cast<Ast_Unary>(b->lhs, AST_UNARY)) {
-                if (lhs_unary->op == UNARY_DEREFERENCE) {
-                    resolve_idents_in_expr(lhs_unary->operand);
-                } else {
-                    report_error(lhs_unary, "Unsupported unary operation on LHS of assignment");
-                }
-            } else {
-                report_error(b, "Left-hand side of assignment must be an identifier or dereferenced pointer");
-            }
-        }
-
-        else
-        {
-            if (b->op == BINOP_DOT) {
-                if (Ast_Binary* lhs_dot = ast_static_cast<Ast_Binary>(b->lhs, AST_BINARY)) {
-                        Ast_Declaration* field = resolve_member_access(lhs_dot);
-                }
-
-            } else {
-                if (b->lhs) resolve_idents_in_expr(b->lhs);
-                if (b->rhs) resolve_idents_in_expr(b->rhs);
-            }
-        }
-        break;
-    }
-
-    case AST_PROCEDURE_CALL_EXPRESSION: {
-        auto *call = static_cast<Ast_Procedure_Call_Expression*>(expr);
-
-        if (call->function)
-        {
-            auto *fn = static_cast<Ast_Ident*>(call->function);
-
-            if (fn->name && strcmp(fn->name, "printf") != 0){
-
-                Ast_Declaration *decl= lookup_symbol(fn->name);
-                if (!decl) {
-                    CM_Unresolved_Call unresolved;
-                    unresolved.call = call;
-                    unresolved.line_number = fn->line_number;
-                    unresolved.character_number = fn->character_number;
-                    unresolved_calls.push_back(unresolved);
-                } else if (!decl->is_function) {
-                    report_error(fn, "'s' is not a function", fn->name);
-                }
-                else {
-                    // Check parameter count
-                    int call_arg_count = call->arguments ? call->arguments->arguments.count : 0;
-                    int decl_arg_count = decl->parameters.count;
-                    if (call_arg_count != decl_arg_count) {
-                        report_error(fn, "Function '%s' expects %d arguments, but %d were provided",
-                                     fn->name, decl_arg_count, call_arg_count);
-                    } else if (call->arguments) {
-
-                        for (int i = 0; i < call_arg_count; ++i) {
-                            Ast_Expression* arg = call->arguments->arguments.data[i];
-                            resolve_idents_in_expr(arg);
-                        }
-                    }
-                }
-            }
-        }
-
-        if (call->arguments) {
-
-            for (int i = 0; i < call->arguments->arguments.count; ++i) {
-                Ast_Expression* a = call->arguments->arguments.data[i];
-                resolve_idents_in_expr(a);
-            }
-        }
-        break;
-    }
-
-    case AST_COMMA_SEPARATED_ARGS: {
-        auto *args = static_cast<Ast_Comma_Separated_Args*>(expr);
-
-        for (int i = 0; i < args->arguments.count; ++i) {
-            Ast_Expression *a = args->arguments.data[i];
-            resolve_idents_in_expr(a);
-        }
-        break;
-    }
-
-    case AST_STRUCT: {
-        auto *s = static_cast<Ast_Struct *>(expr);
-        if(!s) return;
-
-        for(int i = 0; i < s->members.count; ++i){
-            Ast_Declaration *decl = s->members.data[i];
-
-            if(decl) {
-                Ast_Type_Definition *base_type = decl->declared_type;
-                while(base_type->pointed_to_type){
-                    if(base_type->pointed_to_type) {
-                        base_type = base_type->pointed_to_type;
-                    }
-                }
-                if(base_type && base_type->is_unresolved){
-                    auto *struct_n = base_type->name;
-                    Ast_Declaration *struct_ = lookup_symbol(struct_n);
-                    auto* def_ = reinterpret_cast<Ast_Type_Definition*>(struct_);
-                    if(struct_) {
-                        base_type->struct_def = def_->pointed_to_type->struct_def;
-                        base_type->is_unresolved = false;
-                    } else {
-                        CM_Unresolved_Type u;
-                        u.decl = decl;
-                        u.base_type = base_type;
-                        u.line_number = decl->line_number;
-                        u.character_number = decl->character_number;
-                        unresolved_types.push_back(u);
-                    }
-                }
-                continue;
-            }
-        }
-        break;
-    }
-
-    default: break;
-    }
-}
 
 void CodeManager::resolve_unresolved_vars() {
     std::vector<CM_Unresolved_Variable> still_unresolved;
@@ -929,6 +621,560 @@ void CodeManager::resolve_unresolved_calls() {
         unresolved_calls.clear();
     }
 }
+
+void CodeManager::resolve_unresolved_types_queue() {
+    std::vector<CM_Unresolved_Type> still_unresolved;
+
+    for (const auto& u : unresolved_types) {
+        Ast_Type_Definition* base = u.base_type;
+        if (!base) continue;
+        if (!base->is_unresolved) continue;
+        if (base->struct_def) { base->is_unresolved = false; continue; }
+        if (!base->name) { still_unresolved.push_back(u); continue; }
+
+        if (Ast_Type_Definition* def = find_struct_type_in_scopes(base->name)) {
+            if (def->struct_def) {
+                base->struct_def = def->struct_def;
+                base->is_unresolved = false;
+
+                u.decl->declared_type = clone_type_definition(u.decl->declared_type);
+                create_type_instantiation(u.decl->declared_type);
+
+                continue;
+            }
+        } else {
+            report_error(u.decl, "Unresolved type '%s'", u.base_type->name);
+        }
+        still_unresolved.push_back(u);
+    }
+
+    unresolved_types.swap(still_unresolved);
+}
+
+
+// int temp = 0;
+void CodeManager::resolve_unresolved_member_accesses_queue() {
+    std::vector<CM_Unresolved_Member_Access> still_unresolved;
+
+    for (const auto& u : unresolved_member_accesses) {
+        Ast_Declaration* field = resolve_member_access(u.dot_expr, u.my_scope, false, true,/*should_infer=*/true);
+        if (!field) {
+            still_unresolved.push_back(u);
+            continue;
+        }
+        // printf("[%d,%d]\n", u.line_number, u.character_number);
+        // printf("Numer %d, resolved to member at: %p, name: %s\n", ++temp, field, field->identifier->name);
+
+        if (u.assignment_expr) {
+            // printf("Numer %d, inside if at: %p\n", temp, u.assignment_expr);
+
+            scope_stack.push_back(u.my_scope);
+            resolve_idents_in_expr(u.assignment_expr->rhs);
+            field->initializer = u.assignment_expr->rhs;
+            field->initialized = true;
+
+            // straight up copy pasta from resolve_ident_in_expr
+            if (field->declared_type && field->declared_type->pointed_to_type) {
+                if (u.assignment_expr->rhs->type == AST_UNARY) {
+                    Ast_Unary* rhs_unary = static_cast<Ast_Unary*>(u.assignment_expr->rhs);
+                    if (rhs_unary->op == UNARY_ADDRESS_OF && rhs_unary->operand) {
+                        Ast_Declaration* rhs_decl = nullptr;
+
+                        if (rhs_unary->operand->type == AST_IDENT) {
+                            Ast_Ident* rhs_id = static_cast<Ast_Ident*>(rhs_unary->operand);
+                            rhs_decl = lookup_symbol(rhs_id->name);
+                        }
+                        else if (rhs_unary->operand->type == AST_BINARY) {
+                            Ast_Binary* rhs_member = static_cast<Ast_Binary*>(rhs_unary->operand);
+                            if (rhs_member->op == BINOP_DOT) {
+                                rhs_decl = resolve_member_access(rhs_member, u.my_scope, false);
+                            }
+                        }
+
+                        if (rhs_decl && rhs_decl->declared_type) {
+                            Ast_Type_Definition* pointed_to = field->declared_type->pointed_to_type;
+                            Ast_Type_Definition* rhs_base = rhs_decl->declared_type;
+                            while (rhs_base->pointed_to_type) {
+                                rhs_base = rhs_base->pointed_to_type;
+                            }
+
+                            if (rhs_base->struct_def) {
+                                pointed_to->struct_def = rhs_base->struct_def;
+                                pointed_to->type_instance = rhs_base->type_instance;
+                                pointed_to->is_unresolved = false;
+                            }
+                        }
+                    }
+                }
+            }
+
+            scope_stack.pop_back();
+        }
+    }
+
+    unresolved_member_accesses.swap(still_unresolved);
+    if (!unresolved_member_accesses.empty()) {
+        for (const auto& u : unresolved_member_accesses) {
+            // THE PROBLEM IS ALSO HERE SINCE THOSE UNINFERED DECLARATIONS CANNOT BE RESOLVED PROPERLY
+            report_error(u.line_number, u.character_number,
+                "Cannot resolve member access: base expression has unknown type");
+        }
+        unresolved_member_accesses.clear();
+    }
+}
+
+
+static Ast_Declaration* find_struct_member(Ast_Type_Definition* struct_type, const char* member_name) {
+    if (!struct_type || !struct_type->struct_def || !member_name) return nullptr;
+    Ast_Struct* sd = struct_type->struct_def;
+    for (int i = 0; i < sd->members.count; ++i) {
+        Ast_Declaration* m = sd->members.data[i];
+        if (m && m->identifier && m->identifier->name && strcmp(m->identifier->name, member_name) == 0) {
+            return m;
+        }
+    }
+    return nullptr;
+}
+void CodeManager::push_unresolved_type(Ast_Declaration *decl, Ast_Type_Definition *base_type){
+    CM_Unresolved_Type u;
+    u.decl = decl;
+    u.base_type = base_type;
+    u.line_number = decl->line_number;
+    u.character_number = decl->character_number;
+    unresolved_types.push_back(u);
+}
+
+void CodeManager::push_unresolved_member_access(Ast_Binary *dot_expr){
+    CM_Unresolved_Member_Access u;
+    u.dot_expr = dot_expr;
+    // u.parent_expr = expr;
+    u.line_number = dot_expr->line_number;
+    u.character_number = dot_expr->character_number;
+    u.my_scope = scope_stack.pop();
+    unresolved_member_accesses.push_back(u);
+}
+
+
+
+Ast_Declaration* CodeManager::resolve_member_access(Ast_Binary* dot_expr, Ast_Block *my_scope, bool skip_init_check, bool skip_queuing, bool should_infer) {
+    Ast_Type_Definition* base_type = nullptr;
+    Ast_Declaration* base_decl = nullptr;
+    Ast_Type_Instantiation* current_instance = nullptr;
+
+    if (dot_expr->lhs->type == AST_BINARY) {
+        Ast_Binary* base_dot = static_cast<Ast_Binary*>(dot_expr->lhs);
+        if (base_dot->op == BINOP_DOT) {
+            Ast_Declaration* nested_field = resolve_member_access(base_dot, my_scope, skip_init_check, true); // skip_queuing at first bad resolve to avoid sub dot_expr nodes being pushed to unresolved queue
+            if (!nested_field) {
+                if(!skip_queuing){
+                    push_unresolved_member_access(dot_expr);
+                }
+                return nullptr;
+            }
+
+            base_type = nested_field->declared_type;
+
+            if (!base_type) {
+                if(!skip_queuing){
+                    push_unresolved_member_access(dot_expr);
+                }
+                return nullptr;
+            }
+
+            Ast_Type_Definition* check_resolved = base_type;
+            while (check_resolved->pointed_to_type /* || check_resolved->element_type */) {
+                if (check_resolved->pointed_to_type) {
+                    check_resolved = check_resolved->pointed_to_type;
+                    continue;
+                }
+                // if (check_resolved->element_type) {
+                //     check_resolved = check_resolved->element_type;
+                //     continue;
+                // }
+            }
+            if (check_resolved->is_unresolved) {
+                if(!skip_queuing){
+                    push_unresolved_member_access(dot_expr);
+                }
+                return nullptr;
+            }
+
+            if (!skip_init_check && base_type && base_type->pointed_to_type) {
+                if (!nested_field->initialized) {
+                    report_error(dot_expr, "Cannot access member through uninitialized pointer member '%s'",
+                                    nested_field->identifier ? nested_field->identifier->name : "(unknown)");
+                    return nullptr;
+                }
+            }
+
+            // Auto-dereference to get to the struct type
+            while (base_type->pointed_to_type) {
+                base_type = base_type->pointed_to_type;
+            }
+
+            // Get instance AFTER dereferencing
+            current_instance = base_type->type_instance;
+        }
+    }
+
+
+
+    if (!base_type && dot_expr->lhs->type == AST_IDENT) {
+        Ast_Ident* base_name = static_cast<Ast_Ident*>(dot_expr->lhs);
+        base_decl = lookup_symbol(base_name->name, my_scope);
+
+        if (!base_decl) {
+            report_error(base_name, "Undeclared member variable '%s'", base_name->name);
+            return nullptr;
+        }
+
+        base_type = base_decl->declared_type;
+
+
+        if (!base_type && base_decl->initializer && should_infer) // the declarations with explicit type given that dot_expr depend on need to be inferred first. should_infer is only set during reslolve_unresolved_member_accesses_queue()
+        {
+            scope_stack.push_back(my_scope);
+            infer_types_expr(&base_decl->initializer);
+            scope_stack.pop_back();
+
+            base_type = base_decl->initializer->inferred_type;
+            if (base_type) {
+                dot_expr->lhs->inferred_type = base_type;
+            }
+        }
+
+        if (!base_type) {
+            if(!skip_queuing){
+                push_unresolved_member_access(dot_expr);
+            }
+            return nullptr;
+        }
+
+        if (!skip_init_check && base_type && base_type->pointed_to_type) {
+            bool should_skip = base_decl->is_declaration_function_argument || base_decl->is_declaration_passed_through_function;
+
+            if (!base_decl->initialized && !should_skip) {
+                report_error(dot_expr, "Cannot access member through uninitialized pointer '%s'", base_decl->identifier->name);
+                return nullptr;
+            }
+        }
+
+        while (base_type->pointed_to_type) {
+            base_type = base_type->pointed_to_type;
+        }
+
+        current_instance = base_type->type_instance;
+    }
+
+    if (!base_type) {
+        if (!dot_expr->lhs->inferred_type) {
+            resolve_idents_in_expr(dot_expr->lhs);
+        }
+        base_type = dot_expr->lhs->inferred_type;
+
+        if (!base_type) {
+            report_error(dot_expr->lhs, "Cannot determine type of base expression");
+            return nullptr;
+        }
+
+        while (base_type->pointed_to_type) {
+            base_type = base_type->pointed_to_type;
+        }
+
+        current_instance = base_type->type_instance;
+    }
+
+    //  queue for later pass if no struct definition was found
+    if (!base_type->struct_def) {
+        if (base_type->is_unresolved) {
+            if(!skip_queuing){
+                push_unresolved_member_access(dot_expr);
+            }
+        }
+        return nullptr;
+    }
+
+
+    Ast_Ident* member_id = static_cast<Ast_Ident*>(dot_expr->rhs);
+
+    if (current_instance) {
+        for (int i = 0; i < current_instance->member_instances.count; ++i) {
+            Ast_Declaration* m = current_instance->member_instances.data[i];
+            if (m && m->identifier && m->identifier->name && strcmp(m->identifier->name, member_id->name) == 0) {
+                return m;
+            }
+        }
+    } else {
+        report_error(dot_expr, "INTERNAL, no struct definition was found. We should not be here!"); // TEMPORARY
+        return nullptr;
+    }
+
+    Ast_Struct* sd = base_type->struct_def;
+    report_error(member_id, "Struct '%s' has no member '%s'", sd->name ? sd->name : "(unknown)", member_id->name);
+    return nullptr;
+}
+
+
+void CodeManager::resolve_idents_in_expr(Ast_Expression* expr)
+{
+    if (!expr) return;
+
+    switch (expr->type) {
+    case AST_IDENT: {
+        auto *id = static_cast<Ast_Ident*>(expr);
+        Ast_Declaration* decl = lookup_symbol(id->name);
+        if (!decl) {
+            CM_Unresolved_Variable unresolved;
+            unresolved.ident = id;
+            unresolved.line_number = id->line_number;
+            unresolved.character_number = id->character_number;
+            unresolved_vars.push_back(unresolved);
+        }
+
+        break;
+    }
+
+    case AST_LITERAL:
+        break;
+
+    case AST_UNARY: {
+        auto *u = static_cast<Ast_Unary*>(expr);
+        if (!u->operand) break;
+
+        resolve_idents_in_expr(u->operand);
+
+        break;
+    }
+
+
+    case AST_BINARY: {
+        auto *b = static_cast<Ast_Binary*>(expr);
+
+        if (b->op == BINOP_ASSIGN) {
+
+            if (Ast_Binary* lhs_dot = ast_static_cast<Ast_Binary>(b->lhs, AST_BINARY)) {
+                if (lhs_dot->op == BINOP_DOT) {
+                    Ast_Declaration* lhs_field = resolve_member_access(lhs_dot, scope_stack.pop(), false, true);
+
+                    if (!lhs_field) {
+                        // TEMPORARY, we only pass the assignment_expr for this Unresolved_Member_Access queue
+                        CM_Unresolved_Member_Access u;
+                        u.dot_expr = lhs_dot;
+                        u.assignment_expr = b;
+                        u.my_scope = scope_stack.pop();
+                        u.line_number = lhs_dot->line_number;
+                        u.character_number = lhs_dot->character_number;
+                        unresolved_member_accesses.push_back(u);
+                        return;
+                    }
+
+                    resolve_idents_in_expr(b->rhs);
+
+                    lhs_field->initializer = b->rhs;
+                    lhs_field->initialized = true;
+
+                    if (lhs_field->declared_type && lhs_field->declared_type->pointed_to_type) {
+
+                        if (b->rhs->type == AST_UNARY) {
+                            Ast_Unary* rhs_unary = static_cast<Ast_Unary*>(b->rhs);
+                            if (rhs_unary->op == UNARY_ADDRESS_OF && rhs_unary->operand) {
+                                Ast_Declaration* rhs_decl = nullptr;
+
+                                if (rhs_unary->operand->type == AST_IDENT) {
+                                    Ast_Ident* rhs_id = static_cast<Ast_Ident*>(rhs_unary->operand);
+                                    rhs_decl = lookup_symbol(rhs_id->name);
+                                }
+                                else if (rhs_unary->operand->type == AST_BINARY) {
+                                    Ast_Binary* rhs_member = static_cast<Ast_Binary*>(rhs_unary->operand);
+                                    if (rhs_member->op == BINOP_DOT) {
+                                        rhs_decl = resolve_member_access(rhs_member, scope_stack.pop(), false);
+                                    }
+                                }
+
+                                if (rhs_decl && rhs_decl->declared_type) {
+                                    Ast_Type_Definition* pointed_to = lhs_field->declared_type->pointed_to_type;
+                                    Ast_Type_Definition* rhs_base = rhs_decl->declared_type;
+                                    while (rhs_base->pointed_to_type) {
+                                        rhs_base = rhs_base->pointed_to_type;
+                                    }
+
+                                    if (rhs_base->struct_def) {
+                                        pointed_to->struct_def = rhs_base->struct_def;
+                                        pointed_to->type_instance = rhs_base->type_instance;
+                                        pointed_to->is_unresolved = false;
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    b->lhs->inferred_type = lhs_field->declared_type;
+                }
+            }
+            else if (Ast_Ident* lhs_ident = ast_static_cast<Ast_Ident>(b->lhs, AST_IDENT)) {
+
+                resolve_idents_in_expr(b->rhs);
+
+                Ast_Declaration *is_decl = lookup_symbol(lhs_ident->name);
+                if (!is_decl) {
+                    CM_Unresolved_Variable unresolved;
+                    unresolved.ident = lhs_ident;
+                    unresolved.line_number = lhs_ident->line_number;
+                    unresolved.character_number = lhs_ident->character_number;
+                    unresolved_vars.push_back(unresolved);
+                } else {
+                    // is_decl->initializer = b->rhs;
+                    is_decl->initialized = true;
+                }
+            }
+            else if (Ast_Unary* lhs_unary = ast_static_cast<Ast_Unary>(b->lhs, AST_UNARY)) {
+                resolve_idents_in_expr(b->rhs);
+                if (lhs_unary->op == UNARY_DEREFERENCE) {
+                    resolve_idents_in_expr(lhs_unary->operand);
+                } else {
+                    report_error(lhs_unary, "Unsupported unary operation on LHS of assignment");
+                }
+            }
+            else {
+                report_error(b, "Left-hand side of assignment must be an identifier or dereferenced pointer");
+            }
+        }
+        else if (b->op == BINOP_DOT) {
+            Ast_Declaration* field = resolve_member_access(b, scope_stack.pop(), false, true);
+            if (field) {
+                b->inferred_type = field->declared_type;
+            }
+            else {
+                push_unresolved_member_access(b);
+            }
+
+        }
+        else {
+            if (b->lhs) resolve_idents_in_expr(b->lhs);
+            if (b->rhs) resolve_idents_in_expr(b->rhs);
+        }
+        break;
+    }
+
+    case AST_PROCEDURE_CALL_EXPRESSION: {
+        auto *call = static_cast<Ast_Procedure_Call_Expression*>(expr);
+
+        if (call->function)
+        {
+            auto *fn = static_cast<Ast_Ident*>(call->function);
+
+            if (fn->name && strcmp(fn->name, "printf") != 0){
+
+                Ast_Declaration *decl= lookup_symbol(fn->name);
+                if (!decl) {
+                    CM_Unresolved_Call unresolved;
+                    unresolved.call = call;
+                    unresolved.line_number = fn->line_number;
+                    unresolved.character_number = fn->character_number;
+                    unresolved_calls.push_back(unresolved);
+                } else if (!decl->is_function) {
+                    report_error(fn, "'s' is not a function", fn->name);
+                }
+                else {
+                    // Check parameter count
+                    int call_arg_count = call->arguments ? call->arguments->arguments.count : 0;
+                    int decl_arg_count = decl->parameters.count;
+                    if (call_arg_count != decl_arg_count) {
+                        report_error(fn, "Function '%s' expects %d arguments, but %d were provided",
+                                     fn->name, decl_arg_count, call_arg_count);
+                    } else if (call->arguments) {
+
+                        for (int i = 0; i < call_arg_count; ++i) {
+                            Ast_Expression* arg = call->arguments->arguments.data[i];
+                            resolve_idents_in_expr(arg);
+                        }
+                    }
+                }
+            } else {  // we want to resolve args in printf too
+                for (int i = 0; i < call->arguments->arguments.count; ++i) {
+                    Ast_Expression* arg = call->arguments->arguments.data[i];
+                    resolve_idents_in_expr(arg);
+                }
+
+            }
+        }
+
+        if (call->arguments) {
+            for (int i = 0; i < call->arguments->arguments.count; ++i) {
+                Ast_Expression* arg = call->arguments->arguments.data[i];
+
+                // flagging the tag for assuming that the local uninitialized pointer of struct/member
+                // is atleast being to a proc call (in the hopes that function will initialize it)
+                if (Ast_Unary* addr = ast_static_cast<Ast_Unary>(arg, AST_UNARY)) {
+                    if (addr->op == UNARY_ADDRESS_OF) {
+
+                        if (Ast_Ident* var = ast_static_cast<Ast_Ident>(addr->operand, AST_IDENT)) {
+                            Ast_Declaration* decl = lookup_symbol(var->name);
+                            if (decl) {
+                                decl->is_declaration_passed_through_function = true;
+                            }
+                        }
+                        else if (Ast_Binary* dot = ast_static_cast<Ast_Binary>(addr->operand, AST_BINARY)) {
+                            if (dot->op == BINOP_DOT && dot->lhs->type == AST_IDENT) {
+                                Ast_Ident* base_id = static_cast<Ast_Ident*>(dot->lhs);
+                                Ast_Declaration* base_decl = lookup_symbol(base_id->name);
+                                if (base_decl) {
+                                    base_decl->is_declaration_passed_through_function = true;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        break;
+    }
+
+    case AST_COMMA_SEPARATED_ARGS: {
+        auto *args = static_cast<Ast_Comma_Separated_Args*>(expr);
+
+        for (int i = 0; i < args->arguments.count; ++i) {
+            Ast_Expression *a = args->arguments.data[i];
+            resolve_idents_in_expr(a);
+        }
+        break;
+    }
+
+    case AST_STRUCT: {
+        auto *s = static_cast<Ast_Struct *>(expr);
+        if(!s) return;
+
+        for(int i = 0; i < s->members.count; ++i){
+            Ast_Declaration *decl = s->members.data[i];
+
+            if(decl) {
+                Ast_Type_Definition *base_type = decl->declared_type;
+                while(base_type && base_type->pointed_to_type){
+                    if(base_type->pointed_to_type) {
+                        base_type = base_type->pointed_to_type;
+                    }
+                }
+                if(base_type && base_type->is_unresolved){
+                    auto *struct_n = base_type->name;
+                    Ast_Declaration *struct_ = lookup_symbol(struct_n);
+                    auto* def_ = reinterpret_cast<Ast_Type_Definition*>(struct_);
+                    if(struct_) {
+                        base_type->struct_def = def_->pointed_to_type->struct_def;
+                        base_type->is_unresolved = false;
+                    } else {
+                        push_unresolved_type(decl, base_type);
+                    }
+                }
+                continue;
+            }
+        }
+        break;
+    }
+
+    default: break;
+    }
+}
+
 
 char* CodeManager::type_to_string(Ast_Type_Definition* type) {
 
@@ -1013,9 +1259,9 @@ void CodeManager::infer_types_return(Ast_Statement* ret, Ast_Declaration* func_d
 
 void CodeManager::infer_types_expr(Ast_Expression** expr_ptr)
 {
-    Ast_Expression *expr = *expr_ptr;
     if (!expr_ptr) return;
-    if(expr->inferred_type) return;  // this saves us unnessary checks
+    Ast_Expression *expr = *expr_ptr;
+    if(expr->inferred_type && expr->type != AST_BINARY) return;  // this saves us unnessary checks
 
     switch (expr->type) {
         case AST_LITERAL: {
@@ -1053,7 +1299,7 @@ void CodeManager::infer_types_expr(Ast_Expression** expr_ptr)
                     expr->inferred_type = _type->type_def_dummy;
                 }
             } else {
-                report_error(id, "Use of undeclared identifier '%s'", id->name);  // COME BACK TO THIS SHIT
+                // report_error(id, "Use of undeclared identifier '%s'", id->name);  // COME BACK TO THIS SHIT
                 expr->inferred_type = _type->type_def_dummy;
             }
             break;
@@ -1083,6 +1329,40 @@ void CodeManager::infer_types_expr(Ast_Expression** expr_ptr)
                     expr->inferred_type = _type->type_def_dummy;
                     break;
                 }
+
+                if (Ast_Ident* operand_ident = ast_static_cast<Ast_Ident>(u->operand, AST_IDENT)) {
+                    Ast_Declaration* decl = lookup_symbol(operand_ident->name);
+                    if (decl && !decl->initialized && !decl->is_declaration_function_argument) {
+                        report_error(u, "Cannot dereference uninitialized pointer '%s'", operand_ident->name);
+                        expr->inferred_type = _type->type_def_dummy;
+                        break;
+                    }
+                }
+                else if (Ast_Binary* operand_dot = ast_static_cast<Ast_Binary>(u->operand, AST_BINARY)) {
+                    if (operand_dot->op == BINOP_DOT) {
+                        Ast_Block* current_scope = scope_stack.size() > 0 ? scope_stack.pop() : nullptr;
+                        Ast_Declaration* member = resolve_member_access(operand_dot, current_scope, false);
+
+                        // should skip when a type is that uninitialized pointer is being passed to function call in this case we assume that that function will initialize it so dont throw error.
+                        bool should_skip = false;
+                        if (operand_dot->lhs->type == AST_IDENT) {
+                            Ast_Ident* base_id = static_cast<Ast_Ident*>(operand_dot->lhs);
+                            Ast_Declaration* base_var = lookup_symbol(base_id->name);
+
+                            if (base_var && base_var->is_declaration_passed_through_function) {
+                                should_skip = true;
+                            }
+                        }
+
+                        if (member && !member->initialized && !should_skip) {
+                            report_error(u, "Cannot dereference uninitialized pointer member '%s'",
+                                member->identifier ? member->identifier->name : "(unknown)");
+                            expr->inferred_type = _type->type_def_dummy;
+                            break;
+                        }
+                    }
+                }
+
                 expr->inferred_type = operandType->pointed_to_type;
                 break;
             }
@@ -1122,7 +1402,8 @@ void CodeManager::infer_types_expr(Ast_Expression** expr_ptr)
                     Ast_Type_Definition *lt = b->lhs->inferred_type;
                     Ast_Type_Definition *rt = b->rhs->inferred_type;
 
-                    if(lt && lt == _type->type_def_dummy || rt == _type->type_def_dummy){
+                    if(!lt || !rt || lt == _type->type_def_dummy || rt == _type->type_def_dummy){
+                        report_error(expr, "Cannot infer types for operands in binary operation");
                         expr->inferred_type = _type->type_def_dummy;
                         break;
                     }
@@ -1141,12 +1422,14 @@ void CodeManager::infer_types_expr(Ast_Expression** expr_ptr)
                             expr->inferred_type = _type->type_def_s64;
                         } else if (lt == _type->type_def_int && rt == _type->type_def_s64) {
                             expr->inferred_type = _type->type_def_s64;
+                        } else if (lt == _type->type_def_s64 && rt == _type->type_def_int) {
+                            expr->inferred_type = _type->type_def_s64;
                         }
                         // pointer arithmetic
                         else if (lt && lt->pointed_to_type && (rt == _type->type_def_int || rt == _type->type_def_s64)) {
-                            expr->inferred_type = lt; // Result is the pointer type (e.g., ^int)
+                            expr->inferred_type = lt;
                         } else {
-                            report_error(b, "Type error in binary arithmetic: operand types incompatible");
+                            report_error(b, "Type error in binary arithmetic types incompatible, Expected '%s' Got '%s'", type_to_string(lt),type_to_string(rt));
                             expr->inferred_type = _type->type_def_dummy;
                         }
                         break;
@@ -1165,6 +1448,8 @@ void CodeManager::infer_types_expr(Ast_Expression** expr_ptr)
                             expr->inferred_type = _type->type_def_s64;
                         } else if (lt == _type->type_def_int && rt == _type->type_def_s64) {
                             expr->inferred_type = _type->type_def_s64;
+                        } else if (lt == _type->type_def_s64 && rt == _type->type_def_int) {
+                            expr->inferred_type = _type->type_def_s64;
                         } else {
                             report_error(b, "Type error in binary arithmetic: operand types incompatible");
                             expr->inferred_type = _type->type_def_dummy;
@@ -1180,6 +1465,7 @@ void CodeManager::infer_types_expr(Ast_Expression** expr_ptr)
                 }
                 case BINOP_DOT: {
                     infer_types_expr(&b->lhs);
+
                     Ast_Type_Definition* base_type = b->lhs->inferred_type;
 
                     if (!base_type) {
@@ -1188,35 +1474,58 @@ void CodeManager::infer_types_expr(Ast_Expression** expr_ptr)
                         break;
                     }
 
-                    while (base_type->pointed_to_type) {
-                        base_type = base_type->pointed_to_type;
+                    Ast_Type_Definition* dereferenced = base_type;
+                    while (dereferenced->pointed_to_type) {
+                        dereferenced = dereferenced->pointed_to_type;
                     }
 
-                    if (!base_type->struct_def) {
-                        report_error(b->lhs, "Member access requires a struct, got '%s'",
-                            type_to_string(b->lhs->inferred_type));
+                    if (!dereferenced->struct_def) {
+                        report_error(b->lhs, "Member access requires a struct");
                         expr->inferred_type = _type->type_def_dummy;
                         break;
                     }
 
                     Ast_Ident* member = static_cast<Ast_Ident*>(b->rhs);
-                    Ast_Struct* sd = base_type->struct_def;
 
-                    // Look up member and set type
-                    for (int i = 0; i < sd->members.count; ++i) {
-                        Ast_Declaration* m = sd->members.data[i];
-                        if (m && m->identifier && m->identifier->name &&
-                            strcmp(m->identifier->name, member->name) == 0) {
-                            expr->inferred_type = m->declared_type ? m->declared_type : _type->type_def_dummy;
-                            break;
+                    Ast_Type_Definition* member_type = nullptr;
+                    Ast_Declaration *member_decl = nullptr;
+                    if (dereferenced->type_instance) {
+                        for (int i = 0; i < dereferenced->type_instance->member_instances.count; ++i) {
+                            Ast_Declaration* m = dereferenced->type_instance->member_instances.data[i];
+                            if (m && m->identifier && m->identifier->name &&
+                                strcmp(m->identifier->name, member->name) == 0) {
+                                member_type = m->declared_type;
+                                member_decl = m;
+                                break;
+                            }
+                        }
+                    } else {
+                        Ast_Struct* sd = dereferenced->struct_def;
+                        for (int i = 0; i < sd->members.count; ++i) {
+                            Ast_Declaration* m = sd->members.data[i];
+                            if (m && m->identifier && m->identifier->name &&
+                                strcmp(m->identifier->name, member->name) == 0) {
+                                member_type = m->declared_type;
+                                member_decl = m;
+                                break;
+                            }
                         }
                     }
 
-                    // If we didn't find it (inferred_type not set), report error
-                    if (!expr->inferred_type) {
-                        report_error(member, "Struct '%s' has no member '%s'",
-                            sd->name ? sd->name : "(unknown)", member->name);
-                        expr->inferred_type = _type->type_def_dummy;
+                    if (!member_type) {
+                        if (member_decl && !member_decl->declared_type && member_decl->initializer) {
+                            infer_types_expr(&member_decl->initializer);
+                            member_decl->declared_type = member_decl->initializer->inferred_type;
+                            member_type = member_decl->declared_type;
+                        }
+                        if (!member_type) {
+                            report_error(member, "Struct '%s' has no member '%s'", dereferenced->struct_def->name, member->name);
+                            expr->inferred_type = _type->type_def_dummy;
+                        } else {
+                            expr->inferred_type = member_type;
+                        }
+                    } else {
+                        expr->inferred_type = member_type;
                     }
                     break;
                 }
@@ -1247,9 +1556,8 @@ void CodeManager::infer_types_expr(Ast_Expression** expr_ptr)
                             lhsType = lhs_dot->inferred_type;
 
                             if (!check_that_types_match(lhsType, rhsType)) {
-                                report_error(b,
-                                    "Type mismatch in member assignment. Expected '%s' Got '%s'",
-                                    type_to_string(lhsType), type_to_string(rhsType));
+                                report_error(b, "Type mismatch in member assignment. Expected '%s' Got '%s'",
+                                                 type_to_string(lhsType), type_to_string(rhsType));
                             }
                         } else {
                             report_error(b, "Invalid left-hand side of assignment");
@@ -1268,10 +1576,11 @@ void CodeManager::infer_types_expr(Ast_Expression** expr_ptr)
                         if (!is_decl->declared_type) {
                             is_decl->declared_type = rhsType;
                         } else if (!check_that_types_match(is_decl->declared_type, rhsType)) {
-                            report_error(lhs_ident,
-                                "Type mismatch in assignment to '%s'. Expected '%s' Got '%s'",
-                                lhs_ident->name, type_to_string(is_decl->declared_type), type_to_string(rhsType));
+                            report_error(lhs_ident, "Type mismatch in assignment to '%s'. Expected '%s' Got '%s'",
+                                          lhs_ident->name, type_to_string(is_decl->declared_type), type_to_string(rhsType));
                         }
+                        // is_decl->initializer = b->rhs;
+                        is_decl->initialized = true;
                         lhsType = is_decl->declared_type;
                     }
 
@@ -1303,21 +1612,17 @@ void CodeManager::infer_types_expr(Ast_Expression** expr_ptr)
                             // Check for uninitialized pointer
                             if (Ast_Ident *pointer_ident = ast_static_cast<Ast_Ident>(lhs_unary->operand, AST_IDENT)) {
                                 Ast_Declaration *pointer_decl = lookup_symbol(pointer_ident->name);
-                                bool is_var_param = is_function_parameter(pointer_ident->name);
-                                if (pointer_decl && !pointer_decl->initialized && !is_var_param) {
-                                    // report_error(lhs_unary,
-                                        // "Cannot dereference uninitialized pointer '%s'",
-                                        // pointer_ident->name);
+                                if (pointer_decl && !pointer_decl->initialized && !pointer_decl->is_declaration_function_argument) {
+                                    report_error(lhs_unary, "Cannot dereference uninitialized pointer '%s'", pointer_ident->name);
                                     expr->inferred_type = _type->type_def_dummy;
                                     return;
                                 }
                             }
 
-                            // Type-check assignment
+                            
                             if (!check_that_types_match(lhsType, rhsType)) {
-                                report_error(lhs_unary,
-                                    "Type mismatch: cannot assign '%s' to dereferenced pointer of type '%s'",
-                                    type_to_string(rhsType), type_to_string(lhsType));
+                                report_error(lhs_unary, "Type mismatch: cannot assign '%s' to dereferenced pointer of type '%s'",
+                                                type_to_string(rhsType), type_to_string(lhsType));
 
                                 expr->inferred_type = _type->type_def_dummy;
                                 return;
@@ -1347,6 +1652,27 @@ void CodeManager::infer_types_expr(Ast_Expression** expr_ptr)
                     expr->inferred_type = _type->type_def_dummy;
                     return;
             }
+            break;
+        }
+
+        case AST_STRUCT: {
+            auto *s = static_cast<Ast_Struct *>(expr);
+            if(!s) return;
+
+            Ast_Block* temp_scope = AST_NEW(ast_pool, Ast_Block);
+            for(int i = 0; i < s->members.count; ++i){
+                temp_scope->statements.push_back(s->members.data[i]);
+            }
+            scope_stack.push_back(temp_scope);
+
+            for(int i = 0; i < s->members.count; ++i){
+                Ast_Declaration *decl = s->members.data[i];
+                if(decl) {
+                    infer_types_decl(decl);
+                }
+            }
+
+            scope_stack.pop_back();
             break;
         }
 
@@ -1562,7 +1888,7 @@ void CodeManager::infer_types_decl(Ast_Declaration* decl) {
             else if (is_literal_number) {
                 if (!check_that_types_fit(signed_value, decl_type)) {
                     long long wrapped = wrap_integer_to_type(signed_value, decl_type); // TEMPORARY Is this a good idea?
-                    // TEMPORARY WE CAN implement the flag during compilation to only throw this warning if the programmer wants it thrown or not, (just like c compilers)
+                    // TEMPORARY WE CAN implement the flag during compilation to only throw this warning if the user wants it thrown or not
                     printf("Warning: Constant overflow in identifier '%s'. %lld wrapped to %lld for type '%s'\n",
                            decl->identifier->name, signed_value, wrapped, type_to_string(decl_type));
 
@@ -1590,17 +1916,16 @@ void CodeManager::infer_types_decl(Ast_Declaration* decl) {
                 if (!check_that_types_match(decl->declared_type, init_type)) {
 
                     if (init_type && init_type->pointed_to_type &&
-                        decl->declared_type->pointed_to_type) {
-
-                        if(!check_that_types_match(decl->declared_type->pointed_to_type, init_type))
-                        {
-                            report_error(decl,
-                                        "Type mismatch in initializer for '%s', Expected '%s' Got '%s'",
-                                        decl->identifier ? decl->identifier->name : "null",
-                                        type_to_string(decl->declared_type),
-                                        type_to_string(init_type));
-                        }
-                        // ^int assigned to ^^int
+                        decl->declared_type->pointed_to_type && check_that_types_match(decl->declared_type->pointed_to_type, init_type)) {
+                    // ^int assigned to ^^int
+                    // this is ugly code but can't bothered to factor it right now
+                    }
+                    else {
+                        report_error(decl,
+                            "Type mismatch in initializer for '%s', Expected '%s' Got '%s'",
+                            decl->identifier ? decl->identifier->name : "null",
+                            type_to_string(decl->declared_type),
+                            type_to_string(init_type));
                     }
                 }
             }
@@ -1641,6 +1966,9 @@ void CodeManager::infer_types_block(Ast_Block* block, Ast_Declaration *my_func)
             } else {
                 report_error(stmt, "Return statement outside of function body");
             }
+        } else if (stmt->expression && stmt->expression->type == AST_STRUCT){
+            infer_types_expr(&stmt->expression);
+
         } else if (stmt->type == AST_DECLARATION) {
             Ast_Declaration *decl = static_cast<Ast_Declaration*>(stmt);
 
@@ -1656,12 +1984,12 @@ void CodeManager::infer_types_block(Ast_Block* block, Ast_Declaration *my_func)
                 }
 
             } else {
-                infer_types_decl(decl);
 
                 Ast_Declaration* is_decl = lookup_symbol_current_scope(decl->identifier ? decl->identifier->name : "");
                 if (!is_decl) {
                     declare_variable(decl);
                 }
+                infer_types_decl(decl);
             }
 
         } else if (stmt->expression) {

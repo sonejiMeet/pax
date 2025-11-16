@@ -18,6 +18,7 @@ FileBuffer read_entire_file(const char *path);
 #ifndef HAVE_DEFER
 #define HAVE_DEFER
 
+#define CONCAT_INTERNAL(x, y) x ## y
 #define CONCAT(x,y) CONCAT_INTERNAL(x,y)
 
 template<typename T>

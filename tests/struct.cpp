@@ -13,9 +13,9 @@ typedef char       s8;
 typedef float      float32;
 typedef double     float64;
 
+/*BSS SECTION GLOBAL VARIAABLES*/
+
 /*STRUCT FORWARD DECLARATIONS*/
-struct f;
-struct f;
 struct Subject;
 struct Student;
 
@@ -24,24 +24,20 @@ void func1(Student * stud);
 void func2(Student * stud);
 void func3(Student stud);
 void print_struct(Student * stud, char * str);
-void ss1(void);
 void newline(void);
 
 /*STRUCTS DEFINITIONS*/
-struct f {
-};
-struct f {
-};
 struct Subject {
 char * name = "Math";
 };
 struct Student {
-int grade;
+int grade = -24;
 float * gpa;
 char * name = "Default";
 Subject sub;
 };
 
+/*FUNCTION BODIES*/
 
 void func1 (Student * stud) {
     Student local = (*stud);
@@ -75,21 +71,11 @@ void print_struct (Student * stud, char * str) {
     printf("%s.sub.name = %s\n",str,(((*stud).sub).name));
 }
 
-s64 x = 0;
-
-void ss1 () {
-    if((x == 10)){
-        return;
-    }
-    (x = (x + 1));
-    printf("x = %d\n",x);
-    ss1();
-}
-
 
 void newline () {
     printf("\n");
 }
+
 
 
 void GENERATED_MAIN(){
@@ -152,8 +138,12 @@ void GENERATED_MAIN(){
         (((*s).gpa) = (&f));
         printf("s.gpa = %f\n",(*((*s).gpa)));
         printf("s.gpa = %p\n",((*s).gpa));
-        ((*((*s).gpa)) = 5.00000000000000000);
+        printf("\nf = %f\n",f);
+        ((*((*s).gpa)) = 6420.00000000000000000);
         printf("s.gpa = %f\n",(*((*s).gpa)));
+        printf("f = %f\n",f);
+        printf("^s.gpa = %p\n",(&(*((*s).gpa))));
+        printf("^f = %p\n",(&f));
     }
     printf("------------------------------------");
 }

@@ -3,7 +3,7 @@
 
         to be FIXed
 
-high priority: when structs that have dependencies and if these dependencies come later then c compiler complains because of out of order. 
+mid priority: Need to make sure we exit before we go into infer_types_block if there we any errors reported during resolution.
 
 mid priority: builtin type keywords cannot be used as variable names
 
@@ -62,6 +62,8 @@ Emit Debug Information
  \#line + debug info
 emit #line directives so the compiler and debugger know the real source file and line.
 
+
+DONE: high priority: when structs that have dependencies and if these dependencies come later then c compiler complains because of out of order.
 
 DONE: Mid-High priority: Fix floating point precision
 
@@ -131,7 +133,8 @@ PARSER STUFF will be useful for referencing in our thesis:
 https://abarker.github.io/typped/pratt_parsing_intro.html
 https://tdop.github.io/
 
-
+--------useful links---------
+https://dyncall.org/   ()
 
 
 What works?

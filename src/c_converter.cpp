@@ -169,7 +169,7 @@ void C_Converter::emitExpression(FILE* out, Ast_Expression* expr, int indent, bo
 }
 
 
-void C_Converter::type_to_c_string(FILE *out, Ast_Type_Definition* type, Ast_Declaration *decl, bool need_semicolon, int indent) {
+void C_Converter::type_to_c_string(FILE *out, Ast_Type_Definition* type, Ast_Declaration *decl, bool need_semicolon, int indent, bool should_initializer) {
     if (!type) return;
 
     std::string type_str;
@@ -198,7 +198,7 @@ void C_Converter::type_to_c_string(FILE *out, Ast_Type_Definition* type, Ast_Dec
 
     fprintf( out, "%s %s%s", type_str.c_str(), decl->identifier->name, array_suffix.c_str());
 
-     if (decl->initializer) {
+     if (decl->initializer && !should_initializer) {
         fprintf(out, " = ");
         emitExpression(out, decl->initializer, indent);
      }
@@ -217,7 +217,7 @@ void C_Converter::emitFunctionPrototype(FILE* out, Ast_Declaration* decl, int in
     for (int i = 0; i < decl->parameters.count; ++i) {
         auto* param = decl->parameters.data[i];
         if (i > 0) fprintf(out, ", ");
-        type_to_c_string(out, param->declared_type, param, false, indent);
+        type_to_c_string(out, param->declared_type, param, false, indent, true);
     }
     if (decl->parameters.count == 0) {
         fprintf(out, "void");
@@ -243,6 +243,7 @@ void C_Converter::emitStruct(FILE* out, Ast_Statement* stmt, int indent) {
 
     for (int i = 0; i < struct_def->members.count; ++i) {
         auto* member = struct_def->members.data[i];
+        if(!member->declared_type) fprintf(out, "/*member not inferred\n*/");
         type_to_c_string(out, member->declared_type, member, true, indent);
     }
 
@@ -252,7 +253,7 @@ void C_Converter::emitStruct(FILE* out, Ast_Statement* stmt, int indent) {
 void C_Converter::emitStatement(FILE* out, Ast_Statement* stmt, int indent)
 {
     if (!stmt) return;
-
+    // fprintf(out, "#line %d \"%s\"\n", stmt->line_number, stmt->file_name);
     switch (stmt->type) {
 
         case AST_DECLARATION: {
@@ -272,7 +273,7 @@ void C_Converter::emitStatement(FILE* out, Ast_Statement* stmt, int indent)
                 for (int i = 0; i < decl->parameters.count; ++i) {
                     auto* param = decl->parameters.data[i];
 
-                    type_to_c_string(out, param->declared_type, param, false, indent);
+                    type_to_c_string(out, param->declared_type, param, false, indent, true);
 
                     if (i + 1 < decl->parameters.count)
                         fprintf(out, ", ");
@@ -364,8 +365,8 @@ void C_Converter::emitBlock(FILE* out, Ast_Block* block, int indent)
     fprintf(out, "}\n");
 }
 
-std::vector<Ast_Statement*> C_Converter::topologically_sort_structs(
-    const std::vector<Ast_Statement*>& structs) {
+std::vector<Ast_Statement*>
+C_Converter::topologically_sort_structs(const std::vector<Ast_Statement*>& structs) {
 
     // Build dependency map: struct -> structs it depends on
     std::map<Ast_Struct*, std::set<Ast_Struct*>> dependencies;
@@ -373,17 +374,16 @@ std::vector<Ast_Statement*> C_Converter::topologically_sort_structs(
     for (auto* stmt : structs) {
         Ast_Struct* s = static_cast<Ast_Struct*>(stmt->expression);
 
-        // Check each member
         for (int i = 0; i < s->members.count; ++i) {
             Ast_Declaration* member = s->members.data[i];
             if (!member || !member->declared_type) continue;
 
             Ast_Type_Definition* type = member->declared_type;
 
-            // Skip pointers - they don't create ordering dependencies
+            // Skip pointers members
             if (type->pointed_to_type) continue;
 
-            // If member is a value of another struct, add dependency
+            // only add dependency if member is a value of another struct
             if (type->struct_def) {
                 dependencies[s].insert(type->struct_def);
             }
@@ -401,10 +401,7 @@ std::vector<Ast_Statement*> C_Converter::topologically_sort_structs(
         if (visited.count(s)) return;
 
         if (in_progress.count(s)) {
-            // Circular dependency detected
-            // @CAREFULL report_error here
-            fprintf(stderr, "Error: Circular struct dependency involving '%s'\n",
-                   s->name ? s->name : "(unknown)");
+            fprintf(stderr, "Error: Circular struct dependency involving '%s'\n", s->name ? s->name : "(unknown)");
 
             exit(1);
         }
@@ -454,6 +451,7 @@ void C_Converter::generate_cpp_code(const char* filename, Ast_Block* program)
 
     fprintf(out, "%s", BOILTERPLATE_TOP);
 
+    std::vector<Ast_Statement*> vars; // TEMPORARY
     std::vector<Ast_Declaration*> functions; // TEMPORARY
     std::vector<Ast_Statement*> structs; // TEMPORARY
 
@@ -465,7 +463,9 @@ void C_Converter::generate_cpp_code(const char* filename, Ast_Block* program)
             if (decl->is_function && decl->is_function_body) {
                 functions.push_back(decl);
             }
-
+            else {
+                vars.push_back(decl);
+            }
         } else if (stmt->expression && stmt->expression->type == AST_STRUCT){
             structs.push_back(stmt);
         }
@@ -473,6 +473,13 @@ void C_Converter::generate_cpp_code(const char* filename, Ast_Block* program)
     }
 
     std::vector<Ast_Statement*> sorted_structs = topologically_sort_structs(structs);
+
+    fprintf(out, "/*BSS SECTION GLOBAL VARIAABLES*/\n");
+    for (auto *v : vars) {
+        emitStatement(out, v, 0);
+    }
+    fprintf(out, "\n");
+
 
     fprintf(out, "/*STRUCT FORWARD DECLARATIONS*/\n");
     for (auto *stmt : sorted_structs) {
@@ -494,16 +501,15 @@ void C_Converter::generate_cpp_code(const char* filename, Ast_Block* program)
     }
     fprintf(out, "\n");
 
-    // Normal declarations
-    for (int i = 0; i < program->statements.count; i++) {
-        Ast_Statement* stmt = program->statements.data[i];
 
-        if (!stmt) continue;
-
-        if (stmt->type == AST_DECLARATION) {
-            emitStatement(out, stmt, 0);
-        }
+    fprintf(out, "/*FUNCTION BODIES*/\n");
+    for (auto *decl : functions) {
+        auto *stmt = reinterpret_cast<Ast_Statement *>(decl);
+        emitStatement(out, stmt, 0);
     }
+    fprintf(out, "\n");
+
+
 
     Ast_Block* mainBlock = nullptr;
 
@@ -522,7 +528,9 @@ void C_Converter::generate_cpp_code(const char* filename, Ast_Block* program)
         return;
     }
 
+    // fprintf(out, "#line %d \"%s\"\n", mainBlock->line_number, mainBlock->file_name);
     fprintf(out, "\nvoid GENERATED_MAIN()");
+
     emitBlock(out, mainBlock, 0);
 
     fprintf(out, "\nint main(int argc, char **argv){\n");
