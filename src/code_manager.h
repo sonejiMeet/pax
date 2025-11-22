@@ -4,14 +4,18 @@
 #include "ast.h"
 #include "pool.h"
 
+struct Pax_Interp;
+
 struct CM_Unresolved_Call {
     Ast_Procedure_Call_Expression *call;
+    Ast_Block* my_scope;
     int line_number;
     int character_number;
 };
 
 struct CM_Unresolved_Variable {
     Ast_Ident *ident;
+    Ast_Block* my_scope;
     int line_number;
     int character_number;
 };
@@ -38,10 +42,11 @@ struct ReturnCheckResult {
 };
 
 struct CodeManager {
+    Pax_Interp* interp;
 
     Pool *ast_pool;
     Array<Ast_Block *> scope_stack;
-
+    
     std::vector<CM_Unresolved_Call> unresolved_calls;
     std::vector<CM_Unresolved_Variable> unresolved_vars;
     std::vector<CM_Unresolved_Type> unresolved_types;
@@ -49,7 +54,8 @@ struct CodeManager {
 
     Def_Type *_type;
 
-    CodeManager(Pool *pool, Def_Type *type);
+    CodeManager(Pax_Interp *_interp);
+
     Ast_Literal *make_integer_literal(long long value);
 
     int count_errors = 0;
@@ -59,6 +65,9 @@ struct CodeManager {
     template <typename T>
     void report_error(T type, const char *fmt, ...);
     void report_error(int row, int col, const char* fmt, ...);
+
+    template<typename T, typename P>
+    void report_error_with_previous(T node, P previous, const char* fmt, ...);
 
     void push_scope();
     void pop_scope();
@@ -103,7 +112,7 @@ struct CodeManager {
     void resolve_unresolved_types_queue();
     void resolve_unresolved_member_accesses_queue();
 
-    
+
     char *type_to_string(Ast_Type_Definition *type);
 
     void infer_types_return(Ast_Statement *ret, Ast_Declaration *func_decl);

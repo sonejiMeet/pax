@@ -1,7 +1,38 @@
 
+    -------- TODO ---------
+
+    DONE multiple file compilation (turns into single .cpp)
+    #foreign directive for functions to call C standard library functions
+    sizeof() C call
+    malloc, free C calls (through our own new, delete keywords)
+    arrays static and dynamic.
+
+    loops for and while
+    else if (how is this still not done ffs )
+    defer
+
+    DONE must add filename to base ast node!!!
+    #line directive for outputing debug info in .cpp file
+
+    custom built-in string type (that holds both value and data instead of char *)
+
+    default parameter values
+    named arguments ( default parameter is used the parameters following ’a’ need to be explicitly passed)
+
+    multiple function return types (turned into struct on C side )
+    compound declarations for example a,b : int;
+
+    designated initializers (a := Student.{1, 4.5, "Meet"};)
 
 
-        to be FIXed
+    - EVEN MORE AMBITIOUS STUFF I WOULD LIKE TO DO LATERR
+        type packing (most anticipated for me but probably wont have time sadge )
+        replacing printf
+        namespaces (using keyword like in jai)
+        structs of array (SOA) and arrays of struct (AOS)
+
+
+    --------- to be FIXed ---------
 
 mid priority: Need to make sure we exit before we go into infer_types_block if there we any errors reported during resolution.
 
@@ -109,10 +140,6 @@ Check things for correctness and proof of concept
 - should obey operator precedence (pemdas eg.)
 - some simple programs like computing factorial, estimating arctan with taylor series or something (this could be hard)
 
-
-things to implement
-- code manager for error checking and outputing
-- mylang to cpp converter
 
 
 

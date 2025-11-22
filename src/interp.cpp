@@ -1,6 +1,10 @@
 #include "interp.h"
 #include "ast_printer.h"
 
+#ifdef _WIN32
+#include <windows.h>
+#endif
+
 #define AST_NEW(pool, type) ([&]() -> type* { \
     assert(pool != nullptr && "Pool must not be null"); \
     void* mem = pool_alloc(pool, sizeof(type)); \
@@ -38,71 +42,21 @@ inline char *get_slash(char *base_name){
 }
 
 
-static void init_Def_Type(Def_Type* type, Pool* pool) {
-    type->type_def_dummy   = AST_NEW(pool, Ast_Type_Definition);
-    type->type_def_int     = AST_NEW(pool, Ast_Type_Definition);
-    type->type_def_s8      = AST_NEW(pool, Ast_Type_Definition);
-    type->type_def_s16     = AST_NEW(pool, Ast_Type_Definition);
-    type->type_def_s32     = AST_NEW(pool, Ast_Type_Definition);
-    type->type_def_s64     = AST_NEW(pool, Ast_Type_Definition);
-    type->type_def_u8      = AST_NEW(pool, Ast_Type_Definition);
-    type->type_def_u16     = AST_NEW(pool, Ast_Type_Definition);
-    type->type_def_u32     = AST_NEW(pool, Ast_Type_Definition);
-    type->type_def_u64     = AST_NEW(pool, Ast_Type_Definition);
-    type->type_def_float   = AST_NEW(pool, Ast_Type_Definition);
-    type->type_def_float32 = AST_NEW(pool, Ast_Type_Definition);
-    type->type_def_float64 = AST_NEW(pool, Ast_Type_Definition);
-    type->type_def_void    = AST_NEW(pool, Ast_Type_Definition);
-    type->type_def_bool    = AST_NEW(pool, Ast_Type_Definition);
-    type->type_def_string  = AST_NEW(pool, Ast_Type_Definition);
-    type->literal_true     = AST_NEW(pool, Ast_Literal);
-    type->literal_false    = AST_NEW(pool, Ast_Literal);
-}
-
-extern const Def_Type* ttype = nullptr;
-int total_malloc = 0;
-
-static void* default_allocator(int mode, size_t size, size_t old_size,
-                               void* old_memory, void* allocator_data, int options)
-{
-    switch(mode) {
-        case ALLOCATE: {
-            void* ptr = calloc(size, 1);
-            total_malloc += 1;
-            assert(ptr && "Memory allocation failed");
-            return ptr;
-        }
-    }
-    return 0;
-}
-
 Pax_Interp::Pax_Interp()
-    : lexer(nullptr), parser(nullptr), ast(nullptr)
 {
-    pool_init(&pool);
-    pool.block_allocator = default_allocator;
-    init_Def_Type(&type, &pool);
-    ttype = &type;
+   pool = nullptr;
+   type = nullptr;
+   lexer = nullptr;
+   parser = nullptr;
+   code_manager = nullptr;
+   c_converter = nullptr;
+   current_file = nullptr;
+
 }
 
 Pax_Interp::~Pax_Interp() {
-    // release();
 }
 
-bool Pax_Interp::init(const char* filename) {
-
-    buf = read_entire_file(filename);
-    if (!buf.data) {
-        printf("Failed to read file: %s\n", filename);
-        return false;
-    }
-
-    lexer = new Lexer((const char*)buf.data, buf.size, &pool);
-    parser = new Parser(lexer, &pool, &type);
-
-    parse_filename(filename);
-    return true;
-}
 void Pax_Interp::parse_filename(const char *filename){
 
     // copy the file path
@@ -122,49 +76,170 @@ void Pax_Interp::parse_filename(const char *filename){
     __strncpy(file_name_only, name_only, sizeof(file_name_only));
 
 }
-void Pax_Interp::printLexer(const char *filename){
-    pool_init(&pool);
-    pool.block_allocator = default_allocator;
 
-    buf = read_entire_file(filename);
+char *Pax_Interp::get_absolute_path(const char* path) {
+    char abs_path[512];
+#ifdef _WIN32
+    _fullpath(abs_path, path, sizeof(abs_path));
+#else
+    realpath(path, abs_path);
+#endif
+    return pool_strdup(pool, abs_path);
+}
+
+char *Pax_Interp::get_directory(const char* filepath) {
+    const char* last = strrchr(filepath, '/');
+    const char* last2 = strrchr(filepath, '\\');
+    const char* pos = last ? last : last2;
+
+    if (pos) {
+        size_t len = pos - filepath;
+        char* out = (char*)malloc(len + 1);
+        memcpy(out, filepath, len);
+        out[len] = '\0';
+        return out;
+    }
+
+    return pool_strdup(pool, ".");
+}
+
+char* Pax_Interp::resolve_import_path(const char* import_path, const char* current_file) {
+    char* current_dir = get_directory(current_file);
+
+    char* temp = c_concat3(current_dir, "/", import_path);
+
+    char* abs = get_absolute_path(temp);
+
+    free(current_dir);
+    free(temp);
+
+    return abs;
+}
+
+Ast_Block* Pax_Interp::parse_file(const char* filename, bool skip_main_check) {
+    char *abs_path = get_absolute_path(filename);
+
+    FileBuffer buf = read_entire_file(filename);
+    if (!buf.data) {
+        printf("Failed to read file: %s\n", filename);
+        return nullptr;
+    }
+
+    current_file = (const char *) abs_path;
+
+    Lexer temp_lexer((const char*)buf.data, buf.size, pool);
+    Parser temp_parser(&temp_lexer, this);
+    Ast_Block* parsed_ast = temp_parser.parseProgram(skip_main_check);
+    parsed_ast->file_name = (const char *) abs_path;
+
+    free(buf.data);
+
+    return parsed_ast;
+}
+
+void Pax_Interp::load_imports(Ast_Block *module_ast, const char *module_path) {
+    for (int i = 0; i < module_ast->imports.count; i++) {
+        Ast_Import* imp = module_ast->imports.data[i];
+        char *imp_path = resolve_import_path(imp->import_path, module_path);
+        load_and_parse_module(imp_path);
+    }
+}
+
+bool Pax_Interp::init(const char* entry_file) {
+    parse_filename(entry_file);
+
+    Ast_Block* entry_ast = parse_file(entry_file, false); // only allow entry file to have main entry point
+    if (!entry_ast) {
+        return false;
+    }
+
+    char *abs_path = get_absolute_path(entry_file);
+    const char* stored_path = pool_strdup(pool, abs_path);
+
+    loaded_modules[abs_path] = entry_ast;
+    module_parse_order.push_back(abs_path);
+
+    load_imports(entry_ast, stored_path);
+
+    ast = merge_all_modules();
+    ast->file_name = stored_path;
+
+    return true;
+}
+
+Ast_Block* Pax_Interp::load_and_parse_module(const char* filename) {
+    char *abs_path = get_absolute_path(filename);
+
+    if (loaded_modules.count(abs_path)) {
+        printf("\n>>>>Module already imported before: %s\n\n", abs_path);
+        return loaded_modules[abs_path];
+    }
+
+    printf("Inside interp: Loading module: %s\n", filename);
+
+
+    Ast_Block* mod_ast = parse_file(filename, true); // kind of an hack we just tell the parser to forbid a main entry point in modules
+    if (!mod_ast) {
+        free(abs_path);
+        return nullptr;
+    }
+
+    const char* stored_path = pool_strdup(pool, abs_path);
+    loaded_modules[abs_path] = mod_ast;
+    module_parse_order.push_back(abs_path);
+
+    load_imports(mod_ast, stored_path);
+
+    return mod_ast;
+}
+
+Ast_Block* Pax_Interp::merge_all_modules() {
+    Ast_Block* root = AST_NEW(pool, Ast_Block);
+
+    for (const std::string& mod_path : module_parse_order) {
+        Ast_Block* mod_ast = loaded_modules[mod_path];
+
+        for (int i = 0; i < mod_ast->statements.count; i++) {
+            root->statements.push_back(mod_ast->statements.data[i]);
+        }
+    }
+
+    return root;
+}
+
+void Pax_Interp::printLexer(const char* filename) {
+    FileBuffer buf = read_entire_file(filename);
     if (!buf.data) {
         printf("Failed to read file: %s\n", filename);
         return;
     }
 
-    lexer = new Lexer((const char*)buf.data, buf.size, &pool);
+    Lexer lexer((const char*)buf.data, buf.size, pool);
+    printLex(buf, pool);
 
-    printLex(buf, &pool);
+    free(buf.data);
 
 }
+
 void Pax_Interp::run_frontend() {
     auto start = std::chrono::high_resolution_clock::now();
 
+    code_manager->resolve_idents(ast);
 
-    ast = parser->parseProgram();
+    code_manager->resolve_unresolved_vars();
+    code_manager->resolve_unresolved_calls();
+    code_manager->resolve_unresolved_types_queue();
+    code_manager->resolve_unresolved_member_accesses_queue();
 
-    ast->file_name = (const char *) input_path;
-    // printAst(ast);
+    code_manager->infer_types_block(ast);
 
-    CodeManager cm(&pool, &type);
-
-    cm.resolve_idents(ast);
-    cm.resolve_unresolved_vars();
-    cm.resolve_unresolved_calls();
-
-    cm.resolve_unresolved_types_queue();
-    cm.resolve_unresolved_member_accesses_queue();
-
-    cm.infer_types_block(ast);
-
-    if (cm.count_errors != 0) {
+    if (code_manager->count_errors != 0) {
         printf("\nErrors in code manager. Exiting.\n");
         exit(1);
     }
 
     auto end = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> elapsed = end - start;
-
     // printf("\n\tFrontend finished in %.6f seconds (lexer,parser,semantic checker)\n\n", elapsed.count());
 }
 
@@ -174,10 +249,7 @@ void Pax_Interp::generate_cpp() {
     char cpp_name[256];
     snprintf(cpp_name, sizeof(cpp_name), "%s.cpp", base_name);
 
-    C_Converter cconv(&type);
-    cconv.generate_cpp_code(cpp_name, ast);
-
-    // printf("Generated: %s\n", cpp_name);
+    c_converter->generate_cpp_code(cpp_name, ast);
 
     auto end = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> elapsed = end - start;
@@ -185,11 +257,11 @@ void Pax_Interp::generate_cpp() {
     // printf("\n\t -Time to output c code: %.6f seconds\n\n", elapsed.count());
 }
 
-void Pax_Interp::runCompiler(char * command)
+void Pax_Interp::runCompiler(char* command)
 {
-    // printf("Running: %s\n", command);
+   // printf("Running: %s\n", command);
 
-#ifdef _WIN32
+   #ifdef _WIN32
 
     STARTUPINFOA si;
     PROCESS_INFORMATION pi;
@@ -229,22 +301,11 @@ void Pax_Interp::compile_cpp() {
 
     auto end = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> elapsed = end - start;
-
     // printf("\n\t -C compilation finished in %.6f seconds\n\n", elapsed.count());
 }
 
 void Pax_Interp::release() {
-    if (buf.data) {
-        free(buf.data);
-        buf.data = nullptr;
+    if (pool) {
+        pool_release(pool);
     }
-    if (parser) {
-        delete parser;
-        parser = nullptr;
-    }
-    if (lexer) {
-        delete lexer;
-        lexer = nullptr;
-    }
-    pool_release(&pool);
 }

@@ -3,9 +3,24 @@
 // what C does not catch most of the time and crashes at runtime instead of throwing proper errors during compilation.
 
 
+main :: (){
+    function_1();
+    // function_2();
+    function_3();
+    function_4();
+    function_5();
+    function_6();
+    function_7();
+    function_8();
+    function_9();
+    function_10();
+
+    printf("\n---THE END---\n");
+}
+
 // simple instance test
 // /*
-main :: () {
+function_1 :: () {
     a: A;
     a.b.c.d.e.f.value = 42;
     printf("a.b.c.d.e.f.value = %d\n", a.b.c.d.e.f.value);
@@ -23,12 +38,16 @@ F :: struct { value: int; };
 
 
 
+//
+// cirucular uninitialized pointer checking breaks.... Probably leave it since something like this happens very rarely
+//
+
 /*
-main :: () {
-    a: A;
-    b: B;
-    d: D;
-    f: F;
+function_2 :: () {
+    a: AA;
+    b: BB;
+    d: DD;
+    f: FF;
 
     // a.b = &b; // since this line is commented out
     b.c.d = &d;  // this should throw error
@@ -39,27 +58,27 @@ main :: () {
     printf("Sucess\n");
 }
 
-A :: struct { b: ^B; };
-B :: struct { c: C; };
-C :: struct { d: ^D; };
-D :: struct { e: E; };
-E :: struct { f: ^F; };
-F :: struct { value: int; };
+AA :: struct { b: ^BB; };
+BB :: struct { c: CC; };
+CC :: struct { d: ^DD; };
+DD :: struct { e: EE; };
+EE :: struct { f: ^FF; };
+FF :: struct { value: int; };
 
 */
 
 
 
 
-/*
-main :: () {
+// /*
+function_3 :: () {
     o1: Outer;
 
     val: int = 42;
     val2 : int = 69;
 
     o1.a.data = &val;
-    // o1.b.data = &val2; // when this is commented out
+    o1.b.data = &val2; // when this is commented out
 
     x := *o1.a.data;
     y := *o1.b.data; // this should throw error
@@ -76,21 +95,21 @@ Outer :: struct {
     b: Inner;
 };
 
-*/
+// */
 
 
 
 
 
-/*
-Data :: struct {
+// /*
+Data_1 :: struct {
     value: int;
 }
 
-main :: () {
-    d: Data;
-    p1: ^Data;
-    p2: ^Data;
+function_4 :: () {
+    d: Data_1;
+    p1: ^Data_1;
+    p2: ^Data_1;
 
     p1 = &d;
     p2 = p1;  // Copy pointer
@@ -101,16 +120,16 @@ main :: () {
 
 }
 
-*/
+// */
 
 
 
 
 
-/*
-main :: () {
-    d1: Data;
-    d2: Data;
+// /*
+function_5 :: () {
+    d1: Data_2;
+    d2: Data_2;
 
     d1.nested = &d2;
 
@@ -120,43 +139,43 @@ main :: () {
     printf("copy.nested = %p\n", &copy.nested);
 
 }
-Data :: struct {
-    nested: ^Data;
+Data_2 :: struct {
+    nested: ^Data_2;
 };
 
-*/
+// */
 
 
 
 
 
-/*
-main :: () {
-    a: A;
-    b: B;
+// /*
+function_6 :: () {
+    a: AAA;
+    b: BBB;
     a.b = &b;
 
-    c : C;
+    c : CCC;
 
-    // a.b.c = &c;  // this
+    a.b.c = &c;  // this
     b.c = &c;   // and this should have same instance.
     a.b.c.value = 42699;
     printf("a.b.c.value = %d\n", a.b.c.value);
 }
 
-A :: struct { b: ^B; };
-B :: struct { c: ^C; };
-C :: struct { value: s64; };
+AAA :: struct { b: ^BBB; };
+BBB :: struct { c: ^CCC; };
+CCC :: struct { value: s64; };
 
-*/
-
-
+// */
 
 
 
 
-/*
-main :: () {
+
+
+// /*
+function_7 :: () {
     c: Config;
     val: int = 42;
     c.data = &val;
@@ -167,32 +186,32 @@ Config :: struct { // should be inferred
     count := 10;
     data: ^int;
 };
-*/
+// */
 
 
 
 
 
 
-/*
+// /*
 
-main :: () {
-    local: Data;
+function_8 :: () {
+    local: Data_3;
 
     modify(&local);
     y := *local.ptr; // this will fail unless atleast this declaration is passed through function. In which case it gets marked as is_declaration_passed_through_function
 }
 
-Data :: struct {
+Data_3 :: struct {
     ptr: ^int;
 };
 
-modify :: (d: ^Data) {
+modify :: (d: ^Data_3) {
     val: int = 10;
     d.ptr = &val;  // Function param so no init check done
 }
 
-*/
+// */
 
 
 
@@ -236,13 +255,13 @@ modify :: (d: Data) {
 
 
 
-/*
-Data :: struct {
+// /*
+Data_4 :: struct {
     ptr: ^int;
 };
 
-main :: () {
-    d: Data;
+function_9 :: () {
+    d: Data_4;
 
     i: int = 2544;
 
@@ -253,13 +272,13 @@ main :: () {
     printf("*d.ptr = %d\n", *d.ptr);
 }
 
-*/
+// */
 
 
 
 
 
-/*
+// /*
 frame := 0;
 simulate :: (obj: ^PhysicsObject) {
     update(obj);
@@ -267,7 +286,7 @@ simulate :: (obj: ^PhysicsObject) {
     printf("Frame %d: (%d, %d)\n", frame, obj.position.x, obj.position.y);
 
 }
-main :: () {
+function_10 :: () {
     obj: PhysicsObject;
 
     obj.position.x = 0;
@@ -308,42 +327,5 @@ Vec2 :: struct {
     x: int;
     y: int;
 };
-*/
+// */
 
-
-
-
-
-
-//
-// cirucular uninitialized pointer checking breaks....
-//
-
-// 0x0000029ff48993f8
-/*
-Node :: struct {
-    value: int;
-    next: ^Node;
-    prev: ^Node;
-};
-
-main :: () {
-    a: Node;
-    b: Node;
-    c: Node;
-
-    a.next = &b;
-    // b.next = &c; // if this is commented out
-    c.next = &a;
-
-    a.next.next.next.value = 100;  // this should throw error because a.next.next is uninitialized
-    printf("a.value = %d\n", a.value);
-    printf("a.next.value = %d\n", a.next.value);
-    printf("a.next.next.value = %d\n", a.next.next.value);
-    printf("a.next.next.next.value = %d\n", a.next.next.next.value);
-
-
-    printf("\nsueces\n");
-}
-
-*/

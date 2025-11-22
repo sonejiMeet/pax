@@ -1,5 +1,6 @@
 #pragma once
 
+#include <string>
 #include <assert.h>
 
 #ifdef _WIN32

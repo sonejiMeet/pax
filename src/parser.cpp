@@ -1,5 +1,6 @@
-#include "parser.h"
 #include "token.h"
+#include "interp.h"
+#include "parser.h"
 
 #include <iostream>
 #include <cstring>
@@ -21,13 +22,18 @@ bool exitSuccess = true;
     type *node = new (mem) type(pool);                     \
     node->line_number = current->row;                      \
     node->character_number = current->col;                 \
+    node->file_name = interp->current_file;                \
     return node;                                           \
 }())
 
 
-Parser::Parser(Lexer *l, Pool *p, Def_Type *type) : lexer(l), pool(p) {
+
+Parser::Parser(Lexer *l, Pax_Interp *_interp) : lexer(l) {
+
+    interp = _interp;
+    pool = interp->pool;
+    _type = interp->type;
     current = lexer->nextToken();
-    _type = type;
 }
 
 void Parser::advance() {
@@ -38,9 +44,9 @@ void Parser::advance() {
 void Parser::parseError(const char *message, bool print_token_type) {
 
     if(!print_token_type)
-        printf("\nParsing Error[%d:%d] %s", current->row, current->col, message);
+        printf("\n%s: Parsing Error[%d:%d] %s", interp->current_file, current->row, current->col, message);
     else
-        printf("\nParsing Error: %s TokenType: '%s'", message, tokenTypeToString(current->type));
+        printf("\n%s: Parsing Error: %s TokenType: '%s'", interp->current_file, message, tokenTypeToString(current->type));
 
     exitSuccess = false;
     synchronize();
@@ -61,7 +67,7 @@ void Parser::expect(TokenType expectedType, const char *errorMessage)
 void Parser::Expect(TokenType expectedType, const char *errorMessage)
 {
     if (current->type != expectedType) {
-        printf("\nParsing Error[%d:%d] %s", previous->row, previous->col, errorMessage);
+        printf("\n%s: Parsing Error[%d:%d] %s", interp->current_file, previous->row, previous->col, errorMessage);
 
         exitSuccess = false;
         synchronize();
@@ -351,7 +357,7 @@ Ast_Expression* Parser::parseExpression(int minPrecedence)
         Expect(TOK_RPAREN, "Expected ')' after expression in parentheses.");
     }
     else {
-        parseError("Expected a literal, identifier, or parenthesized expression.");
+        parseError("Expected a literal, identifier, or an expression.");
         return nullptr;
     }
 
@@ -770,6 +776,15 @@ Ast_Declaration* Parser::parseFunctionDeclaration(bool is_local) {
     } else {
         func_decl->is_function_header = true;
         expect(TOK_SEMICOLON, "Expected ';' after function prototype");
+        if (current->type == TOK_HASHTAG) {
+            Token* next = lexer->peekNextToken();
+            if (next->type == TOK_FOREIGN) {
+                advance();
+                advance();
+                func_decl->is_foreign = true;
+                func_decl->is_function_header = true;
+            }
+        }
     }
 
     return func_decl;
@@ -928,9 +943,10 @@ Ast_Statement *Parser::parseStatement()
 }
 
 
-Ast_Block *Parser::parseProgram()
+Ast_Block *Parser::parseProgram(bool skip_main)
 {
     Ast_Block *program = AST_NEW(pool,Ast_Block);
+    printf("---Inside parser--- Parsing file: %s\n", interp->current_file);
 
     // printf("size of Ast_Type_Definition %zu----------->>>>>>>>>>>>>>>>>>>\n", sizeof(Ast_Type_Definition));
 
@@ -944,6 +960,10 @@ Ast_Block *Parser::parseProgram()
     while (current->type != TOK_END_OF_FILE)
     {
         if (current->type == TOK_MAIN_ENTRY_POINT) {
+            if(skip_main == true){
+                parseError("'main' entry point should not be inside a module.");
+            }
+
             if (mainFound) {
                 parseError("Multiple 'main' functions not allowed.");
             }
@@ -987,6 +1007,23 @@ Ast_Block *Parser::parseProgram()
                 parseError("Top-level executable statements not allowed. Only declarations and main.");
                 break;
             }
+        } else if (current->type == TOK_HASHTAG){
+            Token *next = lexer->peekNextToken();
+            if(next->type == TOK_IMPORT){
+                advance();
+                advance();
+                Ast_Import *import = AST_NEW(pool, Ast_Import);
+                if(current->type == TOK_STRING){
+                    import->import_path = (const char *)current->string_value.data;
+                    // printf("%.*s\n",(int)current->string_value.count, current->string_value.data);
+                    program->imports.push_back(import);
+                    advance();
+                    Expect(TOK_SEMICOLON, "Expected ';' after import.");
+                }
+                else {
+                    parseError("Expected import string.");
+                }
+            }
         }
         else {
             parseError("Unexpected token at top-level. Only declarations and main function allowed.");
@@ -995,7 +1032,7 @@ Ast_Block *Parser::parseProgram()
     }
 
 
-    if (!mainFound && exitSuccess) {
+    if (!mainFound && exitSuccess && !skip_main) {
         parseError("No 'main' entry point was found in the program.", true);
     }
 

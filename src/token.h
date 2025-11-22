@@ -1,6 +1,5 @@
 #pragma once
 
-#include <string>
 
 enum TokenType {
 
@@ -8,12 +7,18 @@ enum TokenType {
 
     TOK_PRINT,     // printf  (rightnow we piggyback on C's printf, planning to get rid of type specifier, would happen in code_manager eg.after type inference)
 
+    TOK_IDENTIFIER,
+
     TOK_IF,               // if
     TOK_ELSE,             // else
-    TOK_IDENTIFIER,
     TOK_STRUCT,           // struct
     TOK_MAIN_ENTRY_POINT, // main
     TOK_RETURN,         // return
+    TOK_IMPORT,        // import
+    TOK_FOREIGN,     // foreign
+
+    TOK_KEYWORD_TRUE, // true
+    TOK_KEYWORD_FALSE, // false
 
     TOK_NUMBER,
     TOK_FLOAT,
@@ -41,6 +46,7 @@ enum TokenType {
     TOK_CARET,          // ^
     TOK_AMPERSAND,      // &
     TOK_EXCLAMATION_MARK, // !
+    TOK_HASHTAG,        // #
 
     TOK_ASSIGN,         // =
     TOK_EQUAL,          // ==
@@ -56,12 +62,8 @@ enum TokenType {
     TOK_L_MULTILINE_COMMENT, // /*
     TOK_R_MULTILINE_COMMENT, // */
 
-    TOK_KEYWORD_TRUE,
-    TOK_KEYWORD_FALSE,
-
     TOK_END_OF_FILE,
 };
-
 
 inline const char* tokenTypeToString(TokenType type) {
     switch (type) {
@@ -74,7 +76,9 @@ inline const char* tokenTypeToString(TokenType type) {
         case TOK_STRUCT: return "TOK_STRUCT";
         case TOK_MAIN_ENTRY_POINT: return "TOK_MAIN_ENTRY_POINT";
         case TOK_RETURN: return "TOK_RETURN";
-
+        case TOK_IMPORT: return "TOK_IMPORT";
+        case TOK_FOREIGN: return "TOK_FOREIGN";
+        
         case TOK_NUMBER: return "TOK_NUMBER";
         case TOK_FLOAT: return "TOK_FLOAT";
         case TOK_STRING: return "TOK_STRING";
@@ -101,6 +105,7 @@ inline const char* tokenTypeToString(TokenType type) {
         case TOK_CARET: return "TOK_CARET";
         case TOK_AMPERSAND: return "TOK_AMPERSAND";
         case TOK_EXCLAMATION_MARK: return "TOK_EXCLAMATION_MARK";
+        case TOK_HASHTAG: return "TOK_HASHTAG";
 
         case TOK_ASSIGN: return "TOK_ASSIGN";
         case TOK_EQUAL: return "TOK_EQUAL";
@@ -132,7 +137,6 @@ struct Token
     union{
         const char* value;
         unsigned long long int_value;
-        float float32_value;
         double float64_value;
 
         struct{

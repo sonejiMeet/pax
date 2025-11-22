@@ -30,6 +30,10 @@ inline void printLex(FileBuffer buf, Pool *pool){
             case TOK_STRING:
                 printf("Value: \"%.*s\"\n", (int)tok->string_value.count, tok->string_value.data);
                 break;
+            case TOK_IMPORT:
+                printf("Value: \"import\" \n");
+                break;
+
             case TOK_IDENTIFIER:
             default:
                 // For simple tokens (operators, etc.)

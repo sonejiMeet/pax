@@ -30,6 +30,9 @@ struct Ast_Type_Definition;
 
 struct Ast_Cast;
 
+struct Ast_Import;
+
+
 enum Ast_Type {
     AST_UNKNOWN,
     AST_BLOCK,
@@ -49,7 +52,11 @@ enum Ast_Type {
     AST_TYPE_INSTANTIATION,
 
     AST_TYPE_DEFINITION,
+
     AST_CAST,
+
+    AST_IMPORT,
+
 };
 
 
@@ -73,6 +80,7 @@ inline std::string astTypeToString(Ast_Type type) {
         case AST_TYPE_INSTANTIATION: return "TypeInstance";
         case AST_TYPE_DEFINITION: return "TypeDefinition";
         case AST_CAST: return "Cast";
+        case AST_IMPORT: return "Import";
         default:                 return "Unknown";
     }
 }
@@ -117,6 +125,7 @@ struct Ast_Declaration : public Ast_Statement {
     bool is_function_header = false;
     bool is_function_body = false;
     bool is_local_function = false;
+    bool is_foreign = false;
 
 
     Array<Ast_Declaration*> parameters;     // function parameters
@@ -209,10 +218,12 @@ struct Ast_Unary : Ast_Expression {
 };
 
 struct Ast_Block : public Ast {
-    Ast_Block(Pool* p) : statements(p) { type = AST_BLOCK; }
+    Ast_Block(Pool* p) : statements(p), imports(p) { type = AST_BLOCK; }
 
     Ast_Block *parent = nullptr;
     Array<Ast_Statement *> statements;
+
+    Array<Ast_Import*> imports;
 
     bool is_scoped_block = false;
     bool is_entry_point = false;
@@ -289,6 +300,7 @@ struct Def_Type {
  Ast_Type_Definition *type_def_float64;
 
  Ast_Type_Definition *type_def_void;
+ Ast_Type_Definition *type_def_null;
  Ast_Type_Definition *type_def_bool;
  Ast_Type_Definition *type_def_string;
 
@@ -359,5 +371,12 @@ struct Ast_Cast : public Ast_Expression {
 
    Ast_Type_Definition *target_type = nullptr;
    Ast_Expression *expression = nullptr;
+
+};
+
+struct Ast_Import : public Ast_Expression {
+   Ast_Import(Pool* = nullptr) {type = AST_IMPORT;}
+
+   const char *import_path = nullptr;
 
 };

@@ -1,0 +1,10 @@
+
+
+// malloc :: (size: s64) -> ^void; #foreign
+// free :: (ptr: ^void); #foreign
+// memcpy :: (dest: ^void, source: ^void, count: s64); #foreign
+// memset :: (dest: ^void, value: u8, count: s64); #foreign
+
+something :: () {
+    printf("We are inside fake2.pax\n");
+}

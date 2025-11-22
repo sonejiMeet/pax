@@ -9,14 +9,6 @@
 #define MAX_NUM_STR_LEN 64
 
 
-char *Lexer::pool_strdup(Pool *pool, const char *str) {
-    size_t len = strlen(str)+1;
-    char *p = (char *)pool_alloc(pool, len);
-    memcpy(p, str, len);
-    //printf("pool_strdup %d\"%.*s\"\n", len, len, p);
-    return p;
-}
-
 Token *Lexer::makeToken(TokenType type, const char *value) {
 
 #ifdef _DEBUG
@@ -207,6 +199,9 @@ Token *Lexer::identifierToken(char first)
 
     else if (strcmp(ident, "return") == 0) type = TOK_RETURN;
 
+    else if (strcmp(ident, "import") == 0) type = TOK_IMPORT;
+    else if (strcmp(ident, "foreign") == 0) type = TOK_FOREIGN;
+
     Token *t = makeToken(type, ident);
 
     free(ident);
@@ -280,6 +275,8 @@ Token *Lexer::nextToken()
                 return identifierToken(c);
             }
         }
+        case '#': return makeToken(TOK_HASHTAG, "#");
+
         default: break;
     }
 

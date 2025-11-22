@@ -1,4 +1,5 @@
 #include "code_manager.h"
+#include "interp.h"
 
 #include <cstdarg> // for variadic function
 #include <cstring> // for linux strlen
@@ -8,15 +9,18 @@
     assert(pool != nullptr && "Pool must not be null");         \
     void* mem = pool_alloc(pool, sizeof(type));                \
     type* node = new (mem) type(pool);                         \
+    node->file_name = interp->current_file;                    \
     return node;                                               \
 }())
 
-CodeManager::CodeManager(Pool* pool, Def_Type *type) : ast_pool(pool)
+CodeManager::CodeManager(Pax_Interp *_interp)
 {
-    scope_stack = ast_pool;
-    Ast_Block *block = AST_NEW(ast_pool, Ast_Block);
+    interp = _interp;
+    scope_stack = interp->pool;
+    Ast_Block *block = AST_NEW(interp->pool, Ast_Block);
     scope_stack.push_back(block); // global scope
-    _type = type;
+    _type = interp->type;
+    ast_pool = interp->pool;
 }
 
 Ast_Literal *CodeManager::make_integer_literal(long long value){
@@ -50,10 +54,16 @@ void CodeManager::report_error(T type, const char* fmt, ...)
     count_errors += 1;
 
     Ast *ast = static_cast<Ast *>(type);
+
+    const char* filename = ast->file_name;
+    if (!filename || !filename[0]) {
+        filename = interp->current_file ? interp->current_file : "<unknown>";
+    }
+
     if (ast->line_number >= 0 && ast->character_number >= 0) {
-        fprintf(stderr, "Semantic Error[%d:%d]: %s\n", ast->line_number, ast->character_number, buffer);
+        fprintf(stderr, "%s: Semantic Error[%d:%d]: %s\n", filename, ast->line_number, ast->character_number, buffer);
     } else {
-        fprintf(stderr, "Semantic Error: %s\n", buffer);
+        fprintf(stderr, "%s: Semantic Error: %s\n", filename, buffer);
     }
 }
 
@@ -76,6 +86,48 @@ void CodeManager::report_error(int row, int col, const char* fmt, ...)
     }
 }
 
+
+template<typename T, typename P>
+void CodeManager::report_error_with_previous(T node, P previous, const char* fmt, ...) {
+    constexpr size_t BUFFER_SIZE = 512;
+    char buffer[BUFFER_SIZE];
+
+    va_list args;
+    va_start(args, fmt);
+    vsnprintf(buffer, BUFFER_SIZE, fmt, args);
+    va_end(args);
+
+    count_errors += 1;
+
+    Ast* ast_node = static_cast<Ast*>(node);
+    Ast* ast_prev = static_cast<Ast*>(previous);
+
+    const char* filename = ast_node->file_name;
+    if (!filename || !filename[0]) {
+        filename = interp->current_file ? interp->current_file : "<unknown>";
+    }
+
+    if (ast_node->line_number >= 0 && ast_node->character_number >= 0) {
+        fprintf(stderr, "%s\n%s:[%d:%d]: %s.",
+                        "\x1B[0;36m", filename, ast_node->line_number, ast_node->character_number, buffer);
+    } else {
+        fprintf(stderr, "%s\n%s: %s.", "\x1B[0;36m", filename, buffer);
+    }
+
+    const char* prev_filename = ast_prev->file_name;
+    if (!prev_filename || !prev_filename[0]) {
+        prev_filename = interp->current_file ? interp->current_file : "<unknown>";
+    }
+
+    if (ast_prev->line_number >= 0 && ast_prev->character_number >= 0) {
+        fprintf(stderr, " Previously declared at %s:[%d:%d]\n\n%s",
+                prev_filename, ast_prev->line_number, ast_prev->character_number, "\x1B[0m");
+    } else {
+        fprintf(stderr, " Previously declared at %s: %s\n\n", prev_filename, "\x1B[0m");
+    }
+}
+
+
 void CodeManager::push_scope()
 {
     Ast_Block *block = AST_NEW(ast_pool, Ast_Block);
@@ -87,7 +139,7 @@ void CodeManager::pop_scope()
     if (!scope_stack.empty()) scope_stack.pop_back();
 }
 
-Ast_Declaration* CodeManager::lookup_symbol(const char* name, Ast_Block *scope) {
+Ast_Declaration *CodeManager::lookup_symbol(const char *name, Ast_Block *scope) {
     for (int i = (int)scope_stack.size() - 1; i >= 0; --i) {
 
         Ast_Block* block = scope ? scope : scope_stack.data[i]; // this is for the case where we can't rely on scope_stack.pop() during resolve_member_access, we have to pass the scope of the unresolved dot expression that was saved during initial queuing. Its kinda messy i dont wanna deal with it right now ugh,.........
@@ -136,8 +188,9 @@ Ast_Declaration* CodeManager::lookup_symbol_current_scope(const char* name) {
 bool CodeManager::declare_variable(Ast_Declaration* decl, bool force_decl) {
     if (!decl || !decl->identifier) return false;
 
-    if (!force_decl && lookup_symbol_current_scope(decl->identifier->name)) {
-        report_error(decl, "Variable '%s' already declared in this scope", decl->identifier->name);
+    auto *looked_up = lookup_symbol_current_scope(decl->identifier->name);
+    if (!force_decl && looked_up) {
+        report_error_with_previous(decl, looked_up, "Variable '%s' already declared", decl->identifier->name);
         return false;
     }
 
@@ -153,10 +206,15 @@ bool CodeManager::declare_variable(Ast_Declaration* decl, bool force_decl) {
 bool CodeManager::declare_function(Ast_Declaration* decl) {
     if (!decl || !decl->identifier || !decl->is_function) return false;
 
-    if (decl->is_function_header) return false;
+    // if (decl->is_function_header) return false;
 
-    if (lookup_symbol_current_scope(decl->identifier->name) && decl->is_function_body) {
-        report_error(decl, "Function '%s' already declared in this scope", decl->identifier->name);
+    auto *looked_up = lookup_symbol_current_scope(decl->identifier->name);
+    if ( looked_up && looked_up->is_function) {
+        report_error_with_previous(decl, looked_up, "Function '%s' already declared", decl->identifier->name);
+        return false;
+    }
+    else if(looked_up && !looked_up->is_function){
+        report_error(decl, "Redefinition of '%s', previous definition is not a function", decl->identifier->name);
         return false;
     }
 
@@ -174,8 +232,9 @@ bool CodeManager::declare_struct(Ast_Statement* struct_stmt) {
     if (!struct_stmt->expression || struct_stmt->expression->type != AST_STRUCT) return false;
 
     auto *struct_name = struct_stmt->type_definition->struct_def->name;
-    if (lookup_symbol(struct_name)) {
-        report_error(struct_stmt, "Struct '%s' already defined in this scope.", struct_name);
+    auto *looked_up = lookup_symbol(struct_name);
+    if (looked_up) {
+        report_error_with_previous(struct_stmt, looked_up, "Struct '%s' already defined.", struct_name);
         return false;
     }
 
@@ -597,7 +656,10 @@ void CodeManager::resolve_unresolved_calls() {
         if (call->arguments) {
             for (int i = 0; i < call->arguments->arguments.count; ++i) {
                 Ast_Expression* arg = call->arguments->arguments.data[i];
+                scope_stack.push_back(unresolved.my_scope);
                 resolve_idents_in_expr(arg);
+                scope_stack.pop_back();
+
             }
         }
 
@@ -715,9 +777,7 @@ void CodeManager::resolve_unresolved_member_accesses_queue() {
     unresolved_member_accesses.swap(still_unresolved);
     if (!unresolved_member_accesses.empty()) {
         for (const auto& u : unresolved_member_accesses) {
-            // THE PROBLEM IS ALSO HERE SINCE THOSE UNINFERED DECLARATIONS CANNOT BE RESOLVED PROPERLY
-            report_error(u.line_number, u.character_number,
-                "Cannot resolve member access: base expression has unknown type");
+            report_error(u.line_number, u.character_number, "Cannot resolve member access: base expression has unknown type");
         }
         unresolved_member_accesses.clear();
     }
@@ -773,6 +833,23 @@ Ast_Declaration* CodeManager::resolve_member_access(Ast_Binary* dot_expr, Ast_Bl
             }
 
             base_type = nested_field->declared_type;
+
+            // idk if this is neccessary? when we have a locally declared type being passed by value and returned through pointer it breaks saying base expressioon has unknown type. BUT maybe there shoudl still be a check when in the future we implement heap alloc....
+            if (!base_type && nested_field->initializer && should_infer) {
+                scope_stack.push_back(my_scope);
+                infer_types_expr(&nested_field->initializer);
+                scope_stack.pop_back();
+
+                base_type = nested_field->initializer->inferred_type;
+                if (base_type) {
+                    nested_field->declared_type = base_type;
+                }
+            }
+
+
+            if (base_type) {
+                dot_expr->lhs->inferred_type = base_type;
+            }
 
             if (!base_type) {
                 if(!skip_queuing){
@@ -894,6 +971,11 @@ Ast_Declaration* CodeManager::resolve_member_access(Ast_Binary* dot_expr, Ast_Bl
         return nullptr;
     }
 
+    // this will happen for function return type so create the instance from existing function
+    if (!current_instance && base_type->struct_def) {
+        create_type_instantiation(base_type);
+        current_instance = base_type->type_instance;
+    }
 
     Ast_Ident* member_id = static_cast<Ast_Ident*>(dot_expr->rhs);
 
@@ -901,6 +983,10 @@ Ast_Declaration* CodeManager::resolve_member_access(Ast_Binary* dot_expr, Ast_Bl
         for (int i = 0; i < current_instance->member_instances.count; ++i) {
             Ast_Declaration* m = current_instance->member_instances.data[i];
             if (m && m->identifier && m->identifier->name && strcmp(m->identifier->name, member_id->name) == 0) {
+                // Set the inferred type on this dot expression
+                if (m->declared_type) {
+                    dot_expr->inferred_type = m->declared_type;
+                }
                 return m;
             }
         }
@@ -926,6 +1012,7 @@ void CodeManager::resolve_idents_in_expr(Ast_Expression* expr)
         if (!decl) {
             CM_Unresolved_Variable unresolved;
             unresolved.ident = id;
+            unresolved.my_scope = scope_stack.pop();
             unresolved.line_number = id->line_number;
             unresolved.character_number = id->character_number;
             unresolved_vars.push_back(unresolved);
@@ -1019,6 +1106,7 @@ void CodeManager::resolve_idents_in_expr(Ast_Expression* expr)
                 if (!is_decl) {
                     CM_Unresolved_Variable unresolved;
                     unresolved.ident = lhs_ident;
+                    unresolved.my_scope = scope_stack.pop();
                     unresolved.line_number = lhs_ident->line_number;
                     unresolved.character_number = lhs_ident->character_number;
                     unresolved_vars.push_back(unresolved);
@@ -1069,11 +1157,12 @@ void CodeManager::resolve_idents_in_expr(Ast_Expression* expr)
                 if (!decl) {
                     CM_Unresolved_Call unresolved;
                     unresolved.call = call;
+                    unresolved.my_scope = scope_stack.pop();
                     unresolved.line_number = fn->line_number;
                     unresolved.character_number = fn->character_number;
                     unresolved_calls.push_back(unresolved);
                 } else if (!decl->is_function) {
-                    report_error(fn, "'s' is not a function", fn->name);
+                    report_error(fn, "'%s' is not a function", fn->name);
                 }
                 else {
                     // Check parameter count
@@ -1619,7 +1708,7 @@ void CodeManager::infer_types_expr(Ast_Expression** expr_ptr)
                                 }
                             }
 
-                            
+
                             if (!check_that_types_match(lhsType, rhsType)) {
                                 report_error(lhs_unary, "Type mismatch: cannot assign '%s' to dereferenced pointer of type '%s'",
                                                 type_to_string(rhsType), type_to_string(lhsType));

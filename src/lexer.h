@@ -34,8 +34,7 @@ struct Lexer
         lex_pool = pool;
     }
 
-    char* pool_strdup(Pool* pool, const char* str);
-
+    
     inline void lexerError(const char *message);
 
     inline char get_and_advance() {

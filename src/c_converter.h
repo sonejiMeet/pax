@@ -7,11 +7,14 @@
 #include <string>
 #include "ast.h"
 
-struct C_Converter {
+struct Pax_Interp;
 
+struct C_Converter {
+    Pax_Interp *interp;
     Def_Type *_type;
 
-    C_Converter(Def_Type *type) : _type(type) {}
+    // C_Converter(Def_Type *type) : _type(type) {}
+    C_Converter(Pax_Interp *_interp);
     void emitStatement(FILE* out, Ast_Statement* stmt, int indent = 0);
     void emitExpression(FILE* out, Ast_Expression* expr, int indent = 0, bool _struct = false);
     void emitBlock(FILE* out, Ast_Block* block, int indent = 0);

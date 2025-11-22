@@ -1,0 +1,29 @@
+#import "fake2.pax";
+Point :: struct {
+    x: int;
+    y: int;
+};
+
+Container :: struct {
+    value: int;
+    data: ^Point;
+};
+
+add :: (a: int, b: int) -> int {
+    return a + b;
+}
+
+mul :: (a: int, b: int) -> int {
+    result := a * b;
+    return result;
+}
+
+print_ :: (p: ^Point) {
+    printf("Point: x=%d, y=%d\n", p.x, p.y);
+}
+
+create_data :: () -> Container {
+    c: Container;
+    c.value = 999;
+    return c;
+}

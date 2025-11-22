@@ -1,5 +1,7 @@
+
 #include "ast.h"
 #include "c_converter.h"
+#include "interp.h"
 
 #include <cstdio>
 #include <string>
@@ -21,6 +23,9 @@ const char *BOILTERPLATE_TOP =
     "typedef double     float64;\n"
     "\n"
 ;
+
+C_Converter::C_Converter(Pax_Interp *_interp) : interp(_interp) , _type(interp->type) {
+}
 
 void C_Converter::emitExpression(FILE* out, Ast_Expression* expr, int indent, bool _struct)
 {
@@ -460,11 +465,12 @@ void C_Converter::generate_cpp_code(const char* filename, Ast_Block* program)
         if (!stmt) continue;
         if (stmt->type == AST_DECLARATION) {
             Ast_Declaration* decl = static_cast<Ast_Declaration*>(stmt);
-            if (decl->is_function && decl->is_function_body) {
+            if (decl->is_function && decl->is_function_body && !decl->is_foreign) {
                 functions.push_back(decl);
             }
             else {
-                vars.push_back(decl);
+                if(!decl->is_foreign)
+                    vars.push_back(decl);
             }
         } else if (stmt->expression && stmt->expression->type == AST_STRUCT){
             structs.push_back(stmt);

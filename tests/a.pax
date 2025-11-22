@@ -1,0 +1,123 @@
+#import "fake.pax";
+#import "fake2.pax";
+
+// Data :: struct {
+//     x: int;
+//     y: int;
+//     name: string;
+// };
+
+main :: () {
+
+    // ptr := malloc(100);
+
+    // if (ptr) {
+    //     memset(ptr, 0, 100);
+    //     printf("Allocated 100 bytes at %p\n", ptr);
+    //     free(ptr);
+    // }
+
+    // // function call from fake.pax
+    // res := add(10, 20);
+    // printf("add(10, 20) = %d\n", res);
+
+    // // use struct
+    // p: Point;
+    // p.x = 100;
+    // p.y = 200;
+    // print_(&p);
+
+    // // type inference across modules
+    // data := create_data();
+    // printf("data.value = %d\n", data.value);
+
+    // d: Data;
+    // d.x = 42;
+    // d.y = 84;
+    // d.name = "Main Data";
+
+    // printf("\nLocal struct: x=%d, y=%d, name=%s\n", d.x, d.y, d.name);
+
+    // printf("\nDONE\n");
+
+    // something();
+
+
+}
+
+
+
+// printf(s : ^u8, vargs: ..); #foreign
+
+
+/*
+main :: (){
+    x := 10;
+    d := fac(x);
+    printf("d = %d\n", d);
+
+    // a: u32 = 0;
+    // a = a - 1;
+    // printf("a = %u \n", a);
+}
+
+fac :: (x: int) -> int {
+    if(x <= 0){
+        return 0;
+    }
+    if (x == 1){
+        return 1;
+    }
+    return fac(x-1) + fac(x-2);
+}
+*/
+
+
+
+// EXAMPLE OF NON DETERMINISTIC CODE IN C++
+/*
+
+Student :: struct {
+    name: string;
+    grade: int;
+    supervisor: ^Student;  // Pointer member
+};
+
+main :: (){
+    s: Student;
+    local: Student;
+    s.supervisor = &local;
+    s.supervisor.name = "Alan";
+    printf("name =  %s\n", s.supervisor.name);
+    printf("Sucesssios\n");
+}
+
+// IT will work in c++ but not if ran in for loop unless optimize flag is turned on during compilation
+ // its underterministic otherwise (need to look at assemblyyy...)
+    // Student s;
+    // // Student local;
+    // // ((s.supervisor) = (&local));
+    // ((*(s.supervisor)).name) = "Alan";
+    // printf("name = %s\n",((*(s.supervisor)).name));
+    // printf("Sucesssios\n");
+
+    // for (int i = 0; i < 1000; i++) {
+    //     Student s;
+    //     ((*(s.supervisor)).name) = "Alan";
+    //     printf("name = %s\n",((*(s.supervisor)).name));
+    // }
+
+*/
+
+
+
+
+// a : int = 434;
+
+// main :: () {
+//     aa := a();
+//     printf("aa = %d", aa);
+// }
+// a :: () -> int {
+//     return 999;
+// }

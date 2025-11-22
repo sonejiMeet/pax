@@ -2,6 +2,7 @@
 
 #include <cstdint>   // uint8_t, uint64_t, etc.
 #include <cstddef>
+#include "pool.h"
 
 int isNumeric(char c);
 int isAlpha(char c);
@@ -43,3 +44,25 @@ public:
 
 #define defer const auto& CONCAT(defer__, __LINE__) = ExitScopeHelp() + [&]()
 #endif // HAVE_DEFER
+
+
+inline
+static char * pool_strdup(Pool *pool, const char *str) {
+    size_t len = strlen(str)+1;
+    char *p = (char *)pool_alloc(pool, len);
+    memcpy(p, str, len);
+    //printf("pool_strdup %d\"%.*s\"\n", len, len, p);
+    return p;
+}
+
+inline
+static char* c_concat3(const char* a, const char* b, const char* c) {
+    size_t la = strlen(a);
+    size_t lb = strlen(b);
+    size_t lc = strlen(c);
+    char* out = (char*)malloc(la + lb + lc + 1);
+    memcpy(out, a, la);
+    memcpy(out + la, b, lb);
+    memcpy(out + la + lb, c, lc + 1);
+    return out;
+}

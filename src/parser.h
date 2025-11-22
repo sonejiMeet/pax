@@ -1,11 +1,15 @@
 #pragma once
+
 #include "lexer.h"
 #include "ast.h"
-
 #include "pool.h"
+
+struct Pax_Interp;
 
 struct Parser
 {
+    Pax_Interp *interp;
+
     Lexer *lexer;
 
     Pool *pool;
@@ -13,7 +17,7 @@ struct Parser
     Token *current = nullptr;
     Token *previous = nullptr;
 
-    Parser(Lexer *l, Pool *pool, Def_Type *type);
+    Parser(Lexer *l, Pax_Interp *_interp);
 
     void advance();
 
@@ -23,7 +27,7 @@ struct Parser
     void Expect(TokenType expectedType, const char *errorMessage);
 
     void synchronize();
-    Ast_Block *parseProgram();
+    Ast_Block *parseProgram(bool skip_main = false);
 
     //
     //  KEEP THIS OLD RECURSIVE DECENT
