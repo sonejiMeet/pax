@@ -12,8 +12,6 @@ struct Parser
 
     Lexer *lexer;
 
-    Pool *pool;
-    Def_Type *_type;
     Token *current = nullptr;
     Token *previous = nullptr;
 

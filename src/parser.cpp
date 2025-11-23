@@ -15,11 +15,11 @@ bool exitSuccess = true;
 #endif
 
 // MACRO
-#define AST_NEW(pool, type) ([&]() -> type* {              \
+#define AST_NEW(type) ([&]() -> type* {              \
     AST_NEW_LOG(type)                                      \
-    assert(pool != nullptr && "Pool must not be null");    \
-    void *mem = pool_alloc(pool, sizeof(type));            \
-    type *node = new (mem) type(pool);                     \
+    assert(interp->pool != nullptr && "Pool must not be null");    \
+    void *mem = pool_alloc(interp->pool, sizeof(type));            \
+    type *node = new (mem) type(interp->pool);                     \
     node->line_number = current->row;                      \
     node->character_number = current->col;                 \
     node->file_name = interp->current_file;                \
@@ -31,8 +31,6 @@ bool exitSuccess = true;
 Parser::Parser(Lexer *l, Pax_Interp *_interp) : lexer(l) {
 
     interp = _interp;
-    pool = interp->pool;
-    _type = interp->type;
     current = lexer->nextToken();
 }
 
@@ -106,14 +104,14 @@ void Parser::synchronize()
 //     // Handle unary operators first: *, &
 //     if (current->type == TOK_STAR) { // dereference
 //         advance();
-//         Ast_Unary *node = AST_NEW(pool,Ast_Unary);
+//         Ast_Unary *node = AST_NEW(Ast_Unary);
 //         node->op = UNARY_DEREFERENCE;
 //         node->operand = parseFactor();
 //         return node;
 //     }
 //     else if (current->type == TOK_AMPERSAND) { // address of
 //         advance();
-//         Ast_Unary *node = AST_NEW(pool,Ast_Unary);
+//         Ast_Unary *node = AST_NEW(Ast_Unary);
 //         node->op = UNARY_ADDRESS_OF;
 //         node->operand = parseFactor();
 //         return node;
@@ -124,7 +122,7 @@ void Parser::synchronize()
 //             parseError("Consecutive unary minus operators are not allowed.");
 //         }
 //         advance();
-//         Ast_Unary *node = AST_NEW(pool, Ast_Unary);
+//         Ast_Unary *node = AST_NEW(Ast_Unary);
 //         node->op = UNARY_NEGATE;
 //         node->operand = parseFactor();
 //         return node;
@@ -135,7 +133,7 @@ void Parser::synchronize()
 //             parseError("Consecutive unary exclamation mark operators are not allowed.");
 //         }
 //         advance();
-//         Ast_Unary *node = AST_NEW(pool, Ast_Unary);
+//         Ast_Unary *node = AST_NEW(Ast_Unary);
 //         node->op = UNARY_NOT;
 //         node->operand = parseFactor();
 //         return node;
@@ -143,7 +141,7 @@ void Parser::synchronize()
 //     else if (current->type == TOK_NUMBER)
 //     {
 
-//         Ast_Literal *node = AST_NEW(pool,Ast_Literal);
+//         Ast_Literal *node = AST_NEW(Ast_Literal);
 //         node->value_type = LITERAL_NUMBER;
 //         node->integer_value = current->int_value;
 //         advance();
@@ -152,7 +150,7 @@ void Parser::synchronize()
 //     else if (current->type == TOK_FLOAT)
 //     {
 
-//         Ast_Literal *node = AST_NEW(pool,Ast_Literal);
+//         Ast_Literal *node = AST_NEW(Ast_Literal);
 //         node->value_type = LITERAL_FLOAT;
 //         node->float_value = current->float64_value;
 //         advance();
@@ -160,7 +158,7 @@ void Parser::synchronize()
 //     }
 //     else if (current->type == TOK_STRING )
 //     {
-//         Ast_Literal *node = AST_NEW(pool,Ast_Literal);
+//         Ast_Literal *node = AST_NEW(Ast_Literal);
 //         node->value_type = LITERAL_STRING;
 //         node->string_value = reinterpret_cast<const char*>(current->string_value.data);
 
@@ -169,7 +167,7 @@ void Parser::synchronize()
 //     }
 //     else if (current->type == TOK_KEYWORD_TRUE || current->type == TOK_KEYWORD_FALSE)
 //     {
-//         Ast_Literal *node = AST_NEW(pool,Ast_Literal);
+//         Ast_Literal *node = AST_NEW(Ast_Literal);
 //         if(current->type == TOK_KEYWORD_TRUE){
 //             node->value_type = LITERAL_TRUE;
 //         } else node->value_type = LITERAL_FALSE;
@@ -184,7 +182,7 @@ void Parser::synchronize()
 //             return parseCall();
 //         } else {
 
-//             Ast_Ident *node = AST_NEW(pool,Ast_Ident);
+//             Ast_Ident *node = AST_NEW(Ast_Ident);
 //             node->name = current->value;
 
 //             advance();
@@ -212,7 +210,7 @@ void Parser::synchronize()
 
 //     while (current->type == TOK_STAR || current->type == TOK_SLASH)
 //     {
-//         Ast_Binary *node = AST_NEW(pool,Ast_Binary);
+//         Ast_Binary *node = AST_NEW(Ast_Binary);
 //         node->lhs = left;
 
 //         if(current->type == TOK_STAR) node->op = BINOP_MUL;
@@ -231,7 +229,7 @@ void Parser::synchronize()
 //     Ast_Expression *left = parseTerm();
 
 //     while (current->type == TOK_PLUS || current->type == TOK_MINUS) {
-//         Ast_Binary *node = AST_NEW(pool, Ast_Binary);
+//         Ast_Binary *node = AST_NEW(Ast_Binary);
 //         node->lhs = left;
 
 //         switch (current->type) {
@@ -255,7 +253,7 @@ void Parser::synchronize()
 //            current->type == TOK_LESS || current->type == TOK_GREATER ||
 //            current->type == TOK_LESS_EQUAL || current->type == TOK_GREATER_EQUAL) {
 
-//         Ast_Binary *node = AST_NEW(pool, Ast_Binary);
+//         Ast_Binary *node = AST_NEW(Ast_Binary);
 //         node->lhs = left;
 
 //         switch (current->type) {
@@ -282,14 +280,14 @@ Ast_Expression* Parser::parseExpression(int minPrecedence)
     // Handle unary operators and primary expressions
     if (current->type == TOK_STAR) { // dereference
         advance();
-        Ast_Unary* node = AST_NEW(pool, Ast_Unary);
+        Ast_Unary* node = AST_NEW(Ast_Unary);
         node->op = UNARY_DEREFERENCE;
         node->operand = parseExpression(100); // High precedence for unary
         left = node;
     }
     else if (current->type == TOK_AMPERSAND) { // address of
         advance();
-        Ast_Unary* node = AST_NEW(pool, Ast_Unary);
+        Ast_Unary* node = AST_NEW(Ast_Unary);
         node->op = UNARY_ADDRESS_OF;
         node->operand = parseExpression(100);
         left = node;
@@ -299,7 +297,7 @@ Ast_Expression* Parser::parseExpression(int minPrecedence)
             parseError("Consecutive unary minus operators are not allowed.");
         }
         advance();
-        Ast_Unary* node = AST_NEW(pool, Ast_Unary);
+        Ast_Unary* node = AST_NEW(Ast_Unary);
         node->op = UNARY_NEGATE;
         node->operand = parseExpression(100);
         left = node;
@@ -309,34 +307,34 @@ Ast_Expression* Parser::parseExpression(int minPrecedence)
             parseError("Consecutive unary exclamation mark operators are not allowed.");
         }
         advance();
-        Ast_Unary* node = AST_NEW(pool, Ast_Unary);
+        Ast_Unary* node = AST_NEW(Ast_Unary);
         node->op = UNARY_NOT;
         node->operand = parseExpression(100);
         left = node;
     }
     else if (current->type == TOK_NUMBER) {
-        Ast_Literal* node = AST_NEW(pool, Ast_Literal);
+        Ast_Literal* node = AST_NEW(Ast_Literal);
         node->value_type = LITERAL_NUMBER;
         node->integer_value = current->int_value;
         advance();
         left = node;
     }
     else if (current->type == TOK_FLOAT) {
-        Ast_Literal* node = AST_NEW(pool, Ast_Literal);
+        Ast_Literal* node = AST_NEW(Ast_Literal);
         node->value_type = LITERAL_FLOAT;
         node->float_value = current->float64_value;
         advance();
         left = node;
     }
     else if (current->type == TOK_STRING) {
-        Ast_Literal* node = AST_NEW(pool, Ast_Literal);
+        Ast_Literal* node = AST_NEW(Ast_Literal);
         node->value_type = LITERAL_STRING;
         node->string_value = reinterpret_cast<const char*>(current->string_value.data);
         advance();
         left = node;
     }
     else if (current->type == TOK_KEYWORD_TRUE || current->type == TOK_KEYWORD_FALSE) {
-        Ast_Literal* node = AST_NEW(pool, Ast_Literal);
+        Ast_Literal* node = AST_NEW(Ast_Literal);
         node->value_type = (current->type == TOK_KEYWORD_TRUE) ? LITERAL_TRUE : LITERAL_FALSE;
         advance();
         left = node;
@@ -345,7 +343,7 @@ Ast_Expression* Parser::parseExpression(int minPrecedence)
         if (lexer->peekNextToken()->type == TOK_LPAREN) {
             left = parseCall();
         } else {
-            Ast_Ident* node = AST_NEW(pool, Ast_Ident);
+            Ast_Ident* node = AST_NEW(Ast_Ident);
             node->name = current->value;
             advance();
             left = node;
@@ -369,7 +367,7 @@ Ast_Expression* Parser::parseExpression(int minPrecedence)
         TokenType op = current->type;
         advance();
 
-        Ast_Binary* node = AST_NEW(pool, Ast_Binary);
+        Ast_Binary* node = AST_NEW(Ast_Binary);
         node->lhs = left;
         node->op = getBinaryOperator(op);
         node->rhs = parseExpression(precedence + 1);
@@ -426,8 +424,8 @@ Ast_Type_Definition *Parser::parseTypeSpecifier() {
 
         if (current->type == TOK_CARET) {
 
-            Ast_Type_Definition *pointerType = AST_NEW(pool, Ast_Type_Definition);
-            pointerType->pointed_to_type = _type->type_def_dummy;
+            Ast_Type_Definition *pointerType = AST_NEW(Ast_Type_Definition);
+            pointerType->pointed_to_type = interp->type->type_def_dummy;
 
             if (currentType) {
                 pointerType->pointed_to_type = currentType;
@@ -440,7 +438,7 @@ Ast_Type_Definition *Parser::parseTypeSpecifier() {
             // Array type
             advance();
 
-            Ast_Type_Definition *arrayType = AST_NEW(pool,Ast_Type_Definition);
+            Ast_Type_Definition *arrayType = AST_NEW(Ast_Type_Definition);
             arrayType->element_type = nullptr;
 
             if (current->type == TOK_NUMBER) {
@@ -471,23 +469,23 @@ Ast_Type_Definition *Parser::parseTypeSpecifier() {
 
     // @Temporary
     // replace this with hashmap later
-    if (strcmp(current->value, "int") == 0) baseType = _type->type_def_int;
-    else if (strcmp(current->value, "s8") == 0) baseType = _type->type_def_s8;
-    else if (strcmp(current->value, "s16") == 0) baseType = _type->type_def_s16;
-    else if (strcmp(current->value, "s32") == 0) baseType = _type->type_def_s32;
-    else if (strcmp(current->value, "s64") == 0) baseType = _type->type_def_s64;
-    else if (strcmp(current->value, "u8") == 0) baseType = _type->type_def_u8;
-    else if (strcmp(current->value, "u16") == 0) baseType = _type->type_def_u16;
-    else if (strcmp(current->value, "u32") == 0) baseType = _type->type_def_u32;
-    else if (strcmp(current->value, "u64") == 0) baseType = _type->type_def_u64;
-    else if (strcmp(current->value, "float") == 0) baseType = _type->type_def_float;
-    else if (strcmp(current->value, "float32") == 0) baseType = _type->type_def_float32;
-    else if (strcmp(current->value, "float64") == 0) baseType = _type->type_def_float64;
-    else if (strcmp(current->value, "void") == 0) baseType = _type->type_def_void;
-    else if (strcmp(current->value, "bool") == 0) baseType = _type->type_def_bool;
-    else if (strcmp(current->value, "string") == 0) baseType = _type->type_def_string;
+    if (strcmp(current->value, "int") == 0) baseType = interp->type->type_def_int;
+    else if (strcmp(current->value, "s8") == 0) baseType = interp->type->type_def_s8;
+    else if (strcmp(current->value, "s16") == 0) baseType = interp->type->type_def_s16;
+    else if (strcmp(current->value, "s32") == 0) baseType = interp->type->type_def_s32;
+    else if (strcmp(current->value, "s64") == 0) baseType = interp->type->type_def_s64;
+    else if (strcmp(current->value, "u8") == 0) baseType = interp->type->type_def_u8;
+    else if (strcmp(current->value, "u16") == 0) baseType = interp->type->type_def_u16;
+    else if (strcmp(current->value, "u32") == 0) baseType = interp->type->type_def_u32;
+    else if (strcmp(current->value, "u64") == 0) baseType = interp->type->type_def_u64;
+    else if (strcmp(current->value, "float") == 0) baseType = interp->type->type_def_float;
+    else if (strcmp(current->value, "float32") == 0) baseType = interp->type->type_def_float32;
+    else if (strcmp(current->value, "float64") == 0) baseType = interp->type->type_def_float64;
+    else if (strcmp(current->value, "void") == 0) baseType = interp->type->type_def_void;
+    else if (strcmp(current->value, "bool") == 0) baseType = interp->type->type_def_bool;
+    else if (strcmp(current->value, "string") == 0) baseType = interp->type->type_def_string;
     else if(current->type == TOK_IDENTIFIER) { // for now just structs
-        Ast_Type_Definition *user_defined_type = AST_NEW(pool, Ast_Type_Definition);
+        Ast_Type_Definition *user_defined_type = AST_NEW(Ast_Type_Definition);
         user_defined_type->name = current->value;
         user_defined_type->is_unresolved = true;
         baseType = user_defined_type;
@@ -504,7 +502,7 @@ Ast_Type_Definition *Parser::parseTypeSpecifier() {
 
     Ast_Type_Definition *iter = currentType;
     while (true) {
-        if (iter->array_kind == ARRAY_NONE && iter->pointed_to_type == _type->type_def_dummy /*nullptr*/) {
+        if (iter->array_kind == ARRAY_NONE && iter->pointed_to_type == interp->type->type_def_dummy /*nullptr*/) {
             iter->pointed_to_type = baseType;
             break;
         }
@@ -529,7 +527,7 @@ Ast_Type_Definition *Parser::parseTypeSpecifier() {
 // statement
 Ast_Declaration *Parser::parseVarDeclaration()
 {
-    Ast_Declaration *varDecl = AST_NEW(pool,Ast_Declaration);
+    Ast_Declaration *varDecl = AST_NEW(Ast_Declaration);
 
     const char *varName = current->value;
     advance();
@@ -576,7 +574,7 @@ Ast_Declaration *Parser::parseVarDeclaration()
     Expect(TOK_SEMICOLON, "Expected ';' after variable declaration.");
 
     varDecl->declared_type = typeDef;
-    varDecl->identifier = AST_NEW(pool,Ast_Ident);
+    varDecl->identifier = AST_NEW(Ast_Ident);
     varDecl->identifier->name = varName;
     varDecl->initializer = initializer;
 
@@ -595,7 +593,7 @@ Ast_If *Parser::parseIfStatement(){
 
     Ast_Block *thenBlock = parseBlockStatement();
 
-    Ast_If *ifNode = AST_NEW(pool,Ast_If);
+    Ast_If *ifNode = AST_NEW(Ast_If);
 
     ifNode->condition = condition;
     ifNode->then_block = thenBlock;
@@ -613,7 +611,7 @@ Ast_If *Parser::parseIfStatement(){
 Ast_Block *Parser::parseBlockStatement(bool scoped_block) {
     expect(TOK_LCURLY_PAREN, "Expected '{' to start a block statement.");
 
-    Ast_Block *block = AST_NEW(pool,Ast_Block);
+    Ast_Block *block = AST_NEW(Ast_Block);
 
     block->is_scoped_block = scoped_block;
 
@@ -638,8 +636,8 @@ Ast_Procedure_Call_Expression *Parser::parseCall()
 {
     Token *identToken = current;
 
-    Ast_Procedure_Call_Expression *callExpr = AST_NEW(pool,Ast_Procedure_Call_Expression);
-    callExpr->function = AST_NEW(pool,Ast_Ident);
+    Ast_Procedure_Call_Expression *callExpr = AST_NEW(Ast_Procedure_Call_Expression);
+    callExpr->function = AST_NEW(Ast_Ident);
     callExpr->function->name = identToken->value;
 
     advance();
@@ -647,7 +645,7 @@ Ast_Procedure_Call_Expression *Parser::parseCall()
     expect(TOK_LPAREN, "Expected '(' after function name");
 
 
-    Ast_Comma_Separated_Args *argsNode = AST_NEW(pool,Ast_Comma_Separated_Args);
+    Ast_Comma_Separated_Args *argsNode = AST_NEW(Ast_Comma_Separated_Args);
 
     if(current->type != TOK_RPAREN)
     {
@@ -681,12 +679,12 @@ Ast_Procedure_Call_Expression *Parser::parseCall()
 
 Ast_Statement *Parser::parseStructDefinition()
 {
-    Ast_Struct *struct_decs = AST_NEW(pool, Ast_Struct);
+    Ast_Struct *struct_decs = AST_NEW(Ast_Struct);
 
     struct_decs->name = current->value;
 
-    Ast_Statement *stmt = AST_NEW(pool, Ast_Statement);
-    auto *td = AST_NEW(pool, Ast_Type_Definition);
+    Ast_Statement *stmt = AST_NEW(Ast_Statement);
+    auto *td = AST_NEW(Ast_Type_Definition);
     td->struct_def = struct_decs;
     stmt->type_definition = td;
 
@@ -717,8 +715,8 @@ Ast_Declaration* Parser::parseFunctionDeclaration(bool is_local) {
         return nullptr;
     }
 
-    Ast_Declaration* func_decl = AST_NEW(pool, Ast_Declaration);
-    func_decl->identifier = AST_NEW(pool, Ast_Ident);
+    Ast_Declaration* func_decl = AST_NEW(Ast_Declaration);
+    func_decl->identifier = AST_NEW(Ast_Ident);
     func_decl->identifier->name = current->value;
     func_decl->is_function = true;
     func_decl->is_local_function = is_local;
@@ -735,8 +733,8 @@ Ast_Declaration* Parser::parseFunctionDeclaration(bool is_local) {
                 return nullptr;
             }
 
-            Ast_Declaration* param = AST_NEW(pool, Ast_Declaration);
-            param->identifier = AST_NEW(pool, Ast_Ident);
+            Ast_Declaration* param = AST_NEW(Ast_Declaration);
+            param->identifier = AST_NEW(Ast_Ident);
             param->identifier->name = current->value;
             param->is_declaration_function_argument = true;
             advance(); // consume param name
@@ -763,9 +761,9 @@ Ast_Declaration* Parser::parseFunctionDeclaration(bool is_local) {
         advance();
         func_decl->return_type = parseTypeSpecifier();
     } else {
-        func_decl->return_type = AST_NEW(pool, Ast_Type_Definition);
+        func_decl->return_type = AST_NEW(Ast_Type_Definition);
 
-        func_decl->return_type = _type->type_def_void;
+        func_decl->return_type = interp->type->type_def_void;
 
     }
 
@@ -833,12 +831,12 @@ Ast_Statement *Parser::parseStatement()
                 Expect(TOK_ASSIGN, "Expected '=' in assignment");
                 Ast_Expression *rhs = parseExpression();
 
-                Ast_Binary *assignExpr = AST_NEW(pool,Ast_Binary);
+                Ast_Binary *assignExpr = AST_NEW(Ast_Binary);
                 assignExpr->op = BINOP_ASSIGN;
                 assignExpr->lhs = lhs;
                 assignExpr->rhs = rhs;
 
-                Ast_Statement *stmt = AST_NEW(pool,Ast_Statement);
+                Ast_Statement *stmt = AST_NEW(Ast_Statement);
                 Expect(TOK_SEMICOLON, "Expected ';' after assignment");
 
                 stmt->expression = assignExpr;
@@ -849,7 +847,7 @@ Ast_Statement *Parser::parseStatement()
 
                 Expect(TOK_SEMICOLON, "Expected ';' after printf call.");
 
-                Ast_Statement *stmt = AST_NEW(pool,Ast_Statement);
+                Ast_Statement *stmt = AST_NEW(Ast_Statement);
                 stmt->expression = expr;
                 return stmt;
             }
@@ -867,7 +865,7 @@ Ast_Statement *Parser::parseStatement()
         case TOK_RETURN: {
             advance(); // consume 'return'
 
-            Ast_Statement* stmt = AST_NEW(pool, Ast_Statement);
+            Ast_Statement* stmt = AST_NEW(Ast_Statement);
             stmt->is_return = true;
 
             if (current->type != TOK_SEMICOLON) {
@@ -887,14 +885,14 @@ Ast_Statement *Parser::parseStatement()
 
             Ast_Expression *rhs = parseExpression();
 
-            Ast_Binary *assignExpr = AST_NEW(pool,Ast_Binary);
+            Ast_Binary *assignExpr = AST_NEW(Ast_Binary);
             assignExpr->op = BINOP_ASSIGN;
             assignExpr->lhs = lhs;
             assignExpr->rhs = rhs;
 
             Expect(TOK_SEMICOLON, "Expected ';' after assignment.");
 
-            Ast_Statement *stmt = AST_NEW(pool,Ast_Statement);
+            Ast_Statement *stmt = AST_NEW(Ast_Statement);
             stmt->expression = assignExpr;
             return stmt;
         }
@@ -903,7 +901,7 @@ Ast_Statement *Parser::parseStatement()
 
             Expect(TOK_SEMICOLON, "Expected ';' after printf call.");
 
-            Ast_Statement *stmt = AST_NEW(pool,Ast_Statement);
+            Ast_Statement *stmt = AST_NEW(Ast_Statement);
             stmt->expression = expr;
             return stmt;
         }
@@ -921,7 +919,7 @@ Ast_Statement *Parser::parseStatement()
         case TOK_LCURLY_PAREN: {
             bool is_scoped_block = true;
             Ast_Block *scopedBlock = parseBlockStatement(is_scoped_block);
-            Ast_Statement *stmt = AST_NEW(pool,Ast_Statement);
+            Ast_Statement *stmt = AST_NEW(Ast_Statement);
             stmt->block = scopedBlock;
             return stmt;
         }
@@ -931,7 +929,7 @@ Ast_Statement *Parser::parseStatement()
         case TOK_FLOAT: {
             Ast_Expression *expr = parseExpression();
             expect(TOK_SEMICOLON, "Expected ';' after expression statement.");
-            Ast_Statement *stmt = AST_NEW(pool,Ast_Statement);
+            Ast_Statement *stmt = AST_NEW(Ast_Statement);
             stmt->expression = expr;
             return stmt;
         }
@@ -945,7 +943,7 @@ Ast_Statement *Parser::parseStatement()
 
 Ast_Block *Parser::parseProgram(bool skip_main)
 {
-    Ast_Block *program = AST_NEW(pool,Ast_Block);
+    Ast_Block *program = AST_NEW(Ast_Block);
     printf("---Inside parser--- Parsing file: %s\n", interp->current_file);
 
     // printf("size of Ast_Type_Definition %zu----------->>>>>>>>>>>>>>>>>>>\n", sizeof(Ast_Type_Definition));
@@ -968,7 +966,7 @@ Ast_Block *Parser::parseProgram(bool skip_main)
                 parseError("Multiple 'main' functions not allowed.");
             }
             mainFound = true;
-            Ast_Statement *stmt = AST_NEW(pool,Ast_Statement);
+            Ast_Statement *stmt = AST_NEW(Ast_Statement);
 
             advance();
 
@@ -1012,7 +1010,7 @@ Ast_Block *Parser::parseProgram(bool skip_main)
             if(next->type == TOK_IMPORT){
                 advance();
                 advance();
-                Ast_Import *import = AST_NEW(pool, Ast_Import);
+                Ast_Import *import = AST_NEW(Ast_Import);
                 if(current->type == TOK_STRING){
                     import->import_path = (const char *)current->string_value.data;
                     // printf("%.*s\n",(int)current->string_value.count, current->string_value.data);

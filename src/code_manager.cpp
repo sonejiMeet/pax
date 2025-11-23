@@ -1,14 +1,15 @@
 #include "code_manager.h"
 #include "interp.h"
+#include "tools.h"
 
 #include <cstdarg> // for variadic function
 #include <cstring> // for linux strlen
 #include <math.h> // for linux
 
-#define AST_NEW(pool, type) ([&]() -> type* {                   \
-    assert(pool != nullptr && "Pool must not be null");         \
-    void* mem = pool_alloc(pool, sizeof(type));                \
-    type* node = new (mem) type(pool);                         \
+#define AST_NEW(type) ([&]() -> type* {                   \
+    assert(interp->pool != nullptr && "Pool must not be null");         \
+    void* mem = pool_alloc(interp->pool, sizeof(type));                \
+    type* node = new (mem) type(interp->pool);                         \
     node->file_name = interp->current_file;                    \
     return node;                                               \
 }())
@@ -16,29 +17,20 @@
 CodeManager::CodeManager(Pax_Interp *_interp)
 {
     interp = _interp;
-    scope_stack = interp->pool;
-    Ast_Block *block = AST_NEW(interp->pool, Ast_Block);
+
+    scope_stack = interp->pool; // have to pass in the pool to the Array<>
+    Ast_Block *block = AST_NEW(Ast_Block);
     scope_stack.push_back(block); // global scope
+
     _type = interp->type;
-    ast_pool = interp->pool;
 }
 
 Ast_Literal *CodeManager::make_integer_literal(long long value){
-    Ast_Literal *literal = AST_NEW(ast_pool, Ast_Literal);
+    Ast_Literal *literal = AST_NEW(Ast_Literal);
     literal->value_type = LITERAL_NUMBER;
     literal->integer_value = value;
     return literal;
 }
-
-
-char *CodeManager::pool_strdup(Pool* pool, const char* str) {
-    size_t len = strlen(str) + 1;
-    char* p = (char*)pool_alloc(pool, len);
-    memcpy(p, str, len);
-    //printf("pool_strdup %d\"%.*s\"\n", len, len, p);
-    return p;
-}
-
 
 template<typename T>
 void CodeManager::report_error(T type, const char* fmt, ...)
@@ -66,26 +58,6 @@ void CodeManager::report_error(T type, const char* fmt, ...)
         fprintf(stderr, "%s: Semantic Error: %s\n", filename, buffer);
     }
 }
-
-void CodeManager::report_error(int row, int col, const char* fmt, ...)
-{
-    constexpr size_t BUFFER_SIZE = 512;
-    char buffer[BUFFER_SIZE];
-
-    va_list args;
-    va_start(args, fmt);
-    vsnprintf(buffer, BUFFER_SIZE, fmt, args);
-    va_end(args);
-
-    count_errors += 1;
-
-    if (row >= 0 && col >= 0) {
-        fprintf(stderr, "Semantic Error[%d:%d]: %s\n", row, col, buffer);
-    } else {
-        fprintf(stderr, "Semantic Error: %s\n", buffer);
-    }
-}
-
 
 template<typename T, typename P>
 void CodeManager::report_error_with_previous(T node, P previous, const char* fmt, ...) {
@@ -130,7 +102,7 @@ void CodeManager::report_error_with_previous(T node, P previous, const char* fmt
 
 void CodeManager::push_scope()
 {
-    Ast_Block *block = AST_NEW(ast_pool, Ast_Block);
+    Ast_Block *block = AST_NEW(Ast_Block);
     scope_stack.push_back(block);
 }
 
@@ -475,7 +447,7 @@ Ast_Type_Definition* CodeManager::clone_type_definition(Ast_Type_Definition* ori
         return original;
     }
 
-    Ast_Type_Definition* clone = AST_NEW(ast_pool, Ast_Type_Definition);
+    Ast_Type_Definition* clone = AST_NEW(Ast_Type_Definition);
 
     clone->line_number = original->line_number;
     clone->character_number = original->character_number;
@@ -505,14 +477,14 @@ void CodeManager::create_type_instantiation(Ast_Type_Definition* type) {
     if (!base_type->struct_def) return;
     if (base_type->type_instance) return;
 
-    Ast_Type_Instantiation* instance = AST_NEW(ast_pool, Ast_Type_Instantiation);
+    Ast_Type_Instantiation* instance = AST_NEW(Ast_Type_Instantiation);
     base_type->type_instance = instance; // this must be set first
 
     Ast_Struct* struct_def = base_type->struct_def;
     for (int i = 0; i < struct_def->members.count; ++i) {
         Ast_Declaration* def_member = struct_def->members.data[i];
 
-        Ast_Declaration* instance_member = AST_NEW(ast_pool, Ast_Declaration);
+        Ast_Declaration* instance_member = AST_NEW(Ast_Declaration);
         instance_member->identifier = def_member->identifier;
 
         // **Handle inferred types (no declared_type)**
@@ -630,7 +602,7 @@ void CodeManager::resolve_unresolved_vars() {
 
     if (scope_stack.size() == 1 && !unresolved_vars.empty()) {
         for (const auto& unresolved : unresolved_vars) {
-            report_error(unresolved.line_number, unresolved.character_number, "Use of undeclared variable '%s'", unresolved.ident->name);
+            report_error(unresolved.ident, "Use of undeclared variable '%s'", unresolved.ident->name);
         }
         unresolved_vars.clear();
     }
@@ -649,7 +621,7 @@ void CodeManager::resolve_unresolved_calls() {
         }
 
         if (!decl->is_function) {
-            report_error(unresolved.line_number, unresolved.character_number, "'%s' is not a function", fn->name);
+            report_error(call, "'%s' is not a function", fn->name);
             continue;
         }
 
@@ -666,7 +638,7 @@ void CodeManager::resolve_unresolved_calls() {
         int call_arg_count = call->arguments ? call->arguments->arguments.count : 0;
         int decl_arg_count = decl->parameters.count;
         if (call_arg_count != decl_arg_count) {
-            report_error(unresolved.line_number, unresolved.character_number, "Function '%s' expects %d arguments, but %d were provided",
+            report_error(call, "Function '%s' expects %d arguments, but %d were provided",
                          fn->name, decl_arg_count, call_arg_count);
             continue;
         }
@@ -678,7 +650,7 @@ void CodeManager::resolve_unresolved_calls() {
     if (scope_stack.size() == 1 && !unresolved_calls.empty()) {
         for (const auto& unresolved : unresolved_calls) {
             auto *fn = static_cast<Ast_Ident*>(unresolved.call->function);
-            report_error(unresolved.line_number, unresolved.character_number, "Call to undeclared function '%s'", fn->name);
+            report_error(unresolved.call, "Call to undeclared function '%s'", fn->name);
         }
         unresolved_calls.clear();
     }
@@ -777,7 +749,7 @@ void CodeManager::resolve_unresolved_member_accesses_queue() {
     unresolved_member_accesses.swap(still_unresolved);
     if (!unresolved_member_accesses.empty()) {
         for (const auto& u : unresolved_member_accesses) {
-            report_error(u.line_number, u.character_number, "Cannot resolve member access: base expression has unknown type");
+            report_error(u.dot_expr, "Cannot resolve member access: base expression has unknown type");
         }
         unresolved_member_accesses.clear();
     }
@@ -1268,7 +1240,7 @@ void CodeManager::resolve_idents_in_expr(Ast_Expression* expr)
 char* CodeManager::type_to_string(Ast_Type_Definition* type) {
 
     if (!type) {
-        return pool_strdup(ast_pool, "unknown");
+        return pool_strdup(interp->pool, "unknown");
     }
 
     Ast_Type_Definition* base_type = type;
@@ -1297,7 +1269,7 @@ char* CodeManager::type_to_string(Ast_Type_Definition* type) {
         type_str += base_type->to_string(*_type);
     }
 
-    return pool_strdup(ast_pool, type_str.c_str());
+    return pool_strdup(interp->pool, type_str.c_str());
 }
 
 void CodeManager::infer_types_return(Ast_Statement* ret, Ast_Declaration* func_decl) {
@@ -1410,7 +1382,7 @@ void CodeManager::infer_types_expr(Ast_Expression** expr_ptr)
 
             }
 
-            Ast_Type_Definition* resultType = AST_NEW(ast_pool, Ast_Type_Definition);
+            Ast_Type_Definition* resultType = AST_NEW(Ast_Type_Definition);
             switch (u->op) {
             case UNARY_DEREFERENCE: {
                 if (!operandType->pointed_to_type || operandType == _type->type_def_dummy) {
@@ -1748,7 +1720,7 @@ void CodeManager::infer_types_expr(Ast_Expression** expr_ptr)
             auto *s = static_cast<Ast_Struct *>(expr);
             if(!s) return;
 
-            Ast_Block* temp_scope = AST_NEW(ast_pool, Ast_Block);
+            Ast_Block* temp_scope = AST_NEW(Ast_Block);
             for(int i = 0; i < s->members.count; ++i){
                 temp_scope->statements.push_back(s->members.data[i]);
             }

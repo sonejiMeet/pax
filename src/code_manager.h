@@ -44,9 +44,8 @@ struct ReturnCheckResult {
 struct CodeManager {
     Pax_Interp* interp;
 
-    Pool *ast_pool;
     Array<Ast_Block *> scope_stack;
-    
+
     std::vector<CM_Unresolved_Call> unresolved_calls;
     std::vector<CM_Unresolved_Variable> unresolved_vars;
     std::vector<CM_Unresolved_Type> unresolved_types;
@@ -60,11 +59,8 @@ struct CodeManager {
 
     int count_errors = 0;
 
-    char *pool_strdup(Pool *pool, const char* str);
-
     template <typename T>
     void report_error(T type, const char *fmt, ...);
-    void report_error(int row, int col, const char* fmt, ...);
 
     template<typename T, typename P>
     void report_error_with_previous(T node, P previous, const char* fmt, ...);
