@@ -101,13 +101,11 @@ struct CodeManager {
     void push_unresolved_member_access(Ast_Binary *dot_expr);
 
     void resolve_idents_in_expr(Ast_Expression *expr);
+
     void resolve_unresolved_vars();
     void resolve_unresolved_calls();
-
-
-    void resolve_unresolved_types_queue();
-    void resolve_unresolved_member_accesses_queue();
-
+    void resolve_unresolved_types();
+    void resolve_unresolved_member_accesses();
 
     char *type_to_string(Ast_Type_Definition *type);
 
@@ -123,5 +121,9 @@ struct CodeManager {
     void infer_types_block(Ast_Block *block, Ast_Declaration *my_func = nullptr);
 
     bool check_that_types_match(Ast_Type_Definition *wanted, Ast_Type_Definition *have, bool is_pointer = false);
+
+    inline bool can_implicitly_convert_const(Ast_Expression* expr, Ast_Type_Definition* target);
+    Ast_Type_Definition* extract_sizeof_type(Ast_Expression* expr);
+    Ast_Type_Definition* resolve_type_by_name(const char* name);
 
 };

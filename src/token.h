@@ -16,9 +16,11 @@ enum TokenType {
     TOK_RETURN,         // return
     TOK_IMPORT,        // import
     TOK_FOREIGN,     // foreign
+    TOK_NULL,
 
     TOK_KEYWORD_TRUE, // true
     TOK_KEYWORD_FALSE, // false
+    TOK_KEYWORD_ANY,
 
     TOK_NUMBER,
     TOK_FLOAT,
@@ -56,6 +58,8 @@ enum TokenType {
     TOK_LESS_EQUAL,     // <=
     TOK_GREATER_EQUAL,  // >=
 
+    TOK_AUTO_CAST,
+
     TOK_ARROW,          // ->
     TOK_UNDERSCORE,   // _
     TOK_COMMENT,
@@ -78,7 +82,12 @@ inline const char* tokenTypeToString(TokenType type) {
         case TOK_RETURN: return "TOK_RETURN";
         case TOK_IMPORT: return "TOK_IMPORT";
         case TOK_FOREIGN: return "TOK_FOREIGN";
-        
+        case TOK_NULL: return "TOK_NULL";
+
+        case TOK_KEYWORD_TRUE: return "TOK_KEYWORD_TRUE";
+        case TOK_KEYWORD_FALSE: return "TOK_KEYWORD_FALSE";
+        case TOK_KEYWORD_ANY: return "TOK_KEYWORD_ANY";
+
         case TOK_NUMBER: return "TOK_NUMBER";
         case TOK_FLOAT: return "TOK_FLOAT";
         case TOK_STRING: return "TOK_STRING";
@@ -115,13 +124,13 @@ inline const char* tokenTypeToString(TokenType type) {
         case TOK_LESS_EQUAL: return "TOK_LESS_EQUAL";
         case TOK_GREATER_EQUAL: return "TOK_GREATER_EQUAL";
 
+        case TOK_AUTO_CAST: return "TOK_AUTO_CAST";
+
         case TOK_ARROW: return "TOK_ARROW";
         case TOK_UNDERSCORE: return "TOK_UNDERSCORE";
         case TOK_COMMENT: return "TOK_COMMENT";
         case TOK_L_MULTILINE_COMMENT: return "TOK_L_MULTILINE_COMMENT";
         case TOK_R_MULTILINE_COMMENT: return "TOK_R_MULTILINE_COMMENT";
-        case TOK_KEYWORD_TRUE: return "TOK_KEYWORD_TRUE";
-        case TOK_KEYWORD_FALSE: return "TOK_KEYWORD_FALSE";
         case TOK_END_OF_FILE: return "TOK_END_OF_FILE";
 
         default: return "UNKNOWN_TOKEN";

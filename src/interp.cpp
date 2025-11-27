@@ -228,8 +228,8 @@ void Pax_Interp::run_frontend() {
 
     code_manager->resolve_unresolved_vars();
     code_manager->resolve_unresolved_calls();
-    code_manager->resolve_unresolved_types_queue();
-    code_manager->resolve_unresolved_member_accesses_queue();
+    code_manager->resolve_unresolved_types();
+    code_manager->resolve_unresolved_member_accesses();
 
     code_manager->infer_types_block(ast);
 

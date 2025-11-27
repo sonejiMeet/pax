@@ -250,8 +250,8 @@ void Parser::synchronize()
 //     Ast_Expression *left = parseAdditive();
 
 //     while (current->type == TOK_EQUAL || current->type == TOK_NOT_EQUAL ||
-//            current->type == TOK_LESS || current->type == TOK_GREATER ||
-//            current->type == TOK_LESS_EQUAL || current->type == TOK_GREATER_EQUAL) {
+//            current->type == TOK_LESS  ||  current->type == TOK_GREATER  ||
+//            current->type == TOK_LESS_EQUAL || current->type == TOK_GREATER_EQUAL || current->type == TOK_DOT) {
 
 //         Ast_Binary *node = AST_NEW(Ast_Binary);
 //         node->lhs = left;
@@ -263,6 +263,7 @@ void Parser::synchronize()
 //             case TOK_GREATER: node->op = BINOP_GREATER; break;
 //             case TOK_LESS_EQUAL: node->op = BINOP_LESS_EQUAL; break;
 //             case TOK_GREATER_EQUAL: node->op = BINOP_GREATER_EQUAL; break;
+//             case TOK_DOT: node->op = BINOP_DOT; break;
 //             default: break;
 //         }
 
@@ -348,6 +349,12 @@ Ast_Expression* Parser::parseExpression(int minPrecedence)
             advance();
             left = node;
         }
+    }
+    else if (current->type == TOK_NULL){
+        Ast_Literal* node = AST_NEW(Ast_Literal);
+        node->value_type = LITERAL_NULL;
+        advance();
+        left = node;
     }
     else if (current->type == TOK_LPAREN) {
         advance();
@@ -466,10 +473,13 @@ Ast_Type_Definition *Parser::parseTypeSpecifier() {
 
     Ast_Type_Definition *baseType = nullptr;
 
-
+    if(current->type == TOK_KEYWORD_ANY){
+        baseType = interp->type->type_def_any;
+    }
+    
     // @Temporary
     // replace this with hashmap later
-    if (strcmp(current->value, "int") == 0) baseType = interp->type->type_def_int;
+    else if (strcmp(current->value, "int") == 0) baseType = interp->type->type_def_int;
     else if (strcmp(current->value, "s8") == 0) baseType = interp->type->type_def_s8;
     else if (strcmp(current->value, "s16") == 0) baseType = interp->type->type_def_s16;
     else if (strcmp(current->value, "s32") == 0) baseType = interp->type->type_def_s32;
@@ -495,6 +505,10 @@ Ast_Type_Definition *Parser::parseTypeSpecifier() {
         return nullptr;
     }
     advance();
+
+    // if (current->type != TOK_KEYWORD_ANY && current->type != TOK_IDENTIFIER)
+    //     advance();
+
 
     if (!currentType) // it was a pure type
         return baseType;
@@ -651,6 +665,7 @@ Ast_Procedure_Call_Expression *Parser::parseCall()
     {
         while(true)
         {
+
             Ast_Expression *arg = parseExpression();
             argsNode->arguments.push_back(arg);
 

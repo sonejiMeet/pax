@@ -56,7 +56,7 @@ enum Ast_Type {
     AST_CAST,
 
     AST_IMPORT,
-
+    AST_SIZEOF,
 };
 
 
@@ -81,6 +81,7 @@ inline std::string astTypeToString(Ast_Type type) {
         case AST_TYPE_DEFINITION: return "TypeDefinition";
         case AST_CAST: return "Cast";
         case AST_IMPORT: return "Import";
+        case AST_SIZEOF: return "sizeof";
         default:                 return "Unknown";
     }
 }
@@ -109,6 +110,9 @@ struct Ast_Expression : public Ast {
     Ast_Expression(Pool* = nullptr) { type = AST_EXPRESSION; }
     Ast_Type_Definition *inferred_type = nullptr;
     // bool is_unresolved = false;
+
+    // bool is_marked_for_auto_cast = false;
+
 };
 
 struct Ast_Declaration : public Ast_Statement {
@@ -152,6 +156,7 @@ enum Value_Type {
     LITERAL_FLOAT,
     LITERAL_TRUE,
     LITERAL_FALSE,
+    LITERAL_NULL,
 };
 
 struct Ast_Literal : public Ast_Expression {
@@ -179,6 +184,12 @@ struct Ast_Procedure_Call_Expression : public Ast_Expression {
     Ast_Comma_Separated_Args *arguments = nullptr;
 };
 
+struct Ast_Sizeof : public Ast_Expression {
+    Ast_Sizeof (Pool * = nullptr) { type = AST_SIZEOF;}
+
+    Ast_Type_Definition *type_arg = nullptr;
+
+};
 enum Binary_Op {
     BINOP_UNKNOWN,
     BINOP_ADD,
@@ -303,6 +314,7 @@ struct Def_Type {
  Ast_Type_Definition *type_def_null;
  Ast_Type_Definition *type_def_bool;
  Ast_Type_Definition *type_def_string;
+ Ast_Type_Definition *type_def_any;
 
  Ast_Literal *literal_true;
  Ast_Literal *literal_false;
@@ -339,7 +351,7 @@ struct Ast_Type_Definition : public Ast {
         const Ast_Type_Definition *base = this; // interesting...
 
         std::string base_name;
-        if (base == types.type_def_dummy) base_name = "unknown_type_def";
+        if (base == types.type_def_dummy) base_name = "dummy_type_def";
         else if (base == types.type_def_int) base_name = "int";
         else if (base == types.type_def_s8) base_name = "s8";
         else if (base == types.type_def_s16) base_name = "s16";
@@ -357,6 +369,8 @@ struct Ast_Type_Definition : public Ast {
         else if (base == types.type_def_void) base_name = "void";
         else if (base == types.type_def_bool) base_name = "bool";
         else if (base == types.type_def_string) base_name = "char *";
+        else if (base == types.type_def_any) base_name = "/*its an Any type*/";
+        else if (base == types.type_def_null) base_name = "nullptr";
 
         else if (struct_def) base_name = std::string(struct_def->name ? struct_def->name : "unknown_struct");
         else base_name = "unknown_builtin_type";

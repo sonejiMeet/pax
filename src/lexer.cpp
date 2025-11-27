@@ -202,6 +202,10 @@ Token *Lexer::identifierToken(char first)
     else if (strcmp(ident, "import") == 0) type = TOK_IMPORT;
     else if (strcmp(ident, "foreign") == 0) type = TOK_FOREIGN;
 
+    else if (strcmp(ident, "Any") == 0) type = TOK_KEYWORD_ANY;
+    
+    else if (strcmp(ident, "null") == 0) type = TOK_NULL;
+
     Token *t = makeToken(type, ident);
 
     free(ident);
@@ -256,6 +260,7 @@ Token *Lexer::nextToken()
             return makeToken(TOK_LESS, "<");
         case '>':
             if (match_and_advance('=')) return makeToken(TOK_GREATER_EQUAL, ">=");
+            else if (match_and_advance('>')) return makeToken(TOK_AUTO_CAST, ">>");
             return makeToken(TOK_GREATER, ">");
         case '"':
             if(check_prev_char('\'') && match_and_advance('\''))

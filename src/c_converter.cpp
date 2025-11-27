@@ -11,6 +11,7 @@ const char *BOILTERPLATE_TOP =
     "/* GENERATED FILE */\n\n"
     "#include <stdlib.h>\n"
     "#include <stdio.h>\n"
+    "#include <string.h>\n"
     "typedef unsigned long long u64;\n"
     "typedef unsigned int       u32;\n"
     "typedef unsigned short     u16;\n"
@@ -48,6 +49,7 @@ void C_Converter::emitExpression(FILE* out, Ast_Expression* expr, int indent, bo
                     fprintf(out, "%s",s);
                     break;
                 }
+                case LITERAL_NULL: fprintf(out, "nullptr"); break;
                 default: fprintf(out, "/* unknown literal */"); break;
             }
             break;
@@ -150,6 +152,9 @@ void C_Converter::emitExpression(FILE* out, Ast_Expression* expr, int indent, bo
         }
         case AST_PROCEDURE_CALL_EXPRESSION: {
             auto* call = static_cast<Ast_Procedure_Call_Expression*>(expr);
+            if(call && strcmp(call->function->name, "malloc") == 0){
+                type_to_c_string(out, expr->inferred_type, nullptr, false, indent);
+            }
             fprintf(out, "%s(", call->function->name);
             if (call->arguments)
             {
@@ -201,12 +206,16 @@ void C_Converter::type_to_c_string(FILE *out, Ast_Type_Definition* type, Ast_Dec
         type_str += " *";
     }
 
-    fprintf( out, "%s %s%s", type_str.c_str(), decl->identifier->name, array_suffix.c_str());
+    if(decl){
+        fprintf( out, "%s %s%s", type_str.c_str(), decl->identifier->name, array_suffix.c_str());
 
-     if (decl->initializer && !should_initializer) {
-        fprintf(out, " = ");
-        emitExpression(out, decl->initializer, indent);
-     }
+         if (decl->initializer && !should_initializer) {
+            fprintf(out, " = ");
+            emitExpression(out, decl->initializer, indent);
+         }
+    }
+    else
+        fprintf( out, "(%s)", type_str.c_str());
 
     if(need_semicolon == true)
         fprintf(out, ";\n");
@@ -266,6 +275,7 @@ void C_Converter::emitStatement(FILE* out, Ast_Statement* stmt, int indent)
             auto* decl = static_cast<Ast_Declaration*>(stmt);
 
             if (decl->is_function) {
+
                 fprintf(out, "\n");
                 indentLine(out, indent);
 

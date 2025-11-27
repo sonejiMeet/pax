@@ -1,123 +1,133 @@
 #import "fake.pax";
 #import "fake2.pax";
 
-// Data :: struct {
-//     x: int;
-//     y: int;
-//     name: string;
-// };
 
 main :: () {
+    printf("\n---------------------------\n");
+    testing_malloc_and_sizeof();
+    printf("\n---------------------------\n");
+    random_modules_testing();
+    printf("\n---------------------------\n");
+    testing_linked_node_using_malloc();
+    printf("\n---------------------------\n");
 
-    // ptr := malloc(100);
+    fibonacci_series();
 
-    // if (ptr) {
-    //     memset(ptr, 0, 100);
-    //     printf("Allocated 100 bytes at %p\n", ptr);
-    //     free(ptr);
-    // }
+    printf("\nALL DONE\n");
+}
 
-    // // function call from fake.pax
-    // res := add(10, 20);
-    // printf("add(10, 20) = %d\n", res);
+Data :: struct {
+    x: int;
+    y: int;
+    name: string;
+};
 
-    // // use struct
-    // p: Point;
-    // p.x = 100;
-    // p.y = 200;
-    // print_(&p);
+// anyfunc :: (t: Any){
 
-    // // type inference across modules
-    // data := create_data();
-    // printf("data.value = %d\n", data.value);
+// }
 
-    // d: Data;
-    // d.x = 42;
-    // d.y = 84;
-    // d.name = "Main Data";
+some :: struct {
+    local: ^some;
+}
+testing_malloc_and_sizeof :: () {
+    a := sizeof(int)*8;
+    printf("a= %d\n", a);
 
-    // printf("\nLocal struct: x=%d, y=%d, name=%s\n", d.x, d.y, d.name);
+    ptr := malloc(sizeof(int)*10);
 
-    // printf("\nDONE\n");
+    l : some;
+    s := malloc(sizeof(some));
+    l.local = s;
 
-    // something();
+    ss:=l.local;
+
+    aa := sizeof(some);
+    printf("aa= %d\n", aa);
+}
+
+random_modules_testing :: () {
+
+    // function call from fake.pax
+    res := add(10, 20);
+    printf("add(10, 20) = %d\n", res);
+
+    // use struct
+    p: Point;
+    p.x = 100;
+    p.y = 200;
+    print_(&p);
+
+    // type inference across modules
+    data := create_data();
+    printf("data.value = %d\n", data.value);
+
+    d: Data;
+    d.x = 42;
+    d.y = 84;
+    d.name = "Main Data";
+
+    printf("\nLocal struct: x=%d, y=%d, name=%s\n", d.x, d.y, d.name);
+
+    printf("\nDONE\n");
+
+    something();
 
 
 }
 
+Node :: struct {
+    value: int;
+    next: ^Node;
+}
+
+temp := 0;
+print_list :: (n: ^Node) {
+    if (n == null) {return; }
+
+    temp = temp + 1;
+    printf("Node %d %d\n",temp, n.value);
+    print_list(n.next);
+}
+
+testing_linked_node_using_malloc :: () {
+    head := malloc(sizeof(Node));
+    // defer{ free(head); }
+
+    head.value = 10;
+    head.next = null;
+
+    second := malloc(sizeof(Node));
+    second.value = 20;
+    second.next = null;
+
+    head.next = second;
+
+    print_list(head);
+
+    free(second);
+    free(head);
+}
 
 
-// printf(s : ^u8, vargs: ..); #foreign
-
-
-/*
-main :: (){
+// /*
+fibonacci_series :: (){
     x := 10;
-    d := fac(x);
-    printf("d = %d\n", d);
+    d := fib(x);
+    printf("\nfib of %d = %d\n", x ,d);
 
     // a: u32 = 0;
     // a = a - 1;
     // printf("a = %u \n", a);
 }
 
-fac :: (x: int) -> int {
+fib :: (x: int) -> int {
     if(x <= 0){
         return 0;
     }
     if (x == 1){
         return 1;
     }
-    return fac(x-1) + fac(x-2);
+    return fib(x-1) + fib(x-2);
 }
-*/
+// */
 
-
-
-// EXAMPLE OF NON DETERMINISTIC CODE IN C++
-/*
-
-Student :: struct {
-    name: string;
-    grade: int;
-    supervisor: ^Student;  // Pointer member
-};
-
-main :: (){
-    s: Student;
-    local: Student;
-    s.supervisor = &local;
-    s.supervisor.name = "Alan";
-    printf("name =  %s\n", s.supervisor.name);
-    printf("Sucesssios\n");
-}
-
-// IT will work in c++ but not if ran in for loop unless optimize flag is turned on during compilation
- // its underterministic otherwise (need to look at assemblyyy...)
-    // Student s;
-    // // Student local;
-    // // ((s.supervisor) = (&local));
-    // ((*(s.supervisor)).name) = "Alan";
-    // printf("name = %s\n",((*(s.supervisor)).name));
-    // printf("Sucesssios\n");
-
-    // for (int i = 0; i < 1000; i++) {
-    //     Student s;
-    //     ((*(s.supervisor)).name) = "Alan";
-    //     printf("name = %s\n",((*(s.supervisor)).name));
-    // }
-
-*/
-
-
-
-
-// a : int = 434;
-
-// main :: () {
-//     aa := a();
-//     printf("aa = %d", aa);
-// }
-// a :: () -> int {
-//     return 999;
-// }
