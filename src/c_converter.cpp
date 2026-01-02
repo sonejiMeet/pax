@@ -128,6 +128,102 @@ void C_Converter::emitExpression(FILE* out, Ast_Expression* expr, int indent, bo
 
                 fprintf(out, ".");
                 emitExpression(out, bin->rhs, indent);
+            }
+            else if (bin->op == BINOP_ARRAY_SUBSCRIPT) {
+                Ast_Type_Definition* arr_type = bin->lhs->inferred_type;
+
+                if (!arr_type) {
+                    emitExpression(out, bin->lhs, indent);
+                    fprintf(out, "[");
+                    emitExpression(out, bin->rhs, indent);
+                    fprintf(out, "]");
+                }
+                if (arr_type->pointed_to_type) {
+                    Ast_Type_Definition* pointee = arr_type->pointed_to_type;
+
+                    if (pointee->type == AST_ARRAY_TYPE && pointee->struct_def) {
+                        auto* arr = static_cast<Ast_Array_Type*>(pointee);
+
+                        fprintf(out, "((");
+
+                        // this part should really be inside type_to_c_string()
+                        std::string elem_type_str = "void";
+                        if (arr->element_type) {
+                            elem_type_str = arr->element_type->to_string(*_type);
+                        }
+                        fprintf(out, "%s*)(*", elem_type_str.c_str());
+
+                        emitExpression(out, bin->lhs, indent);
+
+                        fprintf(out, ").data)[");
+                        emitExpression(out, bin->rhs, indent);
+                        fprintf(out, "]");
+                    }
+                    else {
+                        emitExpression(out, bin->lhs, indent);
+                        fprintf(out, "[");
+                        emitExpression(out, bin->rhs, indent);
+                        fprintf(out, "]");
+                    }
+                }
+                else {
+                    int ptr_depth = 0;
+                    Ast_Type_Definition* base = arr_type;
+
+                    while (base->pointed_to_type) {
+                        ptr_depth++;
+                        base = base->pointed_to_type;
+                    }
+
+                    if (base->type == AST_ARRAY_TYPE && base->struct_def) {
+                        auto* arr = static_cast<Ast_Array_Type*>(base);
+
+                        // a[i] becomes ((TYPE*)a.data)[i]
+                        fprintf(out, "((");
+
+                        // this part should really be inside type_to_c_string()
+                        std::string elem_type_str = "void";
+                        int ptr_depth_2 = 0;
+                        Ast_Type_Definition* base2 = arr->element_type;
+
+                        while (base2->pointed_to_type) {
+                            ptr_depth_2++;
+                            base2 = base2->pointed_to_type;
+                        }
+
+                        elem_type_str = base2->to_string(*_type);
+                        fprintf(out, "%s", elem_type_str.c_str());
+                        for (int i = 0; i < ptr_depth_2; i++) {
+                            fprintf(out, "*");
+                        }
+
+                        fprintf(out, "*)");
+
+
+                        if (ptr_depth > 0) {
+                            fprintf(out, "(");
+                            for (int i = 0; i < ptr_depth; i++) {
+                                fprintf(out, "*");
+                            }
+                        }
+
+                        emitExpression(out, bin->lhs, indent);
+
+                        if (ptr_depth > 0) {
+                            fprintf(out, ")");
+                        }
+
+                        fprintf(out, ".data)[");
+                        emitExpression(out, bin->rhs, indent);
+                        fprintf(out, "]");
+                    }
+                    else {
+                        emitExpression(out, bin->lhs, indent);
+                        fprintf(out, "[");
+                        emitExpression(out, bin->rhs, indent);
+                        fprintf(out, "]");
+                    }
+                }
             } else {
                 emitExpression(out, bin->lhs, indent);
                 switch (bin->op) {
@@ -152,6 +248,34 @@ void C_Converter::emitExpression(FILE* out, Ast_Expression* expr, int indent, bo
         }
         case AST_PROCEDURE_CALL_EXPRESSION: {
             auto* call = static_cast<Ast_Procedure_Call_Expression*>(expr);
+
+            // // Special handling for NewArray - call helper
+            // if (call->function && strcmp(call->function->name, "NewArray") == 0) {
+            //     if (call->arguments && call->arguments->arguments.count > 0) {
+            //         Ast_Expression* count_expr = call->arguments->arguments.data[0];
+
+            //         std::string elem_type_str = "void";
+
+            //         // Try to get element type from inferred_type
+            //         if (expr->inferred_type && expr->inferred_type->type == AST_ARRAY_TYPE) {
+            //             auto* arr = static_cast<Ast_Array_Type*>(expr->inferred_type);
+            //             if (arr->element_type) {
+            //                 elem_type_str = arr->element_type->to_string(*_type);
+            //             }
+            //         }
+            //         // Or from resolved_element_type if you store it
+            //         else if (call->resolved_element_type) {
+            //             elem_type_str = call->resolved_element_type->to_string(*_type);
+            //         }
+
+            //         fprintf(out, "__NewArray_impl(");
+            //         emitExpression(out, count_expr, indent);
+            //         fprintf(out, ", sizeof(%s))", elem_type_str.c_str());
+            //         break;
+            //     }
+            // }
+
+            // Special cast for malloc return type
             if(call && strcmp(call->function->name, "malloc") == 0){
                 type_to_c_string(out, expr->inferred_type, nullptr, false, indent);
             }
@@ -183,43 +307,74 @@ void C_Converter::type_to_c_string(FILE *out, Ast_Type_Definition* type, Ast_Dec
     if (!type) return;
 
     std::string type_str;
-    std::string array_suffix;
-    Ast_Type_Definition* base_type = type;
+    Ast_Type_Definition* current = type;
     int pointer_depth = 0;
 
-
-    while (base_type->pointed_to_type) {
-        base_type = base_type->pointed_to_type;
+    while (current->pointed_to_type) {
         pointer_depth++;
+        current = current->pointed_to_type;
     }
 
+    if (current->type == AST_ARRAY_TYPE && current->struct_def) {
+        const char* struct_name = current->struct_def->name;
 
-    if (type->array_kind == ARRAY_STATIC && type->element_type) {
-        type_str = type->element_type->to_string(*_type);
-        array_suffix = "[" + std::to_string(type->static_array_size) + "]";
+        if (struct_name) {
+            type_str = "struct ";
+            type_str += struct_name;
+        } else {
+            type_str = "void /* unresolved array */";
+        }
 
-    } else {
-        type_str = base_type->to_string(*_type);
+    } else if (current->type == AST_ARRAY_TYPE && current->struct_def == nullptr) {
+            type_str = "Static_Array";
+    }
+    else {
+        type_str = current->to_string(*_type);
     }
 
     for (int i = 0; i < pointer_depth; ++i) {
         type_str += " *";
     }
 
-    if(decl){
-        fprintf( out, "%s %s%s", type_str.c_str(), decl->identifier->name, array_suffix.c_str());
+    if (decl) {
+        fprintf(out, "%s %s", type_str.c_str(), decl->identifier->name);
 
-         if (decl->initializer && !should_initializer) {
+        if (decl->initializer && !should_initializer) {
             fprintf(out, " = ");
+
+            // should not fall here normally
+            // if we need a cast Dynamic_Array* to Static_Array*
+            if (pointer_depth > 0 && current->type == AST_ARRAY_TYPE && current->struct_def) {
+                const char* target_struct = current->struct_def->name;
+
+                // If initializer is address-of dynamic array, cast it
+                if (decl->initializer->type == AST_UNARY) {
+                    auto* unary = static_cast<Ast_Unary*>(decl->initializer);
+                    if (unary->op == UNARY_ADDRESS_OF && unary->operand->inferred_type) {
+                        Ast_Type_Definition* operand_type = unary->operand->inferred_type;
+
+                        if (operand_type->type == AST_ARRAY_TYPE && operand_type->struct_def) {
+                            const char* source_struct = operand_type->struct_def->name;
+
+                            // Dynamic → Static view cast
+                            if (strcmp(target_struct, "Static_Array") == 0 &&
+                                strcmp(source_struct, "Dynamic_Array") == 0) {
+                                fprintf(out, "(struct Static_Array *)");
+                            }
+                        }
+                    }
+                }
+            }
+
             emitExpression(out, decl->initializer, indent);
-         }
+        }
+    } else {
+        fprintf(out, "(%s)", type_str.c_str());
     }
-    else
-        fprintf( out, "(%s)", type_str.c_str());
 
-    if(need_semicolon == true)
+    if (need_semicolon) {
         fprintf(out, ";\n");
-
+    }
 }
 
 void C_Converter::emitFunctionPrototype(FILE* out, Ast_Declaration* decl, int indent) {
@@ -275,8 +430,9 @@ void C_Converter::emitStatement(FILE* out, Ast_Statement* stmt, int indent)
             auto* decl = static_cast<Ast_Declaration*>(stmt);
 
             if (decl->is_function) {
+                // fprintf(out, "#line %d \"%s\"\n", stmt->line_number, stmt->file_name);
 
-                fprintf(out, "\n");
+                // fprintf(out, "\n");
                 indentLine(out, indent);
 
                 // emit return type
@@ -308,6 +464,75 @@ void C_Converter::emitStatement(FILE* out, Ast_Statement* stmt, int indent)
             }
 
             indentLine(out, indent);
+
+            // static array declarations
+            Ast_Type_Definition* base_type = decl->declared_type;
+            int ptr_depth = 0;
+
+            while (base_type && base_type->pointed_to_type) {
+                ptr_depth++;
+                base_type = base_type->pointed_to_type;
+            }
+
+            // if its not behind a pointer
+            if (ptr_depth == 0 && base_type && base_type->type == AST_ARRAY_TYPE && base_type->struct_def) {
+
+                auto* arr = static_cast<Ast_Array_Type*>(base_type);
+
+                if (!arr->is_resizable && arr->size_expr &&
+                    base_type->struct_def->name &&
+                    strcmp(base_type->struct_def->name, "Static_Array") == 0) {
+
+                    long long size = 0;
+                    if (arr->size_expr->type == AST_LITERAL) {
+                        Ast_Literal* lit = static_cast<Ast_Literal*>(arr->size_expr);
+                        if (lit->value_type == LITERAL_NUMBER) {
+                            size = lit->integer_value;
+                        }
+                    }
+
+
+                    // this part should really be inside type_to_c_string()
+                    std::string elem_type_str = "void";
+                    // if (arr->element_type) {
+                    //     elem_type_str = arr->element_type->to_string(*_type);
+                    // }
+                    int ptr_depth_2 = 0;
+                    Ast_Type_Definition* base2 = arr->element_type;
+
+                    while (base2->pointed_to_type) {
+                        ptr_depth_2++;
+                        base2 = base2->pointed_to_type;
+                    }
+
+                    elem_type_str = base2->to_string(*_type);
+
+                    fprintf(out, "%s", elem_type_str.c_str());
+                    for (int i = 0; i < ptr_depth_2; i++) {
+                        fprintf(out, "*");
+                    }
+
+                    fprintf(out, " __data__%s[%lld];\n",
+                           decl->identifier->name,
+                           size);
+
+                    indentLine(out, indent);
+
+                    fprintf(out, "Static_Array %s;\n", decl->identifier->name);
+
+                    indentLine(out, indent);
+
+                    fprintf(out, "%s.data = (void *)__data__%s;\n",
+                           decl->identifier->name,
+                           decl->identifier->name);
+
+                    indentLine(out, indent);
+
+                    fprintf(out, "%s.count = %lld;\n", decl->identifier->name, size);
+
+                    break;
+                }
+            }
 
             type_to_c_string(out, decl->declared_type, decl, true, indent);
 

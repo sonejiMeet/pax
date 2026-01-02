@@ -1,3 +1,8 @@
+//
+// part of this library (pool allocator) is direct rewrite of Jonathan Blow's version in Jai
+// see the original source here https://youtu.be/ciGQCP6HgqI
+//
+
 #pragma once
 
 #include <string>
@@ -45,14 +50,10 @@ struct Array
     Array(Pool *p) : data(nullptr), count(0), capacity(0), pool(p) {}
 
     void push_back(T value);
-    T pop();
-    void release();
-
+    T get_back();
     void pop_back();
 
-    // inline helpers
-    bool empty() const { return count == 0; }
-    long size() const { return count; }
+    void release();
 };
 
 template<typename T>
@@ -88,7 +89,7 @@ inline void Array<T>::push_back(T value)
 }
 
 template<typename T>
-inline T Array<T>::pop()
+inline T Array<T>::get_back()
 {
     if (count == 0) {
         printf("*********** ATTEMPT TO POP AN EMPTY ARRAY!\n");
@@ -118,7 +119,6 @@ inline void Array<T>::pop_back() {
 
 // we need to keep track of used, unused, obsolete blocks and need to use malloc seperately where we push starting positions of these blocks
 
-// update this to make it simpler!!!!!!!!!!!!!!
 struct BlockList
 {
     void **data = nullptr;

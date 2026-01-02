@@ -1,4 +1,7 @@
-#import "fake2.pax";
+// this is supposed to be tested as a seperate user file (module) that can be imported for a demo
+#import "General.pax";
+
+
 Point :: struct {
     x: int;
     y: int;

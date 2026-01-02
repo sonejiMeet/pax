@@ -39,7 +39,6 @@ Subject sub;
 };
 
 /*FUNCTION BODIES*/
-
 void func1 (Student * stud) {
     Student local = (*stud);
     ((local.grade) = 0);
@@ -48,13 +47,11 @@ void func1 (Student * stud) {
     (stud = local2);
 }
 
-
 void func2 (Student * stud) {
     (((*stud).grade) = 10);
     (((*stud).name) = "Skibidi");
     ((((*stud).sub).name) = "Architecture");
 }
-
 
 void func3 (Student stud) {
     Student * sstud = (&stud);
@@ -64,14 +61,12 @@ void func3 (Student stud) {
     print_struct((&stud),"func3 stud");
 }
 
-
 void print_struct (Student * stud, char * str) {
     newline();
     printf("%s.grade = %d\n",str,((*stud).grade));
     printf("%s.name = %s\n",str,((*stud).name));
     printf("%s.sub.name = %s\n",str,(((*stud).sub).name));
 }
-
 
 void newline () {
     printf("\n");

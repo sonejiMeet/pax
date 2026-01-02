@@ -31,7 +31,7 @@ struct Ast_Type_Definition;
 struct Ast_Cast;
 
 struct Ast_Import;
-
+struct Ast_Array_Type;
 
 enum Ast_Type {
     AST_UNKNOWN,
@@ -56,7 +56,7 @@ enum Ast_Type {
     AST_CAST,
 
     AST_IMPORT,
-    AST_SIZEOF,
+    AST_ARRAY_TYPE,
 };
 
 
@@ -81,7 +81,6 @@ inline std::string astTypeToString(Ast_Type type) {
         case AST_TYPE_DEFINITION: return "TypeDefinition";
         case AST_CAST: return "Cast";
         case AST_IMPORT: return "Import";
-        case AST_SIZEOF: return "sizeof";
         default:                 return "Unknown";
     }
 }
@@ -157,6 +156,7 @@ enum Value_Type {
     LITERAL_TRUE,
     LITERAL_FALSE,
     LITERAL_NULL,
+    LITERAL_ARRAY,
 };
 
 struct Ast_Literal : public Ast_Expression {
@@ -182,14 +182,9 @@ struct Ast_Procedure_Call_Expression : public Ast_Expression {
 
     Ast_Ident *function = nullptr;
     Ast_Comma_Separated_Args *arguments = nullptr;
+    Ast_Type_Definition* resolved_element_type = nullptr;  // For NewArray
 };
 
-struct Ast_Sizeof : public Ast_Expression {
-    Ast_Sizeof (Pool * = nullptr) { type = AST_SIZEOF;}
-
-    Ast_Type_Definition *type_arg = nullptr;
-
-};
 enum Binary_Op {
     BINOP_UNKNOWN,
     BINOP_ADD,
@@ -204,6 +199,7 @@ enum Binary_Op {
     BINOP_LESS_EQUAL,
     BINOP_GREATER_EQUAL,
     BINOP_DOT,
+    BINOP_ARRAY_SUBSCRIPT, //[]
 };
 
 struct Ast_Binary : public Ast_Expression {
@@ -239,7 +235,7 @@ struct Ast_Block : public Ast {
     bool is_scoped_block = false;
     bool is_entry_point = false;
 
-    Array<Ast_Block *> my_scope = nullptr;
+    // Array<Ast_Block *> my_scope = nullptr;
 };
 
 struct Ast_If : public Ast_Statement {
@@ -284,8 +280,6 @@ struct Ast_Type_Instantiation : public Ast {
 };
 
 
-    // Future: could add array element tracking, pointer tracking, etc.
-
 struct Ast_New_Or_Delete : public Ast_Expression { // not done yett
      Ast_New_Or_Delete(Pool * = nullptr) {type = AST_NEW_OR_DELETE; }
      Ast_Type_Definition *type_definition = nullptr; // if new
@@ -321,20 +315,11 @@ struct Def_Type {
 
 };
 
-enum Array_Kind {
-    ARRAY_NONE,      // Not an array
-    ARRAY_DYNAMIC,   // []T
-    ARRAY_STATIC,    // [N]T
-};
-
 struct Ast_Type_Definition : public Ast {
     Ast_Type_Definition(Pool* = nullptr) { type = AST_TYPE_DEFINITION; }
 
     Ast_Type_Definition *pointed_to_type = nullptr;
 
-    Array_Kind array_kind = ARRAY_NONE;
-    Ast_Type_Definition *element_type = nullptr; // for arrays
-     int static_array_size = 0;
 
     const char * name = nullptr;
     bool is_reference = false;
@@ -346,11 +331,11 @@ struct Ast_Type_Definition : public Ast {
     // char *foreign_function_name = nullptr;
     // void *foreign_function_resolved_pointer = nullptr;
 
-    std::string to_string(const Def_Type &types) const { // Temporary replace with char *
+    const char *to_string(const Def_Type &types) const {
 
         const Ast_Type_Definition *base = this; // interesting...
 
-        std::string base_name;
+        const char *base_name;
         if (base == types.type_def_dummy) base_name = "dummy_type_def";
         else if (base == types.type_def_int) base_name = "int";
         else if (base == types.type_def_s8) base_name = "s8";
@@ -372,13 +357,20 @@ struct Ast_Type_Definition : public Ast {
         else if (base == types.type_def_any) base_name = "/*its an Any type*/";
         else if (base == types.type_def_null) base_name = "nullptr";
 
-        else if (struct_def) base_name = std::string(struct_def->name ? struct_def->name : "unknown_struct");
+        else if (struct_def) base_name = struct_def->name ? struct_def->name : "unknown_struct";
         else base_name = "unknown_builtin_type";
 
         return base_name;
     }
 };
 
+struct Ast_Array_Type : public Ast_Type_Definition {
+    Ast_Array_Type(Pool* = nullptr) { type = AST_ARRAY_TYPE; }
+
+    Ast_Type_Definition *element_type = nullptr;  // Type of elements
+    Ast_Expression *size_expr = nullptr;          // Size if static (nullptr if dynamic/unknown)
+    bool is_resizable = false;                    // true for dynamic arrays []T, false for static [N]T
+};
 
 struct Ast_Cast : public Ast_Expression {
    Ast_Cast() {type = AST_CAST; }

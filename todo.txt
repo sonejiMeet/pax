@@ -4,7 +4,7 @@
     DONE multiple file compilation (turns into single .cpp)
     DONE #foreign directive for functions to call C standard library functions
     DONE sizeof() C call
-    malloc, free C calls (through our own new, delete keywords)
+    **malloc, free C calls (through our own new, delete keywords)
     arrays static and dynamic.
 
     loops for and while

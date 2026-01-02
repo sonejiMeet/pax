@@ -2,7 +2,7 @@
 @echo --------------------------------------------------
 .\src\main .\tests\demo.pax
 @echo --------------------------------------------------
-.\src\main .\tests\struct.pax
+.\src\main .\tests\demo_struct.pax
 @echo --------------------------------------------------
 .\src\main .\tests\demo_loops.pax
 @echo --------------------------------------------------
@@ -10,5 +10,9 @@
 @echo --------------------------------------------------
 .\src\main .\tests\demo_struct_order.pax
 @echo --------------------------------------------------
-.\src\main .\tests\foo.pax
+.\src\main .\tests\demo_uninitialized_members.pax
+@echo --------------------------------------------------
+.\src\main .\tests\demo_memory.pax
+@echo --------------------------------------------------
+.\src\main .\tests\demo_static_array.pax
 @echo --------------------------------------------------

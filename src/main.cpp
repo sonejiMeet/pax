@@ -48,7 +48,7 @@ static void init_Def_Type(Def_Type* type, Pool* pool) {
     type->type_def_null    = AST_NEW(pool, Ast_Type_Definition);
     type->type_def_bool    = AST_NEW(pool, Ast_Type_Definition);
     type->type_def_string  = AST_NEW(pool, Ast_Type_Definition);
-    type->type_def_any  = AST_NEW(pool, Ast_Type_Definition);
+    type->type_def_any     = AST_NEW(pool, Ast_Type_Definition);
     type->literal_true     = AST_NEW(pool, Ast_Literal);
     type->literal_false    = AST_NEW(pool, Ast_Literal);
 }

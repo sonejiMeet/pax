@@ -1,0 +1,131 @@
+#import "General.pax";
+
+#import "fake.pax";
+
+main :: () {
+    printf("\n---------------------------\n");
+    testing_malloc_and_sizeof();
+    printf("\n---------------------------\n");
+    random_modules_testing();
+    printf("\n---------------------------\n");
+    testing_linked_node_using_malloc();
+    printf("\n---------------------------\n");
+
+    fibonacci_series();
+
+    printf("\nALL DONE\n");
+}
+
+Data :: struct {
+    x: int;
+    y: int;
+    name: string;
+};
+
+// anyfunc :: (t: Any){
+
+// }
+
+some :: struct {
+    local: ^some;
+}
+testing_malloc_and_sizeof :: () {
+    a := sizeof(int)*8;
+    printf("a= %d\n", a);
+
+    ptr := malloc(sizeof(int)*10);
+
+    l : some;
+    s := malloc(sizeof(some));
+    l.local = s;
+
+    ss:=l.local;
+
+    aa := sizeof(some);
+    printf("aa= %d\n", aa);
+}
+
+random_modules_testing :: () {
+
+    // function call from fake.pax
+    res := add(10, 20);
+    printf("add(10, 20) = %d\n", res);
+
+    // use struct
+    p: Point;
+    p.x = 100;
+    p.y = 200;
+    print_(&p);
+
+    // type inference across modules
+    data := create_data();
+    printf("data.value = %d\n", data.value);
+
+    d: Data;
+    d.x = 42;
+    d.y = 84;
+    d.name = "Main Data";
+
+    printf("\nLocal struct: x=%d, y=%d, name=%s\n", d.x, d.y, d.name);
+
+    printf("\nDONE\n");
+
+
+}
+
+Node :: struct {
+    value: int;
+    next: ^Node;
+}
+
+temp := 0;
+print_list :: (n: ^Node) {
+    if (n == null) {return; }
+
+    temp = temp + 1;
+    printf("Node %d %d\n",temp, n.value);
+    print_list(n.next);
+}
+
+testing_linked_node_using_malloc :: () {
+    head := malloc(sizeof(Node));
+    // defer{ free(head); }
+
+    head.value = 10;
+    head.next = null;
+
+    second := malloc(sizeof(Node));
+    second.value = 20;
+    second.next = null;
+
+    head.next = second;
+
+    print_list(head);
+
+    free(second);
+    free(head);
+}
+
+
+// /*
+fibonacci_series :: (){
+    x := 10;
+    d := fib(x);
+    printf("\nfib of %d = %d\n", x ,d);
+
+    // a: u32 = 0;
+    // a = a - 1;
+    // printf("a = %u \n", a);
+}
+
+fib :: (x: int) -> int {
+    if(x <= 0){
+        return 0;
+    }
+    if (x == 1){
+        return 1;
+    }
+    return fib(x-1) + fib(x-2);
+}
+// */
+

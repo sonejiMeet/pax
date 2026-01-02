@@ -1,0 +1,113 @@
+
+malloc :: (size: s64) -> ^void #foreign;
+free :: (ptr: ^void) #foreign;
+memcpy :: (dest: ^void, source: ^void, count: s64) #foreign;
+memset :: (dest: ^void, value: u8, count: s64) #foreign;
+
+sizeof :: (T: Any) -> s64 #foreign;
+
+Static_Array :: struct {
+    count: s64;
+    data: ^void;
+}
+
+Dynamic_Array :: struct {
+    count: s64;
+    allocated: s64;
+    data: ^void;
+}
+
+NewArray :: (count: s64, T: Any) -> Dynamic_Array #foreign;
+
+
+__NewArray_impl :: (count: s64, element_size: s64) -> Dynamic_Array {
+    arr: Dynamic_Array;
+
+    arr.data = malloc(count * element_size);
+    arr.count = count;
+    arr.allocated = count;
+
+    return arr;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// array_reserve :: (new_capacity: s64) -> ^Dynamic_Array {
+//     if (new_capacity <= arr.allocated) { return; }  // Fixed: capacity -> allocated
+
+// 	arr: ^Dynamic_Array;
+//     new_data := malloc(new_capacity);
+
+//     if (arr.data != null) {
+//         memcpy(new_data, arr.data, arr.count);  // Fixed: copy from arr.data, copy arr.count bytes
+//         free(arr.data);
+//     	arr.data = new_data;
+// 	    arr.allocated = new_capacity;  // Fixed: set allocated, not count
+//    		return arr;
+//     }
+
+// }
+
+// array_push :: (arr: ^Dynamic_Array, value: ^void, element_size: s64) {  // Added element_size parameter
+//     if (arr.count >= arr.allocated) {  // Fixed: capacity -> allocated
+//         new_cap := arr.allocated * 2;  // Fixed: capacity -> allocated
+//         if (new_cap == 0) { new_cap = 8; }
+//         array_reserve(arr, new_cap * element_size);  // Multiply by element size
+//     }
+
+//     // Copy value to arr.data[arr.count]
+//     dest := arr.data + (arr.count * element_size);  // Calculate destination
+//     memcpy(dest, value, element_size);  // Copy element_size bytes
+
+//     arr.count = arr.count + 1;
+// }
+
+// array_pop :: (arr: ^Dynamic_Array) {
+//     if (arr.count > 0) {
+//         arr.count = arr.count - 1;
+//     }
+// }
+
+// array_free :: (arr: ^Dynamic_Array) {
+//     if (arr.data != null) {
+//         free(arr.data);
+//         arr.data = null;
+//     }
+//     arr.count = 0;
+//     arr.allocated = 0;  // Fixed: capacity -> allocated
+// }

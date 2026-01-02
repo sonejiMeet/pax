@@ -32,6 +32,7 @@ enum TokenType {
     TOK_RCURLY_PAREN,   // }
     TOK_LBRACKET,       // [
     TOK_RBRACKET,       // ]
+    TOK_DOUBLE_DOT,     // ..
 
     TOK_COLON,          // :
     TOK_DOUBLECOLON,    // ::

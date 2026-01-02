@@ -175,13 +175,13 @@ Ast_Block* Pax_Interp::load_and_parse_module(const char* filename) {
         return loaded_modules[abs_path];
     }
 
-    printf("Inside interp: Loading module: %s\n", filename);
+    printf("<<<Inside interp>>> Loading module: %s\n", filename);
 
 
     Ast_Block* mod_ast = parse_file(filename, true); // kind of an hack we just tell the parser to forbid a main entry point in modules
     if (!mod_ast) {
         free(abs_path);
-        return nullptr;
+    return nullptr;
     }
 
     const char* stored_path = pool_strdup(pool, abs_path);
@@ -229,6 +229,7 @@ void Pax_Interp::run_frontend() {
     code_manager->resolve_unresolved_vars();
     code_manager->resolve_unresolved_calls();
     code_manager->resolve_unresolved_types();
+    code_manager->resolve_unresolved_array_types();
     code_manager->resolve_unresolved_member_accesses();
 
     code_manager->infer_types_block(ast);
@@ -237,6 +238,8 @@ void Pax_Interp::run_frontend() {
         printf("\nErrors in code manager. Exiting.\n");
         exit(1);
     }
+
+    // code_manager->is_everything_resolved(); // @Comeback, breaks on demo_memory.pax
 
     auto end = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> elapsed = end - start;

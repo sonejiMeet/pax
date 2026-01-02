@@ -1,0 +1,83 @@
+#import "General.pax";
+
+
+main :: () {
+    printf("----------------------------------------\n");
+// /*
+    { // static array and pointer to static array and subscript dereferencing
+        a: [4]int;
+        arr:^[]int= &a;
+        arr[1]  = 14;
+        printf("arr[1] = %d\n", arr[1]);
+        printf("arr.count = %d\n", arr.count);
+        // pa: ^[]int;
+    }
+// */
+    printf("----------------------------------------\n");
+
+// /*
+    {
+        a: [4]int;
+        a[0] = -354;
+        printf("a[0] = %d\n", a[0]);
+        printf("a.data = %p\n", a.data);
+        printf("a.count = %d\n", a.count);
+        b: ^[]int= &a; // b := &a; will also works
+        b[0] = 897599;
+        printf("b[0] = %d\n", b[0]);
+        printf("b.data = %p\n", b.data);
+        printf("b.count = %d\n", b.count);
+
+    }
+// */
+
+    printf("----------------------------------------\n");
+// /*
+    {
+        a: [4]int;
+        a[0] = 834;
+        printf("a[0] = %d\n", a[0]);
+        b:= &a; // this still not work when type explicitly given
+
+
+        pc:int = 449895;
+        printf("pc = %p\n", &pc);
+        c: [4]^int;
+        c[3] = &pc;
+        printf("c[3] = %p\n", c[3]);
+        printf("c[3] = %d\n", *c[3]);
+
+        // b = &a;
+        // b[0] = *c[3];
+        printf("b[0] = %d\n", b[0]);
+
+        d: ^[]^int;
+    }
+// */
+    printf("----------------------------------------\n");
+
+
+
+    // dyn: [..]int;
+    // dyn := NewArray(5, sizeof(float));
+
+/*
+    a:[4]int;
+    func(a);
+*/
+
+    printf("DONEEEE\n");
+}
+
+
+// func :: (arr: []int) -> []int{
+//     local := arr; // does not get instantiated
+//     local[0] = 1;
+//     return local;
+// }
+
+
+// compound variable
+    // x = 2;
+    // printf("x = %d",x);
+    // _,a := 2;

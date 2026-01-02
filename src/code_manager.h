@@ -6,35 +6,31 @@
 
 struct Pax_Interp;
 
-struct CM_Unresolved_Call {
+struct Unresolved_Call {
     Ast_Procedure_Call_Expression *call;
     Ast_Block* my_scope;
-    int line_number;
-    int character_number;
 };
 
-struct CM_Unresolved_Variable {
+struct Unresolved_Variable {
     Ast_Ident *ident;
     Ast_Block* my_scope;
-    int line_number;
-    int character_number;
 };
-struct CM_Unresolved_Type {
+struct Unresolved_Type {
     Ast_Declaration *decl;
     Ast_Type_Definition *base_type;
-    int line_number;
-    int character_number;
 };
 
-struct CM_Unresolved_Member_Access {
+struct Unresolved_Member_Access {
     Ast_Binary *dot_expr = nullptr;
     Ast_Binary *assignment_expr = nullptr;
     Ast_Declaration *decl = nullptr;
-    int line_number;
-    int character_number;
     Ast_Block *my_scope;
 };
 
+struct Unresolved_Array_Type {
+    Ast_Type_Definition *array_type;
+    Ast_Declaration *decl;  // The declaration that uses this array
+};
 
 struct ReturnCheckResult {
     bool has_return;
@@ -46,10 +42,11 @@ struct CodeManager {
 
     Array<Ast_Block *> scope_stack;
 
-    std::vector<CM_Unresolved_Call> unresolved_calls;
-    std::vector<CM_Unresolved_Variable> unresolved_vars;
-    std::vector<CM_Unresolved_Type> unresolved_types;
-    std::vector<CM_Unresolved_Member_Access> unresolved_member_accesses;
+    std::vector<Unresolved_Call> unresolved_calls;
+    std::vector<Unresolved_Variable> unresolved_vars;
+    std::vector<Unresolved_Type> unresolved_types;
+    std::vector<Unresolved_Member_Access> unresolved_member_accesses;
+    std::vector<Unresolved_Array_Type> unresolved_array_types;
 
     Def_Type *_type;
 
@@ -59,6 +56,32 @@ struct CodeManager {
 
     int count_errors = 0;
 
+    // to ensure we have resolved everything successfully after inference stage
+    void is_everything_resolved(){   // for now we are not calling this yet
+        bool should_exit = false;
+        if(!unresolved_calls.empty()) {
+            printf("unresolved_calls is not empty broo\n");
+            should_exit = true;
+        }
+        if(!unresolved_vars.empty()) {
+            printf("unresolved_vars is not empty broo\n");
+            should_exit = true;
+        }
+        if(!unresolved_types.empty()) {
+            printf("unresolved_types is not empty broo\n");
+            should_exit = true;
+        }
+        if(!unresolved_member_accesses.empty()) {
+            printf("unresolved_member_accesses is not empty broo\n");
+            should_exit = true;
+        }
+        if(!unresolved_array_types.empty()) {
+            printf("unresolved_array_types is not empty broo\n");
+            should_exit = true;
+        }
+        if(should_exit == true) exit(1);
+
+    }
     template <typename T>
     void report_error(T type, const char *fmt, ...);
 
@@ -86,9 +109,16 @@ struct CodeManager {
     bool has_return_statement(Ast_Block *block);
     bool all_paths_return(Ast_Block *block);
 
+    static inline Ast_Array_Type* as_array_type(Ast_Type_Definition* t) {
+        return (t && t->type == AST_ARRAY_TYPE) ? static_cast<Ast_Array_Type*>(t) : nullptr;
+    }
+
+    static Ast_Type_Definition *get_base_type(Ast_Type_Definition *type);
+
     void resolve_idents(Ast_Block *block);
 
     void resolve_idents_in_declaration(Ast_Declaration *decl);
+    void transform_array_to_struct(Ast_Type_Definition* type);
 
     Ast_Declaration *resolve_member_access(Ast_Binary* dot_expr, Ast_Block* my_scope = nullptr, bool skip_init_check =false, bool skip_queuing = false, bool should_infer = false);
 
@@ -97,8 +127,9 @@ struct CodeManager {
 
     Ast_Type_Definition* find_struct_type_in_scopes(const char* name) const;
 
-    void push_unresolved_type(Ast_Declaration *decl, Ast_Type_Definition *base_type);
-    void push_unresolved_member_access(Ast_Binary *dot_expr);
+    inline void push_unresolved_type(Ast_Declaration *decl, Ast_Type_Definition *base_type);
+    inline void push_unresolved_member_access(Ast_Binary *dot_expr, Ast_Binary *assignment_expr = nullptr);
+    inline void push_unresolved_call(Ast_Procedure_Call_Expression *call);
 
     void resolve_idents_in_expr(Ast_Expression *expr);
 
@@ -106,6 +137,7 @@ struct CodeManager {
     void resolve_unresolved_calls();
     void resolve_unresolved_types();
     void resolve_unresolved_member_accesses();
+    void resolve_unresolved_array_types();
 
     char *type_to_string(Ast_Type_Definition *type);
 
@@ -122,8 +154,8 @@ struct CodeManager {
 
     bool check_that_types_match(Ast_Type_Definition *wanted, Ast_Type_Definition *have, bool is_pointer = false);
 
-    inline bool can_implicitly_convert_const(Ast_Expression* expr, Ast_Type_Definition* target);
-    Ast_Type_Definition* extract_sizeof_type(Ast_Expression* expr);
-    Ast_Type_Definition* resolve_type_by_name(const char* name);
+    inline bool can_implicitly_convert_const(Ast_Expression *expr, Ast_Type_Definition *target);
+    Ast_Type_Definition *extract_sizeof_type(Ast_Expression *expr);
+    Ast_Type_Definition *resolve_type_by_name(const char *name);
 
 };

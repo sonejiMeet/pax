@@ -113,13 +113,11 @@ Vec2 velocity;
 };
 
 /*FUNCTION BODIES*/
-
 void function_1 () {
     A a;
     (((((((a.b).c).d).e).f).value) = 42);
     printf("a.b.c.d.e.f.value = %d\n",((((((a.b).c).d).e).f).value));
 }
-
 
 void function_3 () {
     Outer o1;
@@ -131,7 +129,6 @@ void function_3 () {
     int y = (*((o1.b).data));
 }
 
-
 void function_4 () {
     Data_1 d;
     Data_1 * p1;
@@ -142,7 +139,6 @@ void function_4 () {
     printf("p2.value = %d\n",((*p2).value));
 }
 
-
 void function_5 () {
     Data_2 d1;
     Data_2 d2;
@@ -151,7 +147,6 @@ void function_5 () {
     printf("d1.nested = %p\n",(&(d1.nested)));
     printf("copy.nested = %p\n",(&(copy.nested)));
 }
-
 
 void function_6 () {
     AAA a;
@@ -164,7 +159,6 @@ void function_6 () {
     printf("a.b.c.value = %d\n",((*((*(a.b)).c)).value));
 }
 
-
 void function_7 () {
     Config c;
     int val = 42;
@@ -172,19 +166,16 @@ void function_7 () {
     int x = (*(c.data));
 }
 
-
 void function_8 () {
     Data_3 local;
     modify((&local));
     int y = (*(local.ptr));
 }
 
-
 void modify (Data_3 * d) {
     int val = 10;
     (((*d).ptr) = (&val));
 }
-
 
 void function_9 () {
     Data_4 d;
@@ -194,13 +185,11 @@ void function_9 () {
     printf("*d.ptr = %d\n",(*(d.ptr)));
 }
 
-
 void simulate (PhysicsObject * obj) {
     update(obj);
     (frame = (frame + 1));
     printf("Frame %d: (%d, %d)\n",frame,(((*obj).position).x),(((*obj).position).y));
 }
-
 
 void function_10 () {
     PhysicsObject obj;
@@ -222,7 +211,6 @@ void function_10 () {
     update((&obj));
     printf("After gravity: (%d, %d) velocity.y=%d\n",((obj.position).x),((obj.position).y),((obj.velocity).y));
 }
-
 
 void update (PhysicsObject * obj) {
     ((((*obj).position).x) = ((((*obj).position).x) + (((*obj).velocity).x)));

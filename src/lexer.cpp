@@ -203,7 +203,7 @@ Token *Lexer::identifierToken(char first)
     else if (strcmp(ident, "foreign") == 0) type = TOK_FOREIGN;
 
     else if (strcmp(ident, "Any") == 0) type = TOK_KEYWORD_ANY;
-    
+
     else if (strcmp(ident, "null") == 0) type = TOK_NULL;
 
     Token *t = makeToken(type, ident);
@@ -241,7 +241,9 @@ Token *Lexer::nextToken()
         case ';': return makeToken(TOK_SEMICOLON, ";");
         case ',': return makeToken(TOK_COMMA, ",");
         case '\'':return makeToken(TOK_SINGLEQOUTE, "'");
-        case '.': return makeToken(TOK_DOT, ".");
+        case '.':
+            if(match_and_advance('.')) return makeToken(TOK_DOUBLE_DOT, "..");
+            return makeToken(TOK_DOT, ".");
         case '+': return makeToken(TOK_PLUS, "+");
         case '-':
             if (match_and_advance('>')) return makeToken(TOK_ARROW, "->");

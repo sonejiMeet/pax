@@ -86,6 +86,7 @@ void Parser::synchronize()
             case TOK_MAIN_ENTRY_POINT:
             case TOK_LCURLY_PAREN:
             case TOK_RCURLY_PAREN:
+            case TOK_SEMICOLON:
                 return;
         }
         advance();
@@ -372,6 +373,19 @@ Ast_Expression* Parser::parseExpression(int minPrecedence)
         if (precedence < minPrecedence) return left;
 
         TokenType op = current->type;
+
+        if (op == TOK_LBRACKET){
+            advance();
+            Ast_Binary *node = AST_NEW(Ast_Binary);
+            node->op = BINOP_ARRAY_SUBSCRIPT;
+            node->lhs = left;
+            node->rhs = parseExpression(); // index
+
+            expect(TOK_RBRACKET, "Expected ']' after array index");
+            left = node;
+            continue;
+        }
+
         advance();
 
         Ast_Binary* node = AST_NEW(Ast_Binary);
@@ -387,6 +401,7 @@ Ast_Expression* Parser::parseExpression(int minPrecedence)
 int Parser::getPrecedence(TokenType type) {
     switch (type) {
         case TOK_DOT:
+        case TOK_LBRACKET:
             return 100;
         case TOK_STAR:
         case TOK_SLASH:
@@ -422,48 +437,48 @@ Binary_Op Parser::getBinaryOperator(TokenType type) {
         default: return BINOP_UNKNOWN;
     }
 }
-
 Ast_Type_Definition *Parser::parseTypeSpecifier() {
 
     Ast_Type_Definition *currentType = nullptr;
 
     while (true) {
-
         if (current->type == TOK_CARET) {
+            advance();
 
             Ast_Type_Definition *pointerType = AST_NEW(Ast_Type_Definition);
-            pointerType->pointed_to_type = interp->type->type_def_dummy;
+            pointerType->pointed_to_type = nullptr;
 
             if (currentType) {
                 pointerType->pointed_to_type = currentType;
             }
-
             currentType = pointerType;
-            advance();
         }
         else if (current->type == TOK_LBRACKET) {
-            // Array type
             advance();
 
-            Ast_Type_Definition *arrayType = AST_NEW(Ast_Type_Definition);
+            Ast_Array_Type *arrayType = AST_NEW(Ast_Array_Type);
             arrayType->element_type = nullptr;
 
-            if (current->type == TOK_NUMBER) {
-                // Static array
-                arrayType->array_kind = ARRAY_STATIC;
-                arrayType->static_array_size = (int)current->int_value;
-                advance(); // consume size
-                expect(TOK_RBRACKET, "Expected ']' after static array size.");
+            if (current->type == TOK_DOUBLE_DOT) {
+                advance();
+                arrayType->is_resizable = true;
+                arrayType->size_expr = nullptr;
+                expect(TOK_RBRACKET, "Expected ']' after '..'");
             }
-            else { // we dont have support for dynamic arrays yet
-                parseError("Expected either ']' or a number inside array brackets.");
-                return nullptr;
+            else if (current->type == TOK_RBRACKET) { // assume abstract array are static array
+                advance();
+                arrayType->is_resizable = false;
+                arrayType->size_expr = nullptr;
+            }
+            else {
+                arrayType->is_resizable = false;
+                arrayType->size_expr = parseExpression();
+                expect(TOK_RBRACKET, "Expected ']' after array size");
             }
 
             if (currentType) {
                 arrayType->element_type = currentType;
             }
-
             currentType = arrayType;
         }
         else {
@@ -471,14 +486,12 @@ Ast_Type_Definition *Parser::parseTypeSpecifier() {
         }
     }
 
+    // Parse base type
     Ast_Type_Definition *baseType = nullptr;
 
-    if(current->type == TOK_KEYWORD_ANY){
+    if (current->type == TOK_KEYWORD_ANY) {
         baseType = interp->type->type_def_any;
     }
-    
-    // @Temporary
-    // replace this with hashmap later
     else if (strcmp(current->value, "int") == 0) baseType = interp->type->type_def_int;
     else if (strcmp(current->value, "s8") == 0) baseType = interp->type->type_def_s8;
     else if (strcmp(current->value, "s16") == 0) baseType = interp->type->type_def_s16;
@@ -494,46 +507,43 @@ Ast_Type_Definition *Parser::parseTypeSpecifier() {
     else if (strcmp(current->value, "void") == 0) baseType = interp->type->type_def_void;
     else if (strcmp(current->value, "bool") == 0) baseType = interp->type->type_def_bool;
     else if (strcmp(current->value, "string") == 0) baseType = interp->type->type_def_string;
-    else if(current->type == TOK_IDENTIFIER) { // for now just structs
+    else if (current->type == TOK_IDENTIFIER) {
         Ast_Type_Definition *user_defined_type = AST_NEW(Ast_Type_Definition);
         user_defined_type->name = current->value;
         user_defined_type->is_unresolved = true;
         baseType = user_defined_type;
-    } else {
-        parseError("Expected a base type (e.g 'int', 'float', 'string', 'bool')"); // should this error be more clear now that we allow user defined types? idk
-        synchronize();
+    }
+    else {
+        parseError("Expected a base type (e.g 'int', 'float', 'string', 'bool', or user-defined type)");
         return nullptr;
     }
     advance();
 
-    // if (current->type != TOK_KEYWORD_ANY && current->type != TOK_IDENTIFIER)
-    //     advance();
-
-
-    if (!currentType) // it was a pure type
+    if (!currentType) {
         return baseType;
-
-
-    Ast_Type_Definition *iter = currentType;
-    while (true) {
-        if (iter->array_kind == ARRAY_NONE && iter->pointed_to_type == interp->type->type_def_dummy /*nullptr*/) {
-            iter->pointed_to_type = baseType;
-            break;
-        }
-        else if (iter->array_kind != ARRAY_NONE && iter->element_type == nullptr) {
-            iter->element_type = baseType;
-            break;
-        }
-
-        if (iter->pointed_to_type)
-            iter = iter->pointed_to_type;
-        else if (iter->element_type)
-            iter = iter->element_type;
-        else
-            break;
     }
 
-    return currentType;
+    // Reverse the chain: attach base type to the end
+    Ast_Type_Definition *result = baseType;
+    Ast_Type_Definition *iter = currentType;
+
+    while (iter) {
+        if (iter->type == AST_ARRAY_TYPE) {
+            Ast_Array_Type *arr = static_cast<Ast_Array_Type*>(iter);
+            Ast_Type_Definition *next = arr->element_type;
+            arr->element_type = result;
+            result = arr;
+            iter = next;
+        }
+        else { // pointer
+            Ast_Type_Definition *next = iter->pointed_to_type;
+            iter->pointed_to_type = result;
+            result = iter;
+            iter = next;
+        }
+    }
+
+    return result;
 }
 
 // uint64_t total = 0; // @Temporary
@@ -635,8 +645,6 @@ Ast_Block *Parser::parseBlockStatement(bool scoped_block) {
             block->statements.push_back(stmt);
         } else {
             parseError("Failed to parse statement within block.");
-            exitSuccess = false;
-            synchronize();
             break;
         }
     }
@@ -675,8 +683,6 @@ Ast_Procedure_Call_Expression *Parser::parseCall()
                 if(current->type == TOK_RPAREN)
                 {
                     parseError("Expected argument after ',' in function call");
-                    exitSuccess = false;
-                    synchronize();
                     break;
                 }
 
@@ -787,8 +793,7 @@ Ast_Declaration* Parser::parseFunctionDeclaration(bool is_local) {
         func_decl->is_function_body = true;
         func_decl->my_scope = parseBlockStatement(); // parse the body as a block
     } else {
-        func_decl->is_function_header = true;
-        expect(TOK_SEMICOLON, "Expected ';' after function prototype");
+        // func_decl->is_function_header = true;
         if (current->type == TOK_HASHTAG) {
             Token* next = lexer->peekNextToken();
             if (next->type == TOK_FOREIGN) {
@@ -797,6 +802,10 @@ Ast_Declaration* Parser::parseFunctionDeclaration(bool is_local) {
                 func_decl->is_foreign = true;
                 func_decl->is_function_header = true;
             }
+            expect(TOK_SEMICOLON, "Expected ';' after function prototype");
+        }
+        else if (current->type == TOK_SEMICOLON){
+            parseError("Function header only allowed for foreign function calls.");
         }
     }
 
@@ -804,22 +813,34 @@ Ast_Declaration* Parser::parseFunctionDeclaration(bool is_local) {
 }
 
 bool Parser::is_lhs_assignment() {
-
     int offset = 1;
     Token* t = lexer->peekNextToken(offset);
 
-    // chains of dot expressions
-    while (t && t->type == TOK_DOT) {
+    while (t) {
         if (t->type == TOK_DOT) {
             Token* afterDot = lexer->peekNextToken(offset + 1);
             if (!afterDot || afterDot->type != TOK_IDENTIFIER) break;
             offset += 2;
-            t = lexer->peekNextToken(offset);
-            continue;
         }
+        else if (t->type == TOK_LBRACKET) {
+            // skip array index expression
+            offset++; // skip '['
+            int depth = 1;
+            while (depth > 0) {
+                Token* inner = lexer->peekNextToken(offset);
+                if (!inner) return false;
+                if (inner->type == TOK_LBRACKET) depth++;
+                else if (inner->type == TOK_RBRACKET) depth--;
+                offset++;
+            }
+        }
+        else {
+            break;
+        }
+
+        t = lexer->peekNextToken(offset);
     }
 
-    // After seeing all dot expressions, check if next token is '='
     return t && t->type == TOK_ASSIGN;
 }
 
@@ -872,7 +893,6 @@ Ast_Statement *Parser::parseStatement()
             }
             else {
                 parseError("This a fucked up statement." );
-                synchronize();
                 return nullptr;
             }
 
@@ -925,7 +945,6 @@ Ast_Statement *Parser::parseStatement()
         case TOK_ELSE:
         {
             parseError("Got 'else' without an 'if' statement.");
-            exitSuccess = false;
             advance();
             // break;
             return nullptr;
@@ -948,9 +967,11 @@ Ast_Statement *Parser::parseStatement()
             stmt->expression = expr;
             return stmt;
         }
+        // case TOK_UNDERSCORE:
+            // printf("Here is underscore");
+            // return NULL;
         default:
             parseError("Unexpected token at start of statement: " );
-            synchronize();
             return nullptr;
     }
 }

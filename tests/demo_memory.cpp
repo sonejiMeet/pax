@@ -21,6 +21,8 @@ s64 temp = 0;
 struct Data;
 struct some;
 struct Node;
+struct Static_Array;
+struct Dynamic_Array;
 struct Point;
 struct Container;
 
@@ -31,11 +33,11 @@ void print_list(Node * n);
 void testing_linked_node_using_malloc(void);
 void fibonacci_series(void);
 int fib(int x);
+Dynamic_Array __NewArray_impl(s64 count, s64 element_size);
 int add(int a, int b);
 int mul(int a, int b);
 void print_(Point * p);
 Container create_data(void);
-void something(void);
 
 /*STRUCTS DEFINITIONS*/
 struct Data {
@@ -50,6 +52,15 @@ struct Node {
 int value = -24;
 Node * next;
 };
+struct Static_Array {
+s64 count;
+void * data;
+};
+struct Dynamic_Array {
+s64 count;
+s64 allocated;
+void * data;
+};
 struct Point {
 int x = -24;
 int y = -24;
@@ -60,7 +71,6 @@ Point * data;
 };
 
 /*FUNCTION BODIES*/
-
 void testing_malloc_and_sizeof () {
     s64 a = (sizeof(int) * 8);
     printf("a= %d\n",a);
@@ -72,7 +82,6 @@ void testing_malloc_and_sizeof () {
     s64 aa = sizeof(some);
     printf("aa= %d\n",aa);
 }
-
 
 void random_modules_testing () {
     int res = add(10,20);
@@ -89,9 +98,7 @@ void random_modules_testing () {
     ((d.name) = "Main Data");
     printf("\nLocal struct: x=%d, y=%d, name=%s\n",(d.x),(d.y),(d.name));
     printf("\nDONE\n");
-    something();
 }
-
 
 void print_list (Node * n) {
     if((n == nullptr)){
@@ -101,7 +108,6 @@ void print_list (Node * n) {
     printf("Node %d %d\n",temp,((*n).value));
     print_list(((*n).next));
 }
-
 
 void testing_linked_node_using_malloc () {
     Node * head = (Node *)malloc(sizeof(Node));
@@ -116,13 +122,11 @@ void testing_linked_node_using_malloc () {
     free(head);
 }
 
-
 void fibonacci_series () {
     s64 x = 10;
     int d = fib(x);
     printf("\nfib of %d = %d\n",x,d);
 }
-
 
 int fib (int x) {
     if((x <= 0)){
@@ -134,32 +138,31 @@ int fib (int x) {
     return (fib((x - 1)) + fib((x - 2)));
 }
 
+Dynamic_Array __NewArray_impl (s64 count, s64 element_size) {
+    Dynamic_Array arr;
+    ((arr.data) = (void *)malloc((count * element_size)));
+    ((arr.count) = count);
+    ((arr.allocated) = count);
+    return arr;
+}
 
 int add (int a, int b) {
     return (a + b);
 }
-
 
 int mul (int a, int b) {
     int result = (a * b);
     return result;
 }
 
-
 void print_ (Point * p) {
     printf("Point: x=%d, y=%d\n",((*p).x),((*p).y));
 }
-
 
 Container create_data () {
     Container c;
     ((c.value) = 999);
     return c;
-}
-
-
-void something () {
-    printf("We are inside fake2.pax\n");
 }
 
 

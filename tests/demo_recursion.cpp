@@ -27,7 +27,6 @@ void newline(void);
 /*STRUCTS DEFINITIONS*/
 
 /*FUNCTION BODIES*/
-
 void recurse () {
     if((x == 10)){
         return;
@@ -37,7 +36,6 @@ void recurse () {
     recurse();
 }
 
-
 void recurse_1 (int a) {
     if((a == 10)){
         return;
@@ -46,7 +44,6 @@ void recurse_1 (int a) {
     recurse_1(a);
     printf("a = %d\n",a);
 }
-
 
 void newline () {
     printf("\n");

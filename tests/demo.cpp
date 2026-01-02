@@ -42,7 +42,6 @@ void newline(void);
 /*STRUCTS DEFINITIONS*/
 
 /*FUNCTION BODIES*/
-
 bool func1 () {
     int f = (-100);
     func((&f),a);
@@ -55,7 +54,6 @@ bool func1 () {
     }
 }
 
-
 int func (int * aa, int sssd) {
     printf("Address of aa = %p\n",aa);
     s64 something = ((*aa) * 2);
@@ -65,7 +63,6 @@ int func (int * aa, int sssd) {
     ((*ss) = ((*ss) + 2));
     return something;
 }
-
 
 void newline () {
     printf("\n");
@@ -150,7 +147,6 @@ void GENERATED_MAIN(){
         ((*(*(*whatever2))) = 96);
         printf("what = %d\n",what);
     }
-    int arrStaticInt[4];
     {
         s64 me = 5;
         s64 * mee = (&me);
