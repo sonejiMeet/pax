@@ -592,7 +592,7 @@ Ast_Declaration *Parser::parseVarDeclaration()
         }
 
     } else {
-        parseError("Must be a ':' after identifier in a declaration statement");
+        parseError("Only declarations allowed, couldn't find ':' after identifier in a declaration statement");
     }
 
     Expect(TOK_SEMICOLON, "Expected ';' after variable declaration.");
@@ -949,7 +949,23 @@ Ast_Statement *Parser::parseStatement()
             // break;
             return nullptr;
         }
+        case TOK_WHILE:{
+            Ast_While *_while = AST_NEW(Ast_While);
+            advance();
+            bool should_consume_paren = false;
+            if(current->type == TOK_LPAREN) advance();
 
+            Ast_Expression *expr = parseExpression();
+
+            if(should_consume_paren)
+                expect(TOK_RPAREN, "Expected ')' after while condition.");
+
+            __debugbreak();
+            Ast_Block *block = parseBlockStatement();
+            _while->condition = expr;
+            _while->block = block;
+            return _while;
+        }
         case TOK_LCURLY_PAREN: {
             bool is_scoped_block = true;
             Ast_Block *scopedBlock = parseBlockStatement(is_scoped_block);

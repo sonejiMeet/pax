@@ -246,7 +246,7 @@ struct Ast_If : public Ast_Statement {
     Ast_Block *else_block = nullptr;
 };
 
-struct Ast_While : public Ast_Expression {  // not done yet
+struct Ast_While : public Ast_Statement {
     Ast_While(Pool* = nullptr) { type = AST_WHILE; };
     Ast_Expression *condition = nullptr;
     Ast_Block *block = nullptr;

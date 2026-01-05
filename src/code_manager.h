@@ -27,11 +27,6 @@ struct Unresolved_Member_Access {
     Ast_Block *my_scope;
 };
 
-struct Unresolved_Array_Type {
-    Ast_Type_Definition *array_type;
-    Ast_Declaration *decl;  // The declaration that uses this array
-};
-
 struct ReturnCheckResult {
     bool has_return;
     bool all_paths_return;
@@ -46,7 +41,6 @@ struct CodeManager {
     std::vector<Unresolved_Variable> unresolved_vars;
     std::vector<Unresolved_Type> unresolved_types;
     std::vector<Unresolved_Member_Access> unresolved_member_accesses;
-    std::vector<Unresolved_Array_Type> unresolved_array_types;
 
     Def_Type *_type;
 
@@ -73,10 +67,6 @@ struct CodeManager {
         }
         if(!unresolved_member_accesses.empty()) {
             printf("unresolved_member_accesses is not empty broo\n");
-            should_exit = true;
-        }
-        if(!unresolved_array_types.empty()) {
-            printf("unresolved_array_types is not empty broo\n");
             should_exit = true;
         }
         if(should_exit == true) exit(1);
@@ -137,7 +127,8 @@ struct CodeManager {
     void resolve_unresolved_calls();
     void resolve_unresolved_types();
     void resolve_unresolved_member_accesses();
-    void resolve_unresolved_array_types();
+
+    void resolve_array_types(Ast_Array_Type *array_type, Ast_Declaration *decl);
 
     char *type_to_string(Ast_Type_Definition *type);
 

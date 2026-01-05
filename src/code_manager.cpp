@@ -53,9 +53,9 @@ void CodeManager::report_error(T type, const char* fmt, ...)
     }
 
     if (ast->line_number >= 0 && ast->character_number >= 0) {
-        fprintf(stderr, "%s: Semantic Error[%d:%d]: %s\n", filename, ast->line_number, ast->character_number, buffer);
+        fprintf(stderr, "%s[%d:%d]: %s\n", filename, ast->line_number, ast->character_number, buffer);
     } else {
-        fprintf(stderr, "%s: Semantic Error: %s\n", filename, buffer);
+        fprintf(stderr, "%s: %s\n", filename, buffer);
     }
 }
 
@@ -379,10 +379,8 @@ void CodeManager::resolve_idents(Ast_Block* block) {
                         }
                     }
                     else if (decl->declared_type && decl->declared_type->type == AST_ARRAY_TYPE) {
-                        Unresolved_Array_Type u;
-                        u.array_type = decl->declared_type;
-                        u.decl = decl;
-                        unresolved_array_types.push_back(u);
+                        auto *arr = static_cast<Ast_Array_Type*>(decl->declared_type);
+                        resolve_array_types(arr, decl);
                     }
                 }
             }
@@ -426,6 +424,14 @@ void CodeManager::resolve_idents(Ast_Block* block) {
                 pop_scope();
             }
             pop_scope();
+        } else if (stmt->type == AST_WHILE){
+            Ast_While* _while = static_cast<Ast_While*>(stmt);
+            if (_while->condition) resolve_idents_in_expr(_while->condition);
+            if (_while->block) {
+                push_scope();
+                resolve_idents(_while->block);
+                pop_scope();
+            }
         }
     }
 
@@ -527,6 +533,28 @@ void CodeManager::create_type_instantiation(Ast_Type_Definition* type) {
 
         if (def_member->declared_type) {
             instance_member->declared_type = clone_type_definition(def_member->declared_type);
+
+            // ensure arrays in members have struct_def set, otherwise it
+            if (instance_member->declared_type->type == AST_ARRAY_TYPE &&
+                !instance_member->declared_type->struct_def) {
+
+                auto* arr = static_cast<Ast_Array_Type*>(instance_member->declared_type);
+                const char* struct_name = nullptr;
+
+                if (arr->is_resizable) {
+                    struct_name = "Dynamic_Array";
+                } else if (arr->size_expr) {
+                    struct_name = "Static_Array";
+                }
+
+                if (struct_name) {
+                    Ast_Type_Definition* array_struct = find_struct_type_in_scopes(struct_name);
+                    if (array_struct && array_struct->struct_def) {
+                        instance_member->declared_type->struct_def = array_struct->struct_def;
+                        instance_member->declared_type->is_unresolved = false;
+                    }
+                }
+            }
         } else if (def_member->initializer) {
             instance_member->declared_type = nullptr;
             instance_member->inferred = false;
@@ -573,16 +601,37 @@ void CodeManager::resolve_idents_in_declaration(Ast_Declaration* decl)
         }
 
         // if we have pointer-to-array and can resolve it early
-        if (decl->declared_type->pointed_to_type &&
-            decl->declared_type->pointed_to_type->type == AST_ARRAY_TYPE) {
+        if (decl->declared_type->pointed_to_type) {
+            auto* arr_type = ast_static_cast<Ast_Array_Type>(decl->declared_type, AST_ARRAY_TYPE);
+            // auto* arr = static_cast<Ast_Array_Type*>(type);
+            if (!arr_type) {
+                bool inside_pointer = false;
 
-            auto* arr_type = static_cast<Ast_Array_Type*>(decl->declared_type->pointed_to_type);
+                Ast_Type_Definition* walker = decl->declared_type;
+                while (walker) {
+                    // If walker points to our array type, then array is behind pointer
+                    if (walker->pointed_to_type == decl->declared_type) {
+                        inside_pointer = true;
+                        break;
+                    }
 
-            if (!arr_type->struct_def) {
-                Unresolved_Array_Type u;
-                u.array_type = arr_type;
-                u.decl = decl;
-                unresolved_array_types.push_back(u);
+                    if (walker->pointed_to_type) {
+                        walker = walker->pointed_to_type;
+                    }
+                    else if (walker->type == AST_ARRAY_TYPE) {
+                        auto* wa = static_cast<Ast_Array_Type*>(walker);
+                        arr_type = wa;
+                        walker = wa->element_type;
+                    }
+                    else {
+                        break;
+                    }
+                }
+            }
+            //auto* arr_type = static_cast<Ast_Array_Type*>(decl->declared_type->pointed_to_type);
+
+            if (arr_type && !arr_type->struct_def) {
+                resolve_array_types(arr_type, decl);
             }
         }
     }
@@ -749,83 +798,24 @@ void CodeManager::resolve_unresolved_member_accesses() {
 }
 
 
-void CodeManager::resolve_unresolved_array_types() {  // since we are relying on General.pax module to be loaded, we will be waiting for the builtin structs like Static_Array and Dynamic_Array to be loaded and resolved.
-    std::vector<Unresolved_Array_Type> still_unresolved;
+void CodeManager::resolve_array_types(Ast_Array_Type *array_type, Ast_Declaration *decl) {
 
-    for (const auto& u : unresolved_array_types) {
-        Ast_Type_Definition* type = u.array_type;
-        if (!type || type->type != AST_ARRAY_TYPE) {
-            continue;
-        }
+    Ast_Type_Definition* type = decl->declared_type;
 
-        auto* arr = static_cast<Ast_Array_Type*>(type);
+    // Static array ([N]int) or abstract array (^[]int, []int)
+    if (!array_type->is_resizable) {
+        Ast_Type_Definition* static_array_def = find_struct_type_in_scopes("Static_Array");
 
-        // Static array
-        if (!arr->is_resizable && arr->size_expr != nullptr) {
-            Ast_Type_Definition* static_array_def = find_struct_type_in_scopes("Static_Array");
-            if (!static_array_def || !static_array_def->struct_def) {
-                still_unresolved.push_back(u);
-                continue;
-            }
-
-            type->struct_def = static_array_def->struct_def;
-            type->is_unresolved = false;
-            create_type_instantiation(type);
-        }
-        else if (arr->is_resizable) {
-            bool inside_pointer = false;
-
-            Ast_Type_Definition* walker = u.decl->declared_type;
-            while (walker) {
-                // If walker points to our array type, then array is behind pointer
-                if (walker->pointed_to_type == type) {
-                    inside_pointer = true;
-                    break;
-                }
-
-                if (walker->pointed_to_type) {
-                    walker = walker->pointed_to_type;
-                } else if (walker->type == AST_ARRAY_TYPE) {
-                    auto* wa = static_cast<Ast_Array_Type*>(walker);
-                    walker = wa->element_type;
-                } else {
-                    break;
-                }
-            }
-
-            Ast_Type_Definition* array_def = nullptr;
-            if (inside_pointer) { // for now pointer types are regarded as static array
-                array_def = find_struct_type_in_scopes("Static_Array");
-            } else {
-                array_def = find_struct_type_in_scopes("Dynamic_Array");
-            }
-
-            if (!array_def || !array_def->struct_def) {
-                still_unresolved.push_back(u);
-                continue;
-            }
-
-            type->struct_def = array_def->struct_def;
-            type->is_unresolved = false;
-            create_type_instantiation(type);
-        } else { // (!arr->is_resizable && arr->size_expr == nullptr) , which means its a abstract array......... finally it works.
-            Ast_Type_Definition* array_def = nullptr;
-
-            array_def = find_struct_type_in_scopes("Static_Array");
-            type->struct_def = array_def->struct_def;
-            type->is_unresolved = false;
-            create_type_instantiation(type);
-
-        }
+        array_type->struct_def = static_array_def->struct_def;
+        type->is_unresolved = false;
+        create_type_instantiation(type);
     }
+    else if (array_type->is_resizable) {
+        Ast_Type_Definition* array_def = find_struct_type_in_scopes("Dynamic_Array");
 
-    unresolved_array_types.swap(still_unresolved);
-
-    if (!unresolved_array_types.empty()) {
-        for (const auto& u : unresolved_array_types) {
-            report_error(u.decl, "Cannot resolve array type");
-        }
-        unresolved_array_types.clear();
+        type->struct_def = array_def->struct_def;
+        type->is_unresolved = false;
+        create_type_instantiation(type);
     }
 }
 
@@ -936,6 +926,7 @@ Ast_Declaration* CodeManager::resolve_member_access(Ast_Binary* dot_expr, Ast_Bl
             while (base_type->pointed_to_type) {
                 base_type = base_type->pointed_to_type;
             }
+
 
             // Get instance AFTER dereferencing
             current_instance = base_type->type_instance;
@@ -2448,7 +2439,16 @@ void CodeManager::infer_types_block(Ast_Block* block, Ast_Declaration *my_func)
                 infer_types_block(ifn->else_block, my_func);
                 pop_scope();
             }
+        }else if (stmt->type == AST_WHILE){
+            Ast_While* _while = static_cast<Ast_While*>(stmt);
+            if (_while->condition) infer_types_expr(&_while->condition);
+            if (_while->block) {
+                push_scope();
+                infer_types_block(_while->block, my_func);
+                pop_scope();
+            }
         }
+
 
     }
 }

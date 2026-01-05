@@ -141,7 +141,7 @@ void C_Converter::emitExpression(FILE* out, Ast_Expression* expr, int indent, bo
                 if (arr_type->pointed_to_type) {
                     Ast_Type_Definition* pointee = arr_type->pointed_to_type;
 
-                    if (pointee->type == AST_ARRAY_TYPE && pointee->struct_def) {
+                    if (pointee->type == AST_ARRAY_TYPE) {
                         auto* arr = static_cast<Ast_Array_Type*>(pointee);
 
                         fprintf(out, "((");
@@ -175,7 +175,7 @@ void C_Converter::emitExpression(FILE* out, Ast_Expression* expr, int indent, bo
                         base = base->pointed_to_type;
                     }
 
-                    if (base->type == AST_ARRAY_TYPE && base->struct_def) {
+                    if (base->type == AST_ARRAY_TYPE) {
                         auto* arr = static_cast<Ast_Array_Type*>(base);
 
                         // a[i] becomes ((TYPE*)a.data)[i]
@@ -468,7 +468,7 @@ void C_Converter::emitStatement(FILE* out, Ast_Statement* stmt, int indent)
             // static array declarations
             Ast_Type_Definition* base_type = decl->declared_type;
             int ptr_depth = 0;
-
+            Ast_Type_Definition* decl_type = base_type;
             while (base_type && base_type->pointed_to_type) {
                 ptr_depth++;
                 base_type = base_type->pointed_to_type;
@@ -534,7 +534,99 @@ void C_Converter::emitStatement(FILE* out, Ast_Statement* stmt, int indent)
                 }
             }
 
+            // Check if this is a struct with array members
+            if (decl_type && decl_type->struct_def) {
+                Ast_Struct* struct_def = decl_type->struct_def;
+
+                // First, emit backing storage for any array members
+                for (int i = 0; i < struct_def->members.count; i++) {
+                    Ast_Declaration* member = struct_def->members.data[i];
+                    if (!member || !member->declared_type) continue;
+
+                    Ast_Type_Definition* member_type = member->declared_type;
+
+                    if (member_type->type == AST_ARRAY_TYPE) {
+                        auto* arr = static_cast<Ast_Array_Type*>(member_type);
+
+                        if (!arr->is_resizable && arr->size_expr) {
+                            long long size = 0;
+                            if (arr->size_expr->type == AST_LITERAL) {
+                                auto* lit = static_cast<Ast_Literal*>(arr->size_expr);
+                                if (lit->value_type == LITERAL_NUMBER) {
+                                    size = lit->integer_value;
+                                }
+                            }
+
+                            std::string elem_type_str = "void";
+                            if (arr->element_type) {
+                                Ast_Type_Definition* elem = arr->element_type;
+                                int elem_ptr_depth = 0;
+
+                                while (elem->pointed_to_type) {
+                                    elem_ptr_depth++;
+                                    elem = elem->pointed_to_type;
+                                }
+
+                                elem_type_str = elem->to_string(*_type);
+                                for (int p = 0; p < elem_ptr_depth; ++p) {
+                                    elem_type_str += "*";
+                                }
+                            }
+
+                            // Emit: TYPE __data__STRUCTVAR_MEMBERNAME[SIZE];
+                            fprintf(out, "%s __data__%s_%s[%lld];\n",
+                                   elem_type_str.c_str(),
+                                   decl->identifier->name,
+                                   member->identifier->name,
+                                   size);
+
+                            indentLine(out, indent);
+                        }
+                    }
+                }
+            }
             type_to_c_string(out, decl->declared_type, decl, true, indent);
+
+            // Initialize array members if it's a struct
+            if (decl_type && decl_type->struct_def) {
+                Ast_Struct* struct_def = decl_type->struct_def;
+
+                for (int i = 0; i < struct_def->members.count; i++) {
+                    Ast_Declaration* member = struct_def->members.data[i];
+                    if (!member || !member->declared_type) continue;
+
+                    Ast_Type_Definition* member_type = member->declared_type;
+
+                    if (member_type->type == AST_ARRAY_TYPE) {
+                        auto* arr = static_cast<Ast_Array_Type*>(member_type);
+
+                        if (!arr->is_resizable && arr->size_expr) {
+                            long long size = 0;
+                            if (arr->size_expr->type == AST_LITERAL) {
+                                auto* lit = static_cast<Ast_Literal*>(arr->size_expr);
+                                if (lit->value_type == LITERAL_NUMBER) {
+                                    size = lit->integer_value;
+                                }
+                            }
+
+                            indentLine(out, indent);
+
+                            fprintf(out, "%s.%s.data = (void *)__data__%s_%s;\n",
+                                   decl->identifier->name,
+                                   member->identifier->name,
+                                   decl->identifier->name,
+                                   member->identifier->name);
+
+                            indentLine(out, indent);
+
+                            fprintf(out, "%s.%s.count = %lld;\n",
+                                   decl->identifier->name,
+                                   member->identifier->name,
+                                   size);
+                        }
+                    }
+                }
+            }
 
             break;
         }
@@ -578,6 +670,16 @@ void C_Converter::emitStatement(FILE* out, Ast_Statement* stmt, int indent)
                 fprintf(out, "else ");
                 emitBlock(out, ifstmt->else_block, indent);
             }
+            break;
+        }
+
+        case AST_WHILE: {
+            auto* while_stmt = static_cast<Ast_While*>(stmt);
+            indentLine(out, indent);
+            fprintf(out, "while(");
+            emitExpression(out, while_stmt->condition, indent);
+            fprintf(out, ")");
+            emitBlock(out, while_stmt->block, indent);
             break;
         }
 

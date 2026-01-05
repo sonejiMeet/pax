@@ -5,9 +5,12 @@
     DONE #foreign directive for functions to call C standard library functions
     DONE sizeof() C call
     **malloc, free C calls (through our own new, delete keywords)
-    arrays static and dynamic.
+    DONE static arrays
+    dynamic arrays.
 
-    loops for and while
+    for loop
+
+    DONE while loop
     else if (how is this still not done ffs )
     defer
 

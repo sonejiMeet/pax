@@ -205,7 +205,8 @@ Token *Lexer::identifierToken(char first)
     else if (strcmp(ident, "Any") == 0) type = TOK_KEYWORD_ANY;
 
     else if (strcmp(ident, "null") == 0) type = TOK_NULL;
-
+    
+    else if (strcmp(ident, "while") == 0) type = TOK_WHILE;
     Token *t = makeToken(type, ident);
 
     free(ident);

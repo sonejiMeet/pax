@@ -48,25 +48,6 @@ __NewArray_impl :: (count: s64, element_size: s64) -> Dynamic_Array {
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 // array_reserve :: (new_capacity: s64) -> ^Dynamic_Array {
 //     if (new_capacity <= arr.allocated) { return; }  // Fixed: capacity -> allocated
 

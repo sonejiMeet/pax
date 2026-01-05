@@ -16,7 +16,8 @@ enum TokenType {
     TOK_RETURN,         // return
     TOK_IMPORT,        // import
     TOK_FOREIGN,     // foreign
-    TOK_NULL,
+    TOK_NULL,  // null
+    TOK_WHILE, // while
 
     TOK_KEYWORD_TRUE, // true
     TOK_KEYWORD_FALSE, // false
@@ -84,6 +85,7 @@ inline const char* tokenTypeToString(TokenType type) {
         case TOK_IMPORT: return "TOK_IMPORT";
         case TOK_FOREIGN: return "TOK_FOREIGN";
         case TOK_NULL: return "TOK_NULL";
+        case TOK_WHILE: return "TOK_WHILE";
 
         case TOK_KEYWORD_TRUE: return "TOK_KEYWORD_TRUE";
         case TOK_KEYWORD_FALSE: return "TOK_KEYWORD_FALSE";

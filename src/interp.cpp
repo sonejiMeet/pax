@@ -157,15 +157,17 @@ bool Pax_Interp::init(const char* entry_file) {
     const char* stored_path = pool_strdup(pool, abs_path);
 
     loaded_modules[abs_path] = entry_ast;
-    module_parse_order.push_back(abs_path);
 
     load_imports(entry_ast, stored_path);
+
+    module_parse_order.push_back(abs_path);
 
     ast = merge_all_modules();
     ast->file_name = stored_path;
 
     return true;
 }
+
 
 Ast_Block* Pax_Interp::load_and_parse_module(const char* filename) {
     char *abs_path = get_absolute_path(filename);
@@ -229,9 +231,9 @@ void Pax_Interp::run_frontend() {
     code_manager->resolve_unresolved_vars();
     code_manager->resolve_unresolved_calls();
     code_manager->resolve_unresolved_types();
-    code_manager->resolve_unresolved_array_types();
     code_manager->resolve_unresolved_member_accesses();
 
+    // code_manager->is_everything_resolved(); // @Comeback, breaks on demo_memory.pax
     code_manager->infer_types_block(ast);
 
     if (code_manager->count_errors != 0) {
@@ -239,7 +241,6 @@ void Pax_Interp::run_frontend() {
         exit(1);
     }
 
-    // code_manager->is_everything_resolved(); // @Comeback, breaks on demo_memory.pax
 
     auto end = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> elapsed = end - start;

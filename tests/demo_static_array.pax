@@ -2,8 +2,8 @@
 
 
 main :: () {
-    printf("----------------------------------------\n");
 // /*
+    printf("----------------------------------------\n");
     { // static array and pointer to static array and subscript dereferencing
         a: [4]int;
         arr:^[]int= &a;
@@ -12,8 +12,8 @@ main :: () {
         printf("arr.count = %d\n", arr.count);
         // pa: ^[]int;
     }
-// */
     printf("----------------------------------------\n");
+// */
 
 // /*
     {
@@ -29,15 +29,15 @@ main :: () {
         printf("b.count = %d\n", b.count);
 
     }
+    printf("----------------------------------------\n");
 // */
 
-    printf("----------------------------------------\n");
 // /*
     {
         a: [4]int;
         a[0] = 834;
         printf("a[0] = %d\n", a[0]);
-        b:= &a; // this still not work when type explicitly given
+        b:^[]int= &a; // this still not work when type explicitly given
 
 
         pc:int = 449895;
@@ -47,37 +47,77 @@ main :: () {
         printf("c[3] = %p\n", c[3]);
         printf("c[3] = %d\n", *c[3]);
 
-        // b = &a;
-        // b[0] = *c[3];
+        b = &a;
+        b[0] = *c[3];
         printf("b[0] = %d\n", b[0]);
 
         d: ^[]^int;
     }
-// */
     printf("----------------------------------------\n");
+// */
 
 
 
     // dyn: [..]int;
     // dyn := NewArray(5, sizeof(float));
 
-/*
-    a:[4]int;
-    func(a);
-*/
+// /*
+    {
+        a:[4]int;
+        a[0] = 2;
+        printf("a[0] = %d\n", a[0]);
+        ddd := func(&a);
+
+        printf("a[0] = %d\n", a[0]);
+        printf("ddd[0] = %d\n", ddd[0]);
+        ddd[0] = 33;
+        printf("ddd[0] = %d\n", ddd[0]);
+    }
+    printf("----------------------------------------\n");
+// */
+
+// /*
+
+    {
+        s: SS;
+        s.a[2] = 6948999;
+
+        printf("s.a[2] = %d\n", s.a[2]);
+        printf("s.a.count = %d\n", s.a.count);
+
+        ar: [4]int;
+        ar[2] = -2469;
+
+        s.a = ar;
+
+        printf("s.a[2] = %d\n", s.a[2]);
+        printf("s.a.count = %d\n", s.a.count);
+
+        p_s := &s;
+        printf("p_s.a[2] = %d\n", p_s.a[2]);
+        printf("p_s.a.count = %d\n", p_s.a.count);
+
+    }
+    printf("----------------------------------------\n");
+// */
 
     printf("DONEEEE\n");
 }
 
+func :: (arr: ^[]int) -> ^[]int{
+    local := arr; // does not get instantiated
+    local[0] = 2434355;
+    printf("local[0] = %d\n", local[0]);
+    return local;
+}
 
-// func :: (arr: []int) -> []int{
-//     local := arr; // does not get instantiated
-//     local[0] = 1;
-//     return local;
-// }
+SS :: struct {
+    a: [4]int;
+}
 
 
 // compound variable
     // x = 2;
     // printf("x = %d",x);
     // _,a := 2;
+
