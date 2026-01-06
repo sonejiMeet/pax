@@ -1911,7 +1911,7 @@ void CodeManager::infer_types_expr(Ast_Expression** expr_ptr)
                                 auto *val_type_l = static_cast<Ast_Literal*>(b->lhs);
                                 bool do_types_fit = true;
                                 if(val_type_r->value_type == LITERAL_NUMBER){   // @Comeback to this later - 4:16 AM 31 Dec
-                                    if(!check_that_types_fit(val_type_r->integer_value, val_type_l->inferred_type)){
+                                    if(!check_that_types_fit((long long)val_type_r->integer_value, val_type_l->inferred_type)){
                                         printf("val = %lld\n", val_type_r->integer_value);
                                         do_types_fit = false;
                                     }
