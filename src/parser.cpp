@@ -416,6 +416,10 @@ int Parser::getPrecedence(TokenType type) {
         case TOK_LESS_EQUAL:
         case TOK_GREATER_EQUAL:
             return 70;
+        case TOK_LOGICAL_AND:
+            return 60;
+        case TOK_LOGICAL_OR:
+            return 50;
         default:
             return -1;
     }
@@ -434,6 +438,9 @@ Binary_Op Parser::getBinaryOperator(TokenType type) {
         case TOK_GREATER: return BINOP_GREATER;
         case TOK_LESS_EQUAL: return BINOP_LESS_EQUAL;
         case TOK_GREATER_EQUAL: return BINOP_GREATER_EQUAL;
+        case TOK_LOGICAL_AND: return BINOP_LOGICAL_AND;
+        case TOK_LOGICAL_OR: return BINOP_LOGICAL_OR;
+
         default: return BINOP_UNKNOWN;
     }
 }
@@ -607,34 +614,56 @@ Ast_Declaration *Parser::parseVarDeclaration()
 
 
 Ast_If *Parser::parseIfStatement(){
+    Ast_If *ifNode = AST_NEW(Ast_If);
 
     advance();
-    Expect(TOK_LPAREN, "Expected '(' before start of expression in if statement .");
+    bool should_consume_paren = false;
+    if(current->type == TOK_LPAREN) {
+        advance();
+        should_consume_paren = true;
+    }
 
     Ast_Expression *condition = parseExpression();
 
-    Expect(TOK_RPAREN, "Expected ')' after end of expression in if statement.");
+    if(should_consume_paren)
+        expect(TOK_RPAREN, "Expected ')' after end of expression in if statement.");
+    else if (current->type == TOK_RPAREN) {
+        parseError("Unexpected ')' after end of expression in if statement");
+    }
 
-    Ast_Block *thenBlock = parseBlockStatement();
-
-    Ast_If *ifNode = AST_NEW(Ast_If);
+    Ast_Block *thenBlock = parseBlockStatement(false, true);
 
     ifNode->condition = condition;
     ifNode->then_block = thenBlock;
 
     if(current->type == TOK_ELSE){
         advance();
-        Ast_Block *elseBlock = parseBlockStatement();
-        ifNode->else_block = elseBlock;
+        if(current->type == TOK_IF){
+            ifNode->else_block = parseIfStatement();
+        } else {
+            Ast_Block *elseBlock = parseBlockStatement(false ,true);
+            ifNode->else_block = elseBlock;
+        }
     }
-
     return ifNode;
 
 }
 
-Ast_Block *Parser::parseBlockStatement(bool scoped_block) {
-    expect(TOK_LCURLY_PAREN, "Expected '{' to start a block statement.");
+Ast_Block *Parser::parseBlockStatement(bool scoped_block, bool if_block) {
 
+    bool only_one_stmt = false;
+    bool should_close_paren = false;
+    if(!if_block){
+        expect(TOK_LCURLY_PAREN, "Expected '{' to start a block statement.");
+        should_close_paren = true;
+    } else {
+        if(current->type != TOK_LCURLY_PAREN) {
+            only_one_stmt = true;
+        } else {
+            should_close_paren = true;
+            advance();
+        }
+    }
     Ast_Block *block = AST_NEW(Ast_Block);
 
     block->is_scoped_block = scoped_block;
@@ -643,13 +672,21 @@ Ast_Block *Parser::parseBlockStatement(bool scoped_block) {
         Ast_Statement *stmt = parseStatement();
         if (stmt) {
             block->statements.push_back(stmt);
+            if(if_block && only_one_stmt) return block; // we only allow one statement to get inside block and leave
         } else {
             parseError("Failed to parse statement within block.");
             break;
         }
     }
-    expect(TOK_RCURLY_PAREN, "Expected '}' to close a block statement.");
 
+    if(!if_block){
+        expect(TOK_RCURLY_PAREN, "Expected '}' to close a block statement.");
+    } else {
+        if (current->type == TOK_RCURLY_PAREN && should_close_paren) 
+            advance();
+        else 
+            parseError("Unexpected '}' in a block statement");
+    }
     return block;
 }
 
@@ -953,15 +990,17 @@ Ast_Statement *Parser::parseStatement()
             Ast_While *_while = AST_NEW(Ast_While);
             advance();
             bool should_consume_paren = false;
-            if(current->type == TOK_LPAREN) advance();
+            if(current->type == TOK_LPAREN) {
+                advance();
+                should_consume_paren = true;
+            }
 
             Ast_Expression *expr = parseExpression();
 
             if(should_consume_paren)
                 expect(TOK_RPAREN, "Expected ')' after while condition.");
 
-            __debugbreak();
-            Ast_Block *block = parseBlockStatement();
+            Ast_Block *block = parseBlockStatement(false, true);
             _while->condition = expr;
             _while->block = block;
             return _while;

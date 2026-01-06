@@ -238,6 +238,8 @@ void C_Converter::emitExpression(FILE* out, Ast_Expression* expr, int indent, bo
                     case BINOP_GREATER: fprintf(out, " > "); break;
                     case BINOP_LESS_EQUAL: fprintf(out, " <= "); break;
                     case BINOP_GREATER_EQUAL: fprintf(out, " >= "); break;
+                    case BINOP_LOGICAL_AND: fprintf(out, " && "); break;
+                    case BINOP_LOGICAL_OR: fprintf(out, " || "); break;
                     default: fprintf(out, "/*BINOP OP ERROR*/"); break;
                 }
                 emitExpression(out, bin->rhs, indent);
@@ -668,7 +670,12 @@ void C_Converter::emitStatement(FILE* out, Ast_Statement* stmt, int indent)
             if (ifstmt->else_block) {
                 indentLine(out, indent);
                 fprintf(out, "else ");
-                emitBlock(out, ifstmt->else_block, indent);
+
+                if (ifstmt->else_block->type == AST_IF) {
+                    emitStatement(out, ifstmt->else_block, indent); // else if
+                } else if (ifstmt->else_block->type == AST_BLOCK) {
+                    emitBlock(out, static_cast<Ast_Block*>(ifstmt->else_block), indent); // else
+                }
             }
             break;
         }
@@ -676,9 +683,8 @@ void C_Converter::emitStatement(FILE* out, Ast_Statement* stmt, int indent)
         case AST_WHILE: {
             auto* while_stmt = static_cast<Ast_While*>(stmt);
             indentLine(out, indent);
-            fprintf(out, "while(");
+            fprintf(out, "while");
             emitExpression(out, while_stmt->condition, indent);
-            fprintf(out, ")");
             emitBlock(out, while_stmt->block, indent);
             break;
         }

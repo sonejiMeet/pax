@@ -205,7 +205,7 @@ Token *Lexer::identifierToken(char first)
     else if (strcmp(ident, "Any") == 0) type = TOK_KEYWORD_ANY;
 
     else if (strcmp(ident, "null") == 0) type = TOK_NULL;
-    
+
     else if (strcmp(ident, "while") == 0) type = TOK_WHILE;
     Token *t = makeToken(type, ident);
 
@@ -274,7 +274,10 @@ Token *Lexer::nextToken()
         case '^':
             return makeToken(TOK_CARET, "^");
         case '&':
+            if (match_and_advance('&')) return makeToken(TOK_LOGICAL_AND, "&&");
             return makeToken(TOK_AMPERSAND, "&");
+        case '|':
+            if (match_and_advance('|')) return makeToken(TOK_LOGICAL_OR, "||");
         case '_': {
             Token *next = peekNextToken();
             if(next->type != TOK_IDENTIFIER)

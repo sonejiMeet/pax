@@ -94,6 +94,7 @@ struct CodeManager {
     Ast_Declaration *lookup_symbol(const char *name, Ast_Block *scope = nullptr); // here scope is for the case where we can't rely on scope_stack.pop() when going through queued unresolved statements, we pass in the scope.
     Ast_Declaration *lookup_symbol_current_scope(const char *name);
 
+    ReturnCheckResult checkReturnPathsIf(Ast_If* ifn);
     ReturnCheckResult checkReturnPaths(Ast_Block *block);
     void checkFunctionReturns(Ast_Declaration *decl);
     bool has_return_statement(Ast_Block *block);
@@ -107,6 +108,8 @@ struct CodeManager {
 
     void resolve_idents(Ast_Block *block);
 
+    void resolve_idents_if(Ast_If* ifn);
+
     void resolve_idents_in_declaration(Ast_Declaration *decl);
     void transform_array_to_struct(Ast_Type_Definition* type);
 
@@ -117,6 +120,7 @@ struct CodeManager {
 
     Ast_Type_Definition* find_struct_type_in_scopes(const char* name) const;
 
+    inline void push_unresolved_var(Ast_Ident *ident, Ast_Block* my_scope);
     inline void push_unresolved_type(Ast_Declaration *decl, Ast_Type_Definition *base_type);
     inline void push_unresolved_member_access(Ast_Binary *dot_expr, Ast_Binary *assignment_expr = nullptr);
     inline void push_unresolved_call(Ast_Procedure_Call_Expression *call);
@@ -141,6 +145,7 @@ struct CodeManager {
     long long wrap_integer_to_type(long long value, Ast_Type_Definition *target);
 
     void infer_types_decl(Ast_Declaration *decl);
+    void infer_types_if(Ast_If* ifn, Ast_Declaration* my_func);
     void infer_types_block(Ast_Block *block, Ast_Declaration *my_func = nullptr);
 
     bool check_that_types_match(Ast_Type_Definition *wanted, Ast_Type_Definition *have, bool is_pointer = false);

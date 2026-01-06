@@ -1,5 +1,5 @@
 #include "interp.h"
-#include "ast_printer.h"
+// #include "ast_printer.h"
 
 #ifdef _WIN32
 #include <windows.h>
@@ -217,7 +217,7 @@ void Pax_Interp::printLexer(const char* filename) {
     }
 
     Lexer lexer((const char*)buf.data, buf.size, pool);
-    printLex(buf, pool);
+    // printLex(buf, pool);
 
     free(buf.data);
 

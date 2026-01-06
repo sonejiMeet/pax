@@ -218,6 +218,24 @@ bool CodeManager::declare_struct(Ast_Statement* struct_stmt) {
     return true;
 }
 
+ReturnCheckResult CodeManager::checkReturnPathsIf(Ast_If* ifn) {
+    ReturnCheckResult badResult = {false, false};
+    ReturnCheckResult then_result = ifn->then_block ? checkReturnPaths(ifn->then_block) : badResult;
+
+    ReturnCheckResult else_result = badResult;
+    if (ifn->else_block) {
+        if (ifn->else_block->type == AST_IF) {
+            else_result = checkReturnPathsIf(static_cast<Ast_If*>(ifn->else_block));
+        } else if (ifn->else_block->type == AST_BLOCK) {
+            else_result = checkReturnPaths(static_cast<Ast_Block*>(ifn->else_block));
+        }
+    }
+
+    ReturnCheckResult result;
+    result.has_return = then_result.has_return || else_result.has_return;
+    result.all_paths_return = then_result.all_paths_return && else_result.all_paths_return;
+    return result;
+}
 
 ReturnCheckResult CodeManager::checkReturnPaths(Ast_Block* block)
 {
@@ -236,15 +254,12 @@ ReturnCheckResult CodeManager::checkReturnPaths(Ast_Block* block)
             break;
         } else if (stmt->type == AST_IF) {
             Ast_If* ifn = static_cast<Ast_If*>(stmt);
-            ReturnCheckResult badResult = {false, false};
-            ReturnCheckResult then_result = ifn->then_block ? checkReturnPaths(ifn->then_block) : badResult;
 
-            //  add check for else_if_blocks once implemeneted
-            ReturnCheckResult else_result = ifn->else_block ? checkReturnPaths(ifn->else_block) : badResult;
+            ReturnCheckResult if_result = checkReturnPathsIf(ifn);
 
-            result.has_return |= then_result.has_return || else_result.has_return;
+            result.has_return |= if_result.has_return;
 
-            if (then_result.all_paths_return && else_result.all_paths_return) {
+            if (if_result.all_paths_return) {
                 fallthrough = false;
                 break;
             }
@@ -400,18 +415,7 @@ void CodeManager::resolve_idents(Ast_Block* block) {
         }
 
         if (stmt->type == AST_IF) {
-            Ast_If* ifn = static_cast<Ast_If*>(stmt);
-            if (ifn->condition) resolve_idents_in_expr(ifn->condition);
-            if (ifn->then_block) {
-                push_scope();
-                resolve_idents(ifn->then_block);
-                pop_scope();
-            }
-            if (ifn->else_block) {
-                push_scope();
-                resolve_idents(ifn->else_block);
-                pop_scope();
-            }
+            resolve_idents_if(static_cast<Ast_If*>(stmt));
         } else if (stmt->expression) {
             resolve_idents_in_expr(stmt->expression);
         } else if (stmt->block) {
@@ -435,6 +439,27 @@ void CodeManager::resolve_idents(Ast_Block* block) {
         }
     }
 
+}
+
+void CodeManager::resolve_idents_if(Ast_If* ifn) {
+    if (ifn->condition) resolve_idents_in_expr(ifn->condition);
+
+    if (ifn->then_block) {
+        push_scope();
+        resolve_idents(ifn->then_block);
+        pop_scope();
+    }
+
+    if (ifn->else_block) {
+        if (ifn->else_block->type == AST_IF) {
+            // Recursively handle else if
+            resolve_idents_if(static_cast<Ast_If*>(ifn->else_block));
+        } else if (ifn->else_block->type == AST_BLOCK) {
+            push_scope();
+            resolve_idents(static_cast<Ast_Block*>(ifn->else_block));
+            pop_scope();
+        }
+    }
 }
 
 Ast_Type_Definition *CodeManager::get_base_type(Ast_Type_Definition *type)
@@ -804,8 +829,52 @@ void CodeManager::resolve_array_types(Ast_Array_Type *array_type, Ast_Declaratio
 
     // Static array ([N]int) or abstract array (^[]int, []int)
     if (!array_type->is_resizable) {
+
+        // evaluate constant size expression if it's an identifier
+        if (array_type->size_expr && array_type->size_expr->type == AST_IDENT) {
+            auto* ident = static_cast<Ast_Ident*>(array_type->size_expr);
+            Ast_Declaration* size_decl = lookup_symbol(ident->name);
+
+            if (!size_decl) {
+                report_error(array_type->size_expr, "Undefined identifier '%s' in array size", ident->name);
+                return;
+            }
+
+            if (size_decl->initializer->type != AST_LITERAL) {
+                report_error(array_type->size_expr, "'%s' must be a constant for array size", ident->name);
+                return;
+            }
+
+            // Replace with the constant's literal value
+            if (size_decl->initializer && size_decl->initializer->type == AST_LITERAL) {
+                auto* lit = static_cast<Ast_Literal*>(size_decl->initializer);
+                if (lit->value_type == LITERAL_NUMBER) {
+                    array_type->size_expr = size_decl->initializer;  // Point to the literal
+                } else {
+                    report_error(array_type->size_expr, "Array size must be an integer constant");
+                    return;
+                }
+            } else {
+                report_error(array_type->size_expr, "Cannot determine constant value of '%s'", ident->name);
+                return;
+            }
+        } else if (array_type->size_expr && array_type->size_expr->type == AST_LITERAL){ // if its just pure expression instead
+            auto* ident = static_cast<Ast_Ident*>(decl->identifier);
+            auto* lit = static_cast<Ast_Literal*>(array_type->size_expr);
+
+            if(lit->integer_value <= 0){
+                report_error(array_type, "Array size evaluates to non-positive constant in '%s'", ident->name);
+            }
+
+
+        }
+
         Ast_Type_Definition* static_array_def = find_struct_type_in_scopes("Static_Array");
 
+        if(!static_array_def) {
+            report_error(decl, "Static_Array is not defined.");
+            return;
+        }
         array_type->struct_def = static_array_def->struct_def;
         type->is_unresolved = false;
         create_type_instantiation(type);
@@ -830,6 +899,14 @@ static Ast_Declaration* find_struct_member(Ast_Type_Definition* struct_type, con
     }
     return nullptr;
 }
+
+inline void CodeManager::push_unresolved_var(Ast_Ident *ident, Ast_Block* my_scope){
+    Unresolved_Variable u;
+    u.ident = ident;
+    u.my_scope = my_scope;
+    unresolved_vars.push_back(u);
+}
+
 
 inline void CodeManager::push_unresolved_type(Ast_Declaration *decl, Ast_Type_Definition *base_type){
     Unresolved_Type u;
@@ -1049,10 +1126,7 @@ void CodeManager::resolve_idents_in_expr(Ast_Expression* expr)
         auto *id = static_cast<Ast_Ident*>(expr);
         Ast_Declaration* decl = lookup_symbol(id->name);
         if (!decl) {
-            Unresolved_Variable unresolved;
-            unresolved.ident = id;
-            unresolved.my_scope = scope_stack.get_back();
-            unresolved_vars.push_back(unresolved);
+            push_unresolved_var(id, scope_stack.get_back());
         }
 
         break;
@@ -1152,10 +1226,7 @@ void CodeManager::resolve_idents_in_expr(Ast_Expression* expr)
 
                 Ast_Declaration *is_decl = lookup_symbol(lhs_ident->name);
                 if (!is_decl) {
-                    Unresolved_Variable unresolved;
-                    unresolved.ident = lhs_ident;
-                    unresolved.my_scope = scope_stack.get_back();
-                    unresolved_vars.push_back(unresolved);
+                    push_unresolved_var(lhs_ident, scope_stack.get_back());
                 } else {
                     is_decl->initialized = true;
                 }
@@ -1195,36 +1266,38 @@ void CodeManager::resolve_idents_in_expr(Ast_Expression* expr)
         if (call->function)
         {
             auto *fn = static_cast<Ast_Ident*>(call->function);
+            if(!fn->name) return;
 
-            if (fn->name && strcmp(fn->name, "printf") != 0){
+            if(strcmp(fn->name, "sizeof") == 0) return;
 
-                Ast_Declaration *decl= lookup_symbol(fn->name);
-                if (!decl) {
-                    push_unresolved_call(call);
-                } else if (!decl->is_function) {
-                    report_error(fn, "'%s' is not a function", fn->name);
-                }
-                else {
-                    // Check parameter count
-                    int call_arg_count = call->arguments ? call->arguments->arguments.count : 0;
-                    int decl_arg_count = decl->parameters.count;
-                    if (call_arg_count != decl_arg_count) {
-                        report_error(fn, "Function '%s' expects %d arguments, but %d were provided",
-                                     fn->name, decl_arg_count, call_arg_count);
-                    } else if (call->arguments) {
-
-                        for (int i = 0; i < call_arg_count; ++i) {
-                            Ast_Expression* arg = call->arguments->arguments.data[i];
-                            resolve_idents_in_expr(arg);
-                        }
-                    }
-                }
-            } else {  // we want to resolve args in printf too
+            if(strcmp(fn->name, "printf") == 0){
                 for (int i = 0; i < call->arguments->arguments.count; ++i) {
                     Ast_Expression* arg = call->arguments->arguments.data[i];
                     resolve_idents_in_expr(arg);
                 }
+                return;
+            }
 
+            Ast_Declaration *decl= lookup_symbol(fn->name);
+            if (!decl) {
+                push_unresolved_call(call);
+            } else if (!decl->is_function) {
+                report_error(fn, "'%s' is not a function", fn->name);
+            }
+            else {
+                // Check parameter count
+                int call_arg_count = call->arguments ? call->arguments->arguments.count : 0;
+                int decl_arg_count = decl->parameters.count;
+                if (call_arg_count != decl_arg_count) {
+                    report_error(fn, "Function '%s' expects %d arguments, but %d were provided",
+                                 fn->name, decl_arg_count, call_arg_count);
+                } else if (call->arguments) {
+
+                    for (int i = 0; i < call_arg_count; ++i) {
+                        Ast_Expression* arg = call->arguments->arguments.data[i];
+                        resolve_idents_in_expr(arg);
+                    }
+                }
             }
         }
 
@@ -1945,6 +2018,14 @@ void CodeManager::infer_types_expr(Ast_Expression** expr_ptr)
                     break;
                 }
 
+                case BINOP_LOGICAL_AND:
+                case BINOP_LOGICAL_OR:{
+                    infer_types_expr(&b->lhs);
+                    infer_types_expr(&b->rhs);
+                    expr->inferred_type = _type->type_def_bool;
+                    break;
+                }
+
                 default:
                     report_error(b, "Unknown binary operator in type inference");
 
@@ -2372,6 +2453,29 @@ void CodeManager::infer_types_decl(Ast_Declaration* decl) {
 
 }
 
+void CodeManager::infer_types_if(Ast_If* ifn, Ast_Declaration* my_func) {
+    if (ifn->condition) {
+        Ast_Expression *cond = ifn->condition;
+        infer_types_expr(&cond);
+    }
+
+    if (ifn->then_block) {
+        push_scope();
+        infer_types_block(ifn->then_block, my_func);
+        pop_scope();
+    }
+
+    if (ifn->else_block) {
+        if (ifn->else_block->type == AST_IF) {
+            // Recursively handle else if
+            infer_types_if(static_cast<Ast_If*>(ifn->else_block), my_func);
+        } else if (ifn->else_block->type == AST_BLOCK) {
+            push_scope();
+            infer_types_block(static_cast<Ast_Block*>(ifn->else_block), my_func);
+            pop_scope();
+        }
+    }
+}
 
 void CodeManager::infer_types_block(Ast_Block* block, Ast_Declaration *my_func)
 {
@@ -2424,21 +2528,7 @@ void CodeManager::infer_types_block(Ast_Block* block, Ast_Declaration *my_func)
             infer_types_block(stmt->block);
             pop_scope();
         } else if (stmt->type == AST_IF) {
-            Ast_If *ifn = static_cast<Ast_If *>(stmt);
-            if (ifn->condition) {
-                Ast_Expression *cond = ifn->condition;
-                infer_types_expr(&cond);
-            }
-            if (ifn->then_block) {
-                push_scope();
-                infer_types_block(ifn->then_block, my_func);
-                pop_scope();
-            }
-            if (ifn->else_block) {
-                push_scope();
-                infer_types_block(ifn->else_block, my_func);
-                pop_scope();
-            }
+            infer_types_if(static_cast<Ast_If *>(stmt), my_func);
         }else if (stmt->type == AST_WHILE){
             Ast_While* _while = static_cast<Ast_While*>(stmt);
             if (_while->condition) infer_types_expr(&_while->condition);

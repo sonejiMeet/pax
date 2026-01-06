@@ -200,6 +200,8 @@ enum Binary_Op {
     BINOP_GREATER_EQUAL,
     BINOP_DOT,
     BINOP_ARRAY_SUBSCRIPT, //[]
+    BINOP_LOGICAL_AND,
+    BINOP_LOGICAL_OR,
 };
 
 struct Ast_Binary : public Ast_Expression {
@@ -224,7 +226,7 @@ struct Ast_Unary : Ast_Expression {
 
 };
 
-struct Ast_Block : public Ast {
+struct Ast_Block : public Ast_Statement {
     Ast_Block(Pool* p) : statements(p), imports(p) { type = AST_BLOCK; }
 
     Ast_Block *parent = nullptr;
@@ -242,8 +244,7 @@ struct Ast_If : public Ast_Statement {
     Ast_If(Pool* = nullptr) { type = AST_IF; }
     Ast_Expression *condition = nullptr;
     Ast_Block *then_block = nullptr;
-    // Ast_If *else_if = nullptr; // not done yet
-    Ast_Block *else_block = nullptr;
+    Ast_Statement *else_block = nullptr;
 };
 
 struct Ast_While : public Ast_Statement {

@@ -1,11 +1,43 @@
-
+#import "General.pax";
 
 main :: () {
 
 	i := 0;
-	while i<10 {
+	while i<10 && (i != 5 || false) {
 		i = i+1;
 		printf("i = %d\n", i);
 	}
+
+	a := i <= 5 && 4 != 5;
+
+	if(!a)
+		printf("its false\n");
+
+	if(a) printf("its true\n");
+
+
+
+	SIZE: int = 5;
+	arr: [SIZE]int;
+	i = 0;
+	while i != SIZE {
+		arr[i] = i;
+		i = i + 1;
+	}
+
+	i = 0;
+	while (i != SIZE) {
+		printf("arr[i] = %d\n", arr[i]);
+		i = i + 1;
+	}
+
+	if !a && a == true printf("its true\n");
+	else if !a printf("its false\n");
+	// else printf("a==false\n");
+	else printf("its nothing\n");
+
+
+
 }
+
 

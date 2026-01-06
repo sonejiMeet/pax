@@ -59,6 +59,8 @@ enum TokenType {
     TOK_GREATER,        // >
     TOK_LESS_EQUAL,     // <=
     TOK_GREATER_EQUAL,  // >=
+    TOK_LOGICAL_AND,    // &&
+    TOK_LOGICAL_OR,     // ||
 
     TOK_AUTO_CAST,
 

@@ -18,40 +18,28 @@ typedef double     float64;
 s64 temp = 0;
 
 /*STRUCT FORWARD DECLARATIONS*/
-struct Data;
-struct some;
-struct Node;
 struct Static_Array;
 struct Dynamic_Array;
 struct Point;
 struct Container;
+struct Data;
+struct some;
+struct Node;
 
 /*GLOBAL FUNCTION FORWARD DECLARATIONS*/
+Dynamic_Array __NewArray_impl(s64 count, s64 element_size);
+int add(int a, int b);
+int mul(int a, int b);
+void print_(Point * p);
+Container create_data(void);
 void testing_malloc_and_sizeof(void);
 void random_modules_testing(void);
 void print_list(Node * n);
 void testing_linked_node_using_malloc(void);
 void fibonacci_series(void);
 int fib(int x);
-Dynamic_Array __NewArray_impl(s64 count, s64 element_size);
-int add(int a, int b);
-int mul(int a, int b);
-void print_(Point * p);
-Container create_data(void);
 
 /*STRUCTS DEFINITIONS*/
-struct Data {
-int x = -24;
-int y = -24;
-char * name;
-};
-struct some {
-some * local;
-};
-struct Node {
-int value = -24;
-Node * next;
-};
 struct Static_Array {
 s64 count;
 void * data;
@@ -69,8 +57,47 @@ struct Container {
 int value = -24;
 Point * data;
 };
+struct Data {
+int x = -24;
+int y = -24;
+char * name;
+};
+struct some {
+some * local;
+};
+struct Node {
+int value = -24;
+Node * next;
+};
 
 /*FUNCTION BODIES*/
+Dynamic_Array __NewArray_impl (s64 count, s64 element_size) {
+    Dynamic_Array arr;
+    ((arr.data) = (void *)malloc((count * element_size)));
+    ((arr.count) = count);
+    ((arr.allocated) = count);
+    return arr;
+}
+
+int add (int a, int b) {
+    return (a + b);
+}
+
+int mul (int a, int b) {
+    int result = (a * b);
+    return result;
+}
+
+void print_ (Point * p) {
+    printf("Point: x=%d, y=%d\n",((*p).x),((*p).y));
+}
+
+Container create_data () {
+    Container c;
+    ((c.value) = 999);
+    return c;
+}
+
 void testing_malloc_and_sizeof () {
     s64 a = (sizeof(int) * 8);
     printf("a= %d\n",a);
@@ -136,33 +163,6 @@ int fib (int x) {
         return 1;
     }
     return (fib((x - 1)) + fib((x - 2)));
-}
-
-Dynamic_Array __NewArray_impl (s64 count, s64 element_size) {
-    Dynamic_Array arr;
-    ((arr.data) = (void *)malloc((count * element_size)));
-    ((arr.count) = count);
-    ((arr.allocated) = count);
-    return arr;
-}
-
-int add (int a, int b) {
-    return (a + b);
-}
-
-int mul (int a, int b) {
-    int result = (a * b);
-    return result;
-}
-
-void print_ (Point * p) {
-    printf("Point: x=%d, y=%d\n",((*p).x),((*p).y));
-}
-
-Container create_data () {
-    Container c;
-    ((c.value) = 999);
-    return c;
 }
 
 
