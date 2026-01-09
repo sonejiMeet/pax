@@ -78,14 +78,23 @@ void Pax_Interp::parse_filename(const char *filename){
 }
 
 char *Pax_Interp::get_absolute_path(const char* path) {
-    char abs_path[512];
 #ifdef _WIN32
-    _fullpath(abs_path, path, sizeof(abs_path));
+    char abs_path[_MAX_PATH];
+    char *resolved = _fullpath(abs_path, path, sizeof(abs_path));
+    assert(resolved && "_fullpath failed");
+
+    return pool_strdup(pool, abs_path);   
 #else
-    realpath(path, abs_path);
+    char *resolved = realpath(path, NULL);
+
+    assert(resolved && "realpath() failed");
+
+    char *result = pool_strdup(pool, resolved);
+    free(resolved);
+    return result;
 #endif
-    return pool_strdup(pool, abs_path);
 }
+
 
 char *Pax_Interp::get_directory(const char* filepath) {
     const char* last = strrchr(filepath, '/');
