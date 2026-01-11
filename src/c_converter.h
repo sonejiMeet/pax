@@ -1,11 +1,8 @@
 #pragma once
 
-#include <vector>
 #include <map>
 #include <set>
 #include <functional> // these are temporary
-#include <string>
-#include "ast.h"
 
 struct Pax_Interp;
 
@@ -13,7 +10,6 @@ struct C_Converter {
     Pax_Interp *interp;
     Def_Type *_type;
 
-    // C_Converter(Def_Type *type) : _type(type) {}
     C_Converter(Pax_Interp *_interp);
     void emitStatement(FILE* out, Ast_Statement* stmt, int indent = 0);
     void emitExpression(FILE* out, Ast_Expression* expr, int indent = 0, bool _struct = false);
@@ -22,7 +18,7 @@ struct C_Converter {
     static inline Ast_Array_Type* as_array_type(Ast_Type_Definition* t) {
         return (t && t->type == AST_ARRAY_TYPE) ? static_cast<Ast_Array_Type*>(t) : nullptr;
     }
-    
+
     void type_to_c_string(FILE *out, Ast_Type_Definition* type, Ast_Declaration *decl, bool need_semicolon, int indent, bool should_initializer = false);
 
     void emitFunctionPrototype(FILE* out, Ast_Declaration* decl, int indent);

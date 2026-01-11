@@ -1,12 +1,4 @@
 
-#include "ast.h"
-#include "c_converter.h"
-#include "interp.h"
-
-#include <cstdio>
-#include <string>
-#include <vector>
-
 const char *BOILTERPLATE_TOP =
     "/* GENERATED FILE */\n\n"
     "#include <stdlib.h>\n"

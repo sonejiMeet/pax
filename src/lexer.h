@@ -1,8 +1,4 @@
 #pragma once
-#include "token.h"
-#include "tools.h"
-
-#include "pool.h"
 
 struct Lexer
 {
@@ -34,7 +30,7 @@ struct Lexer
         lex_pool = pool;
     }
 
-    
+
     inline void lexerError(const char *message);
 
     inline char get_and_advance() {

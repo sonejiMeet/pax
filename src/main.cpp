@@ -1,5 +1,4 @@
-#include "interp.h"
-#include "tools.h"
+#include "all.h"
 
 #ifdef _WIN32
 #include <windows.h>

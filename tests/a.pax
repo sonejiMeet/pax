@@ -26,7 +26,7 @@ main :: () {
 	}
 
 	i = 0;
-	while (i != SIZE) {
+	while (i < arr.count) {
 		printf("arr[i] = %d\n", arr[i]);
 		i = i + 1;
 	}

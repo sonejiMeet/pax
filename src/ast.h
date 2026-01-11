@@ -1,9 +1,5 @@
 #pragma once
 
-#include <string>
-
-#include "pool.h"
-
 struct Token;
 
 struct Ast;

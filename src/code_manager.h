@@ -1,8 +1,4 @@
 #pragma once
-#include <vector> // Temporary
-
-#include "ast.h"
-#include "pool.h"
 
 struct Pax_Interp;
 

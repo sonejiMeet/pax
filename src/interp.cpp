@@ -1,8 +1,12 @@
-#include "interp.h"
+#include "all.h"
 // #include "ast_printer.h"
 
 #ifdef _WIN32
 #include <windows.h>
+#endif
+
+#ifdef AST_NEW
+#undef AST_NEW
 #endif
 
 #define AST_NEW(pool, type) ([&]() -> type* { \
@@ -83,7 +87,7 @@ char *Pax_Interp::get_absolute_path(const char* path) {
     char *resolved = _fullpath(abs_path, path, sizeof(abs_path));
     assert(resolved && "_fullpath failed");
 
-    return pool_strdup(pool, abs_path);   
+    return pool_strdup(pool, abs_path);
 #else
     char *resolved = realpath(path, NULL);
 

@@ -1,17 +1,12 @@
 #pragma once
 
-#include "token.h"
-#include "parser.h"
-#include "ast.h"
-#include "code_manager.h"
-#include "c_converter.h"
-#include "tools.h"
-#include "pool.h"
-
-#include <chrono>
-#include <unordered_map>
-#include <vector>
-
+struct Pool;
+struct Def_Type;
+struct Lexer;
+struct Parser;
+struct CodeManager;
+struct C_Converter;
+struct Ast_Block;
 
 struct Pax_Interp {
     Pax_Interp();

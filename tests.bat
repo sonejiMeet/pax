@@ -1,18 +1,18 @@
 
 @echo --------------------------------------------------
-.\src\main .\tests\demo.pax
+.\src\pax.exe .\tests\demo.pax
 @echo --------------------------------------------------
-.\src\main .\tests\demo_struct.pax
+.\src\pax.exe .\tests\demo_struct.pax
 @echo --------------------------------------------------
-.\src\main .\tests\demo_loops.pax
+.\src\pax.exe .\tests\demo_loops.pax
 @echo --------------------------------------------------
-.\src\main .\tests\demo_recursion.pax
+.\src\pax.exe .\tests\demo_recursion.pax
 @echo --------------------------------------------------
-.\src\main .\tests\demo_struct_order.pax
+.\src\pax.exe .\tests\demo_struct_order.pax
 @echo --------------------------------------------------
-.\src\main .\tests\demo_uninitialized_members.pax
+.\src\pax.exe .\tests\demo_uninitialized_members.pax
 @echo --------------------------------------------------
-.\src\main .\tests\demo_memory.pax
+.\src\pax.exe .\tests\demo_memory.pax
 @echo --------------------------------------------------
-.\src\main .\tests\demo_static_array.pax
+.\src\pax.exe .\tests\demo_static_array.pax
 @echo --------------------------------------------------

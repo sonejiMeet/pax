@@ -1,9 +1,3 @@
-#include "token.h"
-#include "interp.h"
-#include "parser.h"
-
-#include <iostream>
-#include <cstring>
 
 bool exitSuccess = true;
 
@@ -12,6 +6,10 @@ bool exitSuccess = true;
    printf("-----------------------------------used AST_NEW for [%d %d] %s---%zu---\n", current->row, current->col, typeid(type).name(), sizeof(type));
 #else
 #define AST_NEW_LOG(type)
+#endif
+
+#ifdef AST_NEW
+#undef AST_NEW
 #endif
 
 // MACRO
@@ -682,9 +680,9 @@ Ast_Block *Parser::parseBlockStatement(bool scoped_block, bool if_block) {
     if(!if_block){
         expect(TOK_RCURLY_PAREN, "Expected '}' to close a block statement.");
     } else {
-        if (current->type == TOK_RCURLY_PAREN && should_close_paren) 
+        if (current->type == TOK_RCURLY_PAREN && should_close_paren)
             advance();
-        else 
+        else
             parseError("Unexpected '}' in a block statement");
     }
     return block;

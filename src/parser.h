@@ -2,7 +2,6 @@
 
 #include "lexer.h"
 #include "ast.h"
-#include "pool.h"
 
 struct Pax_Interp;
 

@@ -1,10 +1,7 @@
-#include "code_manager.h"
-#include "interp.h"
-#include "tools.h"
 
-#include <cstdarg> // for variadic function
-#include <cstring> // for linux strlen
-#include <math.h> // for linux
+#ifdef AST_NEW
+#undef AST_NEW
+#endif
 
 #define AST_NEW(type) ([&]() -> type* {                         \
     assert(interp->pool != nullptr && "Pool must not be null"); \

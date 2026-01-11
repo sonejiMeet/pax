@@ -12,3 +12,6 @@ demo
 
 *.txt
 benchmarks/
+
+/pax/x64/
+/pax/pax
