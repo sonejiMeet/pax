@@ -1,0 +1,25 @@
+
+// TEST: compile pass, run time check
+// demo_pointer_get_same_instance.pax
+main :: () {
+    a: AAA;
+    b: BBB;
+    a.b = &b;
+
+    c : CCC;
+
+    a.b.c = &c;  // this..
+    b.c = &c;   // and this should have same instance.
+    a.b.c.value = 42699;
+    printf("a.b.c.value = %d\n", a.b.c.value);
+
+    if a.b.c != b.c
+        printf("this is bad\n");
+    else
+        printf("this is good\n");
+
+}
+
+AAA :: struct { b: ^BBB; };
+BBB :: struct { c: ^CCC; };
+CCC :: struct { value: s64; };

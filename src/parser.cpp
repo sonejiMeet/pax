@@ -13,15 +13,15 @@ bool exitSuccess = true;
 #endif
 
 // MACRO
-#define AST_NEW(type) ([&]() -> type* {              \
-    AST_NEW_LOG(type)                                      \
-    assert(interp->pool != nullptr && "Pool must not be null");    \
-    void *mem = pool_alloc(interp->pool, sizeof(type));            \
-    type *node = new (mem) type(interp->pool);                     \
-    node->line_number = current->row;                      \
-    node->character_number = current->col;                 \
-    node->file_name = interp->current_file;                \
-    return node;                                           \
+#define AST_NEW(type) ([&]() -> type* {                         \
+    AST_NEW_LOG(type)                                           \
+    assert(interp->pool != nullptr && "Pool must not be null"); \
+    void *mem = pool_alloc(interp->pool, sizeof(type));         \
+    type *node = new (mem) type(interp->pool);                  \
+    node->line_number = current->row;                           \
+    node->character_number = current->col;                      \
+    node->file_name = interp->current_file;                     \
+    return node;                                                \
 }())
 
 
@@ -73,24 +73,24 @@ void Parser::Expect(TokenType expectedType, const char *errorMessage)
 }
 
 
-void Parser::synchronize()
-{
+void Parser::synchronize() {
 
     while (current->type != TOK_END_OF_FILE) {
         if (previous->type == TOK_SEMICOLON) return;
         switch (current->type) {
             case TOK_IF:
+            case TOK_WHILE:
+            case TOK_RETURN:
             case TOK_PRINT:
             case TOK_MAIN_ENTRY_POINT:
             case TOK_LCURLY_PAREN:
-            case TOK_RCURLY_PAREN:
-            case TOK_SEMICOLON:
                 return;
+            default:
+                break;
         }
         advance();
     }
 }
-
 //
 //  KEEP THIS OLD RECURSIVE DECENT BELOW HERE
 //  MAYBE WANT TO COMPARE IN THESIS WHY IT'S SLOWER AND LESS EFFICIENT....s
@@ -273,21 +273,21 @@ void Parser::synchronize()
 //     return left;
 // }
 
-Ast_Expression* Parser::parseExpression(int minPrecedence)
+Ast_Expression *Parser::parseExpression(int minPrecedence)
 {
-    Ast_Expression* left = nullptr;
+    Ast_Expression *left = nullptr;
 
     // Handle unary operators and primary expressions
     if (current->type == TOK_STAR) { // dereference
         advance();
-        Ast_Unary* node = AST_NEW(Ast_Unary);
+        Ast_Unary *node = AST_NEW(Ast_Unary);
         node->op = UNARY_DEREFERENCE;
         node->operand = parseExpression(100); // High precedence for unary
         left = node;
     }
     else if (current->type == TOK_AMPERSAND) { // address of
         advance();
-        Ast_Unary* node = AST_NEW(Ast_Unary);
+        Ast_Unary *node = AST_NEW(Ast_Unary);
         node->op = UNARY_ADDRESS_OF;
         node->operand = parseExpression(100);
         left = node;
@@ -297,7 +297,7 @@ Ast_Expression* Parser::parseExpression(int minPrecedence)
             parseError("Consecutive unary minus operators are not allowed.");
         }
         advance();
-        Ast_Unary* node = AST_NEW(Ast_Unary);
+        Ast_Unary *node = AST_NEW(Ast_Unary);
         node->op = UNARY_NEGATE;
         node->operand = parseExpression(100);
         left = node;
@@ -307,34 +307,34 @@ Ast_Expression* Parser::parseExpression(int minPrecedence)
             parseError("Consecutive unary exclamation mark operators are not allowed.");
         }
         advance();
-        Ast_Unary* node = AST_NEW(Ast_Unary);
+        Ast_Unary *node = AST_NEW(Ast_Unary);
         node->op = UNARY_NOT;
         node->operand = parseExpression(100);
         left = node;
     }
     else if (current->type == TOK_NUMBER) {
-        Ast_Literal* node = AST_NEW(Ast_Literal);
+        Ast_Literal *node = AST_NEW(Ast_Literal);
         node->value_type = LITERAL_NUMBER;
         node->integer_value = current->int_value;
         advance();
         left = node;
     }
     else if (current->type == TOK_FLOAT) {
-        Ast_Literal* node = AST_NEW(Ast_Literal);
+        Ast_Literal *node = AST_NEW(Ast_Literal);
         node->value_type = LITERAL_FLOAT;
         node->float_value = current->float64_value;
         advance();
         left = node;
     }
     else if (current->type == TOK_STRING) {
-        Ast_Literal* node = AST_NEW(Ast_Literal);
+        Ast_Literal *node = AST_NEW(Ast_Literal);
         node->value_type = LITERAL_STRING;
         node->string_value = reinterpret_cast<const char*>(current->string_value.data);
         advance();
         left = node;
     }
     else if (current->type == TOK_KEYWORD_TRUE || current->type == TOK_KEYWORD_FALSE) {
-        Ast_Literal* node = AST_NEW(Ast_Literal);
+        Ast_Literal *node = AST_NEW(Ast_Literal);
         node->value_type = (current->type == TOK_KEYWORD_TRUE) ? LITERAL_TRUE : LITERAL_FALSE;
         advance();
         left = node;
@@ -343,14 +343,14 @@ Ast_Expression* Parser::parseExpression(int minPrecedence)
         if (lexer->peekNextToken()->type == TOK_LPAREN) {
             left = parseCall();
         } else {
-            Ast_Ident* node = AST_NEW(Ast_Ident);
+            Ast_Ident *node = AST_NEW(Ast_Ident);
             node->name = current->value;
             advance();
             left = node;
         }
     }
     else if (current->type == TOK_NULL){
-        Ast_Literal* node = AST_NEW(Ast_Literal);
+        Ast_Literal *node = AST_NEW(Ast_Literal);
         node->value_type = LITERAL_NULL;
         advance();
         left = node;
@@ -386,7 +386,7 @@ Ast_Expression* Parser::parseExpression(int minPrecedence)
 
         advance();
 
-        Ast_Binary* node = AST_NEW(Ast_Binary);
+        Ast_Binary *node = AST_NEW(Ast_Binary);
         node->lhs = left;
         node->op = getBinaryOperator(op);
         node->rhs = parseExpression(precedence + 1);
@@ -765,13 +765,13 @@ Ast_Statement *Parser::parseStructDefinition()
     return stmt;
 }
 
-Ast_Declaration* Parser::parseFunctionDeclaration(bool is_local) {
+Ast_Declaration *Parser::parseFunctionDeclaration(bool is_local) {
     if (current->type != TOK_IDENTIFIER) {
         parseError("Expected function name at start of declaration");
         return nullptr;
     }
 
-    Ast_Declaration* func_decl = AST_NEW(Ast_Declaration);
+    Ast_Declaration *func_decl = AST_NEW(Ast_Declaration);
     func_decl->identifier = AST_NEW(Ast_Ident);
     func_decl->identifier->name = current->value;
     func_decl->is_function = true;
@@ -789,7 +789,7 @@ Ast_Declaration* Parser::parseFunctionDeclaration(bool is_local) {
                 return nullptr;
             }
 
-            Ast_Declaration* param = AST_NEW(Ast_Declaration);
+            Ast_Declaration *param = AST_NEW(Ast_Declaration);
             param->identifier = AST_NEW(Ast_Ident);
             param->identifier->name = current->value;
             param->is_declaration_function_argument = true;
@@ -830,7 +830,7 @@ Ast_Declaration* Parser::parseFunctionDeclaration(bool is_local) {
     } else {
         // func_decl->is_function_header = true;
         if (current->type == TOK_HASHTAG) {
-            Token* next = lexer->peekNextToken();
+            Token *next = lexer->peekNextToken();
             if (next->type == TOK_FOREIGN) {
                 advance();
                 advance();
@@ -849,11 +849,11 @@ Ast_Declaration* Parser::parseFunctionDeclaration(bool is_local) {
 
 bool Parser::is_lhs_assignment() {
     int offset = 1;
-    Token* t = lexer->peekNextToken(offset);
+    Token *t = lexer->peekNextToken(offset);
 
     while (t) {
         if (t->type == TOK_DOT) {
-            Token* afterDot = lexer->peekNextToken(offset + 1);
+            Token *afterDot = lexer->peekNextToken(offset + 1);
             if (!afterDot || afterDot->type != TOK_IDENTIFIER) break;
             offset += 2;
         }
@@ -862,7 +862,7 @@ bool Parser::is_lhs_assignment() {
             offset++; // skip '['
             int depth = 1;
             while (depth > 0) {
-                Token* inner = lexer->peekNextToken(offset);
+                Token *inner = lexer->peekNextToken(offset);
                 if (!inner) return false;
                 if (inner->type == TOK_LBRACKET) depth++;
                 else if (inner->type == TOK_RBRACKET) depth--;
@@ -935,7 +935,7 @@ Ast_Statement *Parser::parseStatement()
         case TOK_RETURN: {
             advance(); // consume 'return'
 
-            Ast_Statement* stmt = AST_NEW(Ast_Statement);
+            Ast_Statement *stmt = AST_NEW(Ast_Statement);
             stmt->is_return = true;
 
             if (current->type != TOK_SEMICOLON) {
@@ -1020,6 +1020,13 @@ Ast_Statement *Parser::parseStatement()
             stmt->expression = expr;
             return stmt;
         }
+        case TOK_BREAK: {
+            Ast_Break *br = AST_NEW(Ast_Break);
+            advance();
+            expect(TOK_SEMICOLON, "Expected ';' after break statement.");
+            return br;
+
+        }
         // case TOK_UNDERSCORE:
             // printf("Here is underscore");
             // return NULL;
@@ -1033,7 +1040,8 @@ Ast_Statement *Parser::parseStatement()
 Ast_Block *Parser::parseProgram(bool skip_main)
 {
     Ast_Block *program = AST_NEW(Ast_Block);
-    printf("---Inside parser--- Parsing file: %s\n", interp->current_file);
+
+    // printf("---Inside parser--- Parsing file: %s\n", interp->current_file);
 
     // printf("size of Ast_Type_Definition %zu----------->>>>>>>>>>>>>>>>>>>\n", sizeof(Ast_Type_Definition));
 
@@ -1105,7 +1113,11 @@ Ast_Block *Parser::parseProgram(bool skip_main)
                     // printf("%.*s\n",(int)current->string_value.count, current->string_value.data);
                     program->imports.push_back(import);
                     advance();
-                    Expect(TOK_SEMICOLON, "Expected ';' after import.");
+
+                    if(current->type == TOK_SEMICOLON){
+                        advance();
+                    }
+
                 }
                 else {
                     parseError("Expected import string.");

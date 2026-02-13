@@ -1,0 +1,26 @@
+
+// TEST: compile pass
+// demo_nested_init.pax
+main :: () {
+    o1: Outer;
+
+    val: int = 42;
+    val2 : int = 69;
+
+    o1.a.data = &val;
+    o1.b.data = &val2; // when this is commented out
+
+    x := *o1.a.data;
+    y := *o1.b.data; // this should throw error
+
+    printf("DONE\n");
+}
+
+Inner :: struct {
+    data: ^int;
+};
+
+Outer :: struct {
+    a: Inner;
+    b: Inner;
+};

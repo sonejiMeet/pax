@@ -1,7 +1,19 @@
 #pragma once
 
-#include <cstdint>   // uint8_t, uint64_t, etc.
-#include <cstddef>
+//
+// Visual studio Memory checker
+//
+#ifdef _WIN32
+#ifdef _DEBUG
+    #define _CRTDBG_MAP_ALLOC // for mem leaks
+    #include <crtdbg.h>
+
+    #define malloc(s) _malloc_dbg(s, _NORMAL_BLOCK, __FILE__, __LINE__)
+    #define free(p) _free_dbg(p, _NORMAL_BLOCK)
+#endif
+#endif
+
+
 
 int isNumeric(char c);
 int isAlpha(char c);
@@ -46,7 +58,7 @@ public:
 
 
 inline
-static char * pool_strdup(Pool *pool, const char *str) {
+static char *pool_strdup(Pool *pool, const char *str) {
     size_t len = strlen(str)+1;
     char *p = (char *)pool_alloc(pool, len);
     memcpy(p, str, len);
@@ -56,13 +68,49 @@ static char * pool_strdup(Pool *pool, const char *str) {
 }
 
 inline
-static char* c_concat3(const char* a, const char* b, const char* c) {
+static char *c_concat3(const char *a, const char *b, const char *c) {
     size_t la = strlen(a);
     size_t lb = strlen(b);
     size_t lc = strlen(c);
-    char* out = (char*)malloc(la + lb + lc + 1);
+    char *out = (char*)malloc(la + lb + lc + 1);
     memcpy(out, a, la);
     memcpy(out + la, b, lb);
     memcpy(out + la + lb, c, lc + 1);
     return out;
 }
+
+
+#ifndef TINY_TIMER
+#define TINY_TIMER
+
+#ifdef ENABLE_PROFILER
+extern "C" {
+    __declspec(dllimport) int __stdcall QueryPerformanceCounter(long long* lpPerformanceCount);
+    __declspec(dllimport) int __stdcall QueryPerformanceFrequency(long long* lpFrequency);
+}
+
+struct ScopedTimer {
+    const char* name;
+    long long start;
+
+    ScopedTimer(const char* n) : name(n) {
+        QueryPerformanceCounter(&start);
+    }
+
+    ~ScopedTimer() {
+        long long end, freq;
+        QueryPerformanceCounter(&end);
+        QueryPerformanceFrequency(&freq);
+
+        // (Difference in ticks) / (Ticks per second)
+        printf("%s: %fs\n\n", name, (double)(end - start) / freq);
+    }
+};
+
+#define TIME_SCOPE(name) ScopedTimer timer_##__LINE__(name)
+
+#else
+#define TIME_SCOPE(name)
+#endif // ENABLE_PROFILER
+
+#endif // TINY_TIMER

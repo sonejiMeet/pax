@@ -1,0 +1,28 @@
+
+// TEST: compile fail
+// EXPECT-COMPILER: Cannot access member through uninitialized pointer member 'b'
+// demo_fail_nested_structs_with_members_as_pointers.pax
+main :: () {
+    function_2();
+}
+function_2 :: () {
+    a: AA;
+    b: BB;
+    d: DD;
+    f: FF;
+
+    // a.b = &b; // since this line is commented out
+    b.c.d = &d;  // this should throw error
+    d.e.f = &f; // this should throw error
+
+    a.b.c.d.e.f.value = 42;  //  requires all pointers initialized
+    printf("a.b.c.d.e.f.value = %d\n", a.b.c.d.e.f.value);
+    printf("Sucess\n");
+}
+
+AA :: struct { b: ^BB; };
+BB :: struct { c: CC; };
+CC :: struct { d: ^DD; };
+DD :: struct { e: EE; };
+EE :: struct { f: ^FF; };
+FF :: struct { value: int; };

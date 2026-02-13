@@ -49,7 +49,7 @@ struct Parser
 
     Ast_Statement *parseStructDefinition();
 
-    Ast_Declaration* parseFunctionDeclaration(bool is_local = false);
+    Ast_Declaration *parseFunctionDeclaration(bool is_local = false);
 
     bool is_lhs_assignment();
     Ast_Statement *parseStatement();

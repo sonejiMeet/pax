@@ -1,11 +1,9 @@
-#include "lexer.h"
-
-#ifdef _WIN32
-    #ifdef _DEBUG
-        #define malloc(s) _malloc_dbg(s, _NORMAL_BLOCK, __FILE__, __LINE__)
-        #define free(p) _free_dbg(p, _NORMAL_BLOCK)
-    #endif
-#endif
+// #ifdef _WIN32
+//     #ifdef _DEBUG
+//         #define malloc(s) _malloc_dbg(s, _NORMAL_BLOCK, __FILE__, __LINE__)
+//         #define free(p) _free_dbg(p, _NORMAL_BLOCK)
+//     #endif
+// #endif
 
 #define MAX_NUM_STR_LEN 64
 
@@ -208,6 +206,7 @@ Token *Lexer::identifierToken(char first)
     else if (strcmp(ident, "null") == 0) type = TOK_NULL;
 
     else if (strcmp(ident, "while") == 0) type = TOK_WHILE;
+    else if (strcmp(ident, "break") == 0) type = TOK_BREAK;
     Token *t = makeToken(type, ident);
 
     free(ident);

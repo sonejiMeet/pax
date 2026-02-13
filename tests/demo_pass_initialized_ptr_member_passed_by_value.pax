@@ -1,0 +1,27 @@
+
+// TEST: compile pass
+// demo_pass_initialized_ptr_member_passed_by_value.pax
+main :: () {
+    local: Data;
+
+    s_local: S;
+    local.ptr = &s_local; // since this is now initialized
+
+    modify_2(local);
+    y := *local.ptr; // this will NOT throw error (Cannot dereference uninitialized)
+
+}
+
+Data :: struct {
+    ptr: ^S;
+};
+
+S :: struct {
+    a: int;
+};
+
+modify_2 :: (d: Data) {
+    s : S;
+    d.ptr = &s;
+    asd := *d.ptr;
+}

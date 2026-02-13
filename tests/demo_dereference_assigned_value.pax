@@ -1,0 +1,20 @@
+
+// Compile: pass
+// dereference_assigned_value.pax
+Data_4 :: struct {
+    ptr: ^int;
+};
+
+main :: () {
+    d: Data_4;
+
+    i: int = 2544;
+
+    d.ptr = &i;
+
+    *d.ptr = 224;
+
+    printf("*d.ptr = %d\n", *d.ptr);
+
+    if *d.ptr == 224 printf("This is correct\n");
+}

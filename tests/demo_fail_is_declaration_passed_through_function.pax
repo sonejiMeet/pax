@@ -1,0 +1,27 @@
+
+// TEST: compile fail
+// EXPECT COMPILER ERROR: Cannot dereference uninitialized pointer member 'ptr'
+// demo_fail_is_declaration_passed_through_function.pax
+
+main :: () {
+    local: Data_3;
+
+    // modify(&local);  // since this is commented out
+
+    y := *local.ptr; // this should fail
+
+                     // this will fail unless atleast this declaration is passed
+                     // through function. In which case it gets marked as
+                     // is_declaration_passed_through_function
+
+    printf("DONE\n");
+}
+
+Data_3 :: struct {
+    ptr: ^int;
+};
+
+modify :: (d: ^Data_3) {
+    val: int = 10;
+    d.ptr = &val;  // Function param so no init check done
+}

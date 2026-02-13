@@ -1,0 +1,12 @@
+
+x := -351;
+
+
+Node :: struct {
+	a := x;
+}
+
+main :: () {
+	n : Node;
+	printf("n.a = %d\n", n.a);
+}

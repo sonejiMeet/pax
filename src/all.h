@@ -1,22 +1,30 @@
 #pragma once
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <assert.h>
-#include <chrono>
-#include <vector>
+// #include <stdio.h>
+// #include <stdlib.h>
+// #include <time.h>
+// #include <string.h>
+// #include <assert.h>
+// #include <chrono>
+// #include <vector>
 #include <unordered_map>
 #include <stdarg.h> // for variadic function
-#include <math.h>
+// #include <math.h>
+#include <string>
 
 #include "pool.h"
+#include "tools.h"
 #include "token.h"
+#include "lexer.h"
 #include "parser.h"
 #include "ast.h"
 #include "code_manager.h"
 #include "c_converter.h"
-#include "tools.h"
 #include "interp.h"
 
-
+#include "tools.cpp"
+#include "interp.cpp"
+#include "lexer.cpp"
+#include "parser.cpp"
+#include "code_manager.cpp"
+#include "c_converter.cpp"

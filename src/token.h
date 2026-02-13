@@ -18,6 +18,7 @@ enum TokenType {
     TOK_FOREIGN,     // foreign
     TOK_NULL,  // null
     TOK_WHILE, // while
+    TOK_BREAK,
 
     TOK_KEYWORD_TRUE, // true
     TOK_KEYWORD_FALSE, // false
@@ -73,7 +74,7 @@ enum TokenType {
     TOK_END_OF_FILE,
 };
 
-inline const char* tokenTypeToString(TokenType type) {
+inline const char *tokenTypeToString(TokenType type) {
     switch (type) {
         case TOK_ERROR: return "TOK_ERROR";
 
@@ -88,7 +89,8 @@ inline const char* tokenTypeToString(TokenType type) {
         case TOK_FOREIGN: return "TOK_FOREIGN";
         case TOK_NULL: return "TOK_NULL";
         case TOK_WHILE: return "TOK_WHILE";
-
+        case TOK_BREAK: return "TOK_BREAK";
+        
         case TOK_KEYWORD_TRUE: return "TOK_KEYWORD_TRUE";
         case TOK_KEYWORD_FALSE: return "TOK_KEYWORD_FALSE";
         case TOK_KEYWORD_ANY: return "TOK_KEYWORD_ANY";
@@ -149,13 +151,13 @@ struct Token
     int col;
 
     union{
-        const char* value;
+        const char *value;
         unsigned long long int_value;
         double float64_value;
 
         struct{
             unsigned long long count;
-            unsigned char* data;
+            unsigned char *data;
         } string_value;
     };
 

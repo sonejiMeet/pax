@@ -1,0 +1,27 @@
+
+// TEST: compile pass
+// demo_pass_nested_structs_with_members_as_pointers.pax
+main :: () {
+    function_3();
+}
+function_3 :: () {
+    a: AA;
+    b: BB;
+    d: DD;
+    f: FF;
+
+    a.b = &b; // since this line is NOT commented out
+    b.c.d = &d;  // this should NOT throw error
+    d.e.f = &f; // this should NOT throw error
+
+    a.b.c.d.e.f.value = 42;  //  requires all pointers initialized
+    printf("a.b.c.d.e.f.value = %d\n", a.b.c.d.e.f.value);
+    printf("Sucess\n");
+}
+
+AA :: struct { b: ^BB; };
+BB :: struct { c: CC; };
+CC :: struct { d: ^DD; };
+DD :: struct { e: EE; };
+EE :: struct { f: ^FF; };
+FF :: struct { value: int; };

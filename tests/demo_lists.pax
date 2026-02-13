@@ -1,0 +1,72 @@
+#import "General.pax";
+
+
+main :: (){
+	n : Node;
+	printf("n.value %d\n", n.value);
+
+	ll := make_list(50);
+	printf("ll.value %d\n", ll.value);
+
+	arr: [5]s64;
+	arr[0] = 56677;
+	arr[1] = -23592;
+	arr[2] = 3352;
+	arr[3] = -579;
+	arr[4] = 2555;
+
+	list := do_list(&arr);
+
+	print_whole_list(list);
+
+	printf("---DONE---\n");
+}
+
+
+x := -2247;
+
+Node :: struct {
+    value: int = x;
+    next: ^Node = null;
+}
+
+make_list :: (val: s64) -> ^Node {
+
+	base := malloc(sizeof(Node));
+	base.value = val;
+	base.next = null;
+	return base;
+}
+
+
+do_list :: (arr: ^[]s64) -> ^Node {
+	i:=0;
+	base: ^Node = null;
+	temp: ^Node;
+
+	while (i != arr.count){
+		if !base {
+			temp = malloc(sizeof(Node));
+
+			temp.value = arr[i];
+			temp.next = null;
+			base = temp;
+		} else {
+			temp.next = malloc(sizeof(Node));
+			temp.next.value = arr[i];
+			temp = temp.next;
+			temp.next = null;
+
+		}
+		i = i+1;
+	}
+
+	return base;
+}
+
+print_whole_list :: (_list: ^Node) {
+	while _list {
+		printf("%d\n", _list.value);
+		_list = _list.next;
+	}
+}

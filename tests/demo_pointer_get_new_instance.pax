@@ -1,0 +1,24 @@
+
+// TEST: compile pass
+// demo_pointer_get_new_instance.pax
+main :: () {
+    d1: Data_2;
+    d2: Data_2;
+
+    d1.nested = &d2;
+
+    copy := *d1.nested;  //  should get new instance
+
+    printf("d1.nested   = %p\n", &d1.nested);
+    printf("copy.nested = %p\n", &copy.nested);
+
+    if &d1.nested == &copy.nested
+        printf("THIS IS BAD\n");
+    else
+        printf("THIS IS GOOD\n");
+
+}
+Data_2 :: struct {
+    nested: ^Data_2;
+};
+

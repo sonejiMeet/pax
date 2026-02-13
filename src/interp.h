@@ -22,7 +22,7 @@ struct Pax_Interp {
     Ast_Block *ast;
 
     std::unordered_map<std::string, Ast_Block *> loaded_modules;
-    std::vector<std::string> module_parse_order;
+    Array<char *> module_parse_order;
 
     const char *current_file;
 
@@ -49,7 +49,7 @@ struct Pax_Interp {
     void run_frontend();
     void generate_cpp();
 
-    void runCompiler(char * command);
+    void runCompiler(char *command);
     void compile_cpp();
 
     void release();

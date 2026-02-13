@@ -12,7 +12,7 @@ struct Lexer
 
     int row;
     int col;
-    Token* peeked_token = nullptr;
+    Token *peeked_token = nullptr;
 
     Pool *lex_pool;
 
@@ -103,15 +103,15 @@ struct Lexer
         }
     }
 
-    Token* makeToken(TokenType type, const char* value);
-    Token* makeIntToken(TokenType type, unsigned long long val);
-    Token* makeFloatToken(TokenType type, double val);
+    Token *makeToken(TokenType type, const char *value);
+    Token *makeIntToken(TokenType type, unsigned long long val);
+    Token *makeFloatToken(TokenType type, double val);
 
-    Token* stringToken();
-    Token* numberToken(char first);
-    Token* identifierToken(char first);
+    Token *stringToken();
+    Token *numberToken(char first);
+    Token *identifierToken(char first);
 
-    Token* nextToken();
-    Token* peekNextToken(int lookahead = 1);
+    Token *nextToken();
+    Token *peekNextToken(int lookahead = 1);
 
 };

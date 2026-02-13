@@ -1,0 +1,19 @@
+
+// TEST: compile pass
+// demo_simple_nested_structs.pax
+main :: (){
+    function_1();
+    printf("DONE\n");
+}
+
+function_1 :: () {
+    a: A;
+    a.b.c.d.e.f.value = 42;
+}
+
+A :: struct { b: B; };
+B :: struct { c: C; };
+C :: struct { d: D; };
+D :: struct { e: E; };
+E :: struct { f: F; };
+F :: struct { value: int; };

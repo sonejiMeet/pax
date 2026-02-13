@@ -5,19 +5,18 @@
 
 #pragma once
 
-#include <string>
 #include <assert.h>
 
-#ifdef _WIN32
-    #ifdef _DEBUG
-    #define malloc(s) _malloc_dbg(s, _NORMAL_BLOCK, __FILE__, __LINE__)
-    #define free(p) _free_dbg(p, _NORMAL_BLOCK)
-    #endif
-#elif __linux__
-    #include <stdint.h>
-    #include <cstring>
+// #ifdef _WIN32
+//     #ifdef _DEBUG
+//     #define malloc(s) _malloc_dbg(s, _NORMAL_BLOCK, __FILE__, __LINE__)
+//     #define free(p) _free_dbg(p, _NORMAL_BLOCK)
+//     #endif
+// #elif __linux__
+//     #include <stdint.h>
+//     #include <cstring>
 
-#endif
+// #endif
 
 #ifdef _DEBUG
     extern int totalNbyte;
@@ -46,8 +45,7 @@ struct Array
 
     Pool *pool;
 
-    Array() : data(nullptr), count(0), capacity(0), pool(nullptr) {}
-    Array(Pool *p) : data(nullptr), count(0), capacity(0), pool(p) {}
+    Array(Pool *p = nullptr) : data(nullptr), count(0), capacity(0), pool(p) {}
 
     void push_back(T value);
     T get_back();
@@ -210,17 +208,17 @@ inline void *pool_alloc(Pool *pool, size_t size) {
     pool->current_pos = (void*)((uintptr_t)pool->current_pos + size);
     pool->bytes_left -= size;
 
- // #ifdef _DEBUG
- //     totalNbyte += (int) size;
- //     printf("[POOL_ALLOC] extra=%zu\n", extra);
- //     printf("[POOL_ALLOC] %zu bytes %p\n", size, retval);
- //     printf("[POOL_ALLOC TOTAL SO FAR] %d bytes, %f KiB\n", totalNbyte, (float)totalNbyte/1024);
- // #endif
+ #ifdef _DEBUG
+     totalNbyte += (int) size;
+     printf("[POOL_ALLOC] extra=%zu\n", extra);
+     printf("[POOL_ALLOC] %zu bytes %p\n", size, retval);
+     printf("[POOL_ALLOC TOTAL SO FAR] %d bytes, %f KiB\n", totalNbyte, (float)totalNbyte/1024);
+ #endif
 
     return retval;
 }
 
-inline void ensure_memory_exists(Pool* pool, size_t size) {
+inline void ensure_memory_exists(Pool *pool, size_t size) {
 
     if (pool->bytes_left < size)
     {
@@ -277,7 +275,7 @@ inline void cycle_new_block(Pool *pool)
     pool->current_memblock = new_block;
 }
 
-inline void pool_reset(Pool* pool)
+inline void pool_reset(Pool *pool)
 {
     if (pool->current_memblock) {
         blocklist_push(&pool->unused_memblocks, pool->current_memblock);
@@ -299,7 +297,7 @@ inline void pool_reset(Pool* pool)
 }
 
 
-inline void pool_release(Pool* pool)
+inline void pool_release(Pool *pool)
 {
     pool_reset(pool);
 

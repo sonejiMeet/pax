@@ -1,0 +1,27 @@
+
+// TEST: compile fail
+// EXPECT COMPILER ERROR: Cannot dereference uninitialized pointer member 'ptr'
+// demo_fail_uninitialized_ptr_member_passed_by_value.pax
+main :: () {
+    local: Data;
+
+    s_local: S;
+    // local.ptr = &s_local;   // if this is commented out it should fail
+
+    modify_2(local);
+    y := *local.ptr; // this will now throw error (Cannot dereference uninitialized) because this declaration was passed by value through function call
+}
+
+Data :: struct {
+    ptr: ^S;
+};
+
+S :: struct {
+    a: int;
+};
+
+modify_2 :: (d: Data) {
+    s : S;
+    d.ptr = &s;
+    asd := *d.ptr;
+}

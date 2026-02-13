@@ -4,6 +4,10 @@ free :: (ptr: ^void) #foreign;
 memcpy :: (dest: ^void, source: ^void, count: s64) #foreign;
 memset :: (dest: ^void, value: u8, count: s64) #foreign;
 
+pow :: (x: float, y: float) -> float #foreign;
+cos :: (x: float) -> float #foreign;
+sin :: (x: float) -> float #foreign;
+cast :: (T: Any) #foreign;
 sizeof :: (T: Any) -> s64 #foreign;
 
 Static_Array :: struct {

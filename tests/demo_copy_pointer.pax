@@ -1,0 +1,23 @@
+
+// TEST: compile pass
+// demo_copy_pointer.pax
+main :: () {
+    function_4();
+}
+Data_1 :: struct {
+    value: int;
+}
+
+function_4 :: () {
+    d: Data_1;
+    p1: ^Data_1;
+    p2: ^Data_1;
+
+    p1 = &d;
+    p2 = p1;  // Copy pointer
+
+    p2.value = 100;  // Should work
+
+    printf("p2.value = %d\n", p2.value);
+    printf("DONE\n");
+}

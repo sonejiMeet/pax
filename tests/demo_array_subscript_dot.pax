@@ -1,0 +1,28 @@
+#import "General.pax"
+
+// tests integrity of both complex array subscript with dot expression and how well it can handle unresolvable structs after first resolution phase (during the second pass)
+main :: () {
+	n: Node;
+	n.arr[0] = -22353;
+	printf("n.arr[0] = %d\n", n.arr[0]);
+
+	arn: [4]ArrNode;
+	arn[0].an = -2435;
+	printf("arn[0].an = %d\n", arn[0].an);
+
+	nn: Node2;
+	nn.arrNode[0].an = -6781;
+	printf("nn.arrNode[0].an = %d\n", nn.arrNode[0].an);
+}
+
+
+Node :: struct {
+	arr: [4] int;
+}
+ArrNode :: struct {
+	an: int;
+}
+Node2 :: struct {
+	arrNode: [4]ArrNode;
+}
+

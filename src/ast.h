@@ -29,6 +29,8 @@ struct Ast_Cast;
 struct Ast_Import;
 struct Ast_Array_Type;
 
+struct Ast_Break;
+
 enum Ast_Type {
     AST_UNKNOWN,
     AST_BLOCK,
@@ -53,6 +55,7 @@ enum Ast_Type {
 
     AST_IMPORT,
     AST_ARRAY_TYPE,
+    AST_BREAK,
 };
 
 
@@ -77,6 +80,7 @@ inline std::string astTypeToString(Ast_Type type) {
         case AST_TYPE_DEFINITION: return "TypeDefinition";
         case AST_CAST: return "Cast";
         case AST_IMPORT: return "Import";
+        case AST_BREAK: return "breakStmt";
         default:                 return "Unknown";
     }
 }
@@ -111,7 +115,7 @@ struct Ast_Expression : public Ast {
 };
 
 struct Ast_Declaration : public Ast_Statement {
-    Ast_Declaration(Pool* p) :parameters(p) { type = AST_DECLARATION; }
+    Ast_Declaration(Pool *p) :parameters(p) { type = AST_DECLARATION; }
 
     Ast_Ident *identifier = nullptr;
     Ast_Type_Definition *declared_type = nullptr;
@@ -132,7 +136,7 @@ struct Ast_Declaration : public Ast_Statement {
     bool is_declaration_function_argument = false;
     bool is_declaration_passed_through_function = false;
 
-    Ast_Type_Definition* return_type = nullptr; // maybe return_type should be an Array too since we will support more than one return_type in a function
+    Ast_Type_Definition *return_type = nullptr; // maybe return_type should be an Array too since we will support more than one return_type in a function
 
     bool initialized = false; // For code_manager
     bool inferred = false;
@@ -140,8 +144,12 @@ struct Ast_Declaration : public Ast_Statement {
 
 
 struct Ast_Comma_Separated_Args : public Ast_Expression {
-    Ast_Comma_Separated_Args(Pool * p) :arguments(p) { type = AST_COMMA_SEPARATED_ARGS; }
+    Ast_Comma_Separated_Args(Pool  *p) :arguments(p) { type = AST_COMMA_SEPARATED_ARGS; }
     Array<Ast_Expression *> arguments;
+};
+
+struct Ast_Break : public Ast_Statement {
+    Ast_Break(Pool* = nullptr) { type = AST_BREAK; }
 };
 
 enum Value_Type {
@@ -160,7 +168,7 @@ struct Ast_Literal : public Ast_Expression {
 
     Value_Type value_type = LITERAL_UNINITIALIZED;
 
-    const char* string_value = nullptr;
+    const char *string_value = nullptr;
     double float_value = 0;
     int64_t integer_value = 0;
 };
@@ -168,9 +176,9 @@ struct Ast_Literal : public Ast_Expression {
 struct Ast_Ident : public Ast_Expression {
     Ast_Ident(Pool* = nullptr) { type = AST_IDENT; }
 
-    const char* name = nullptr;
+    const char *name = nullptr;
 
-    // Ast_Declaration* resolved_decl = nullptr;
+    // Ast_Declaration *resolved_decl = nullptr;
 };
 
 struct Ast_Procedure_Call_Expression : public Ast_Expression {
@@ -178,7 +186,7 @@ struct Ast_Procedure_Call_Expression : public Ast_Expression {
 
     Ast_Ident *function = nullptr;
     Ast_Comma_Separated_Args *arguments = nullptr;
-    Ast_Type_Definition* resolved_element_type = nullptr;  // For NewArray
+    Ast_Type_Definition *resolved_element_type = nullptr;  // For NewArray
 };
 
 enum Binary_Op {
@@ -218,12 +226,12 @@ enum Ast_Unary_Op {
 struct Ast_Unary : Ast_Expression {
     Ast_Unary (Pool* = nullptr) { type = AST_UNARY; }
     Ast_Unary_Op op = UNARY_UNKNOWN;
-    Ast_Expression* operand = nullptr; // expression being operated on
+    Ast_Expression *operand = nullptr; // expression being operated on
 
 };
 
 struct Ast_Block : public Ast_Statement {
-    Ast_Block(Pool* p) : statements(p), imports(p) { type = AST_BLOCK; }
+    Ast_Block(Pool *p) : statements(p), imports(p) { type = AST_BLOCK; }
 
     Ast_Block *parent = nullptr;
     Array<Ast_Statement *> statements;
@@ -232,7 +240,7 @@ struct Ast_Block : public Ast_Statement {
 
     bool is_scoped_block = false;
     bool is_entry_point = false;
-
+    bool is_global_scope = false;
     // Array<Ast_Block *> my_scope = nullptr;
 };
 
@@ -256,9 +264,9 @@ const int STRUCT_HAS_IMPLICIT_CONSTRUCTOR = 0x10;
 const int STRUCT_HAS_IMPLICIT_DESTRUCTOR = 0x20;
 
 struct Ast_Struct : public Ast_Expression {
-    Ast_Struct(Pool* p) : members(p) { type = AST_STRUCT; }
+    Ast_Struct(Pool *p) : members(p) { type = AST_STRUCT; }
 
-    const char* name = nullptr;
+    const char *name = nullptr;
 
     Ast_Block *block = nullptr;
 
@@ -271,14 +279,14 @@ struct Ast_Struct : public Ast_Expression {
 };
 
 struct Ast_Type_Instantiation : public Ast {
-    Ast_Type_Instantiation(Pool* p) : member_instances(p) { type = AST_TYPE_INSTANTIATION; }
+    Ast_Type_Instantiation(Pool *p) : member_instances(p) { type = AST_TYPE_INSTANTIATION; }
 
     Array<Ast_Declaration *> member_instances;
 };
 
 
 struct Ast_New_Or_Delete : public Ast_Expression { // not done yett
-     Ast_New_Or_Delete(Pool * = nullptr) {type = AST_NEW_OR_DELETE; }
+     Ast_New_Or_Delete(Pool* = nullptr) {type = AST_NEW_OR_DELETE; }
      Ast_Type_Definition *type_definition = nullptr; // if new
      Ast_Expression *expression = nullptr; // if delete
 };
@@ -318,7 +326,7 @@ struct Ast_Type_Definition : public Ast {
     Ast_Type_Definition *pointed_to_type = nullptr;
 
 
-    const char * name = nullptr;
+    const char  *name = nullptr;
     bool is_reference = false;
 
     Ast_Struct *struct_def = nullptr;
