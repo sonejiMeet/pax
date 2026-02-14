@@ -21,3 +21,5 @@ benchmarks/
 
 a.*
 b.*
+
+*.idb

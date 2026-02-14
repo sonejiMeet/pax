@@ -16,7 +16,7 @@ FileBuffer read_entire_file(const char *path) {
     FileBuffer result = {nullptr, 0};
 
     FILE *f = fopen(path, "rb");
-    defer { fclose(f); };
+    defer { if(f) fclose(f); };
 
     if (!f) {
         printf("Could not open file: %s\n", path);

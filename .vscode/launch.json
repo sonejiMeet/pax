@@ -2,11 +2,11 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "gdb",
+            "name": "Debug pax",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/src/main", 
-            "args": ["tests/a.pax"],
+            "program": "${workspaceFolder}/src/pax.exe", 
+            "args": ["/tests/dereference_assigned_value.pax"],
             "stopAtEntry": true,
             "cwd": "${workspaceFolder}",
             "environment": [],

@@ -104,8 +104,8 @@ char *Pax_Interp::get_absolute_path(const char *path) {
     return pool_strdup(pool, abs_path);
 #else
     char *resolved = realpath(path, NULL);
-
-    assert(resolved && "realpath() failed");
+    if(!resolved) return nullptr;
+    // assert(resolved && "realpath() failed");
 
     char *result = pool_strdup(pool, resolved);
     free(resolved);
@@ -146,7 +146,7 @@ Ast_Block *Pax_Interp::parse_file(const char *filename, bool skip_main_check) {
 
     FileBuffer buf = read_entire_file(filename);
     if (!buf.data) {
-        printf("Failed to read file: %s\n", filename);
+        // printf("Failed to read file: %s\n", filename);
         return nullptr;
     }
 

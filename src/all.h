@@ -1,16 +1,17 @@
 #pragma once
 
-// #include <stdio.h>
-// #include <stdlib.h>
-// #include <time.h>
-// #include <string.h>
-// #include <assert.h>
-// #include <chrono>
-// #include <vector>
+#include <stdio.h>
+#include <stdlib.h>
+#include <time.h>
+#include <string.h>
+#include <assert.h>
+#include <chrono>
+#include <vector>
 #include <unordered_map>
 #include <stdarg.h> // for variadic function
-// #include <math.h>
+#include <math.h>
 #include <string>
+#include <stdint.h>
 
 #include "pool.h"
 #include "tools.h"
