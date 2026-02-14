@@ -1,27 +1,4 @@
 @echo off
-
-rem @echo --------------------------------------------------
-rem .\src\pax.exe .\tests\demo.pax
-rem @echo --------------------------------------------------
-rem .\src\pax.exe .\tests\demo_struct.pax
-rem @echo --------------------------------------------------
-rem .\src\pax.exe .\tests\demo_nested_structs.pax
-rem @echo --------------------------------------------------
-rem .\src\pax.exe .\tests\demo_recursion.pax
-rem @echo --------------------------------------------------
-rem .\src\pax.exe .\tests\demo_struct_order.pax
-rem @echo --------------------------------------------------
-rem .\src\pax.exe .\tests\demo_uninitialized_members.pax
-rem @echo --------------------------------------------------
-rem .\src\pax.exe .\tests\demo_memory.pax
-rem @echo --------------------------------------------------
-rem .\src\pax.exe .\tests\demo_static_array.pax
-rem @echo --------------------------------------------------
-rem .\src\pax.exe .\tests\demo_if_and_while.pax
-rem @echo --------------------------------------------------
-rem .\src\pax.exe .\tests\demo_lists.pax
-rem @echo --------------------------------------------------
-
 setlocal enabledelayedexpansion
 
 set FAIL=0
@@ -42,7 +19,7 @@ for %%f in (
     demo_struct_init_from_global.pax
     demo_array_subscript_dot.pax
 
-    dereference_assigned_value.pax
+    demo_dereference_assigned_value.pax
 
     demo_pass_initialized_ptr_member_passed_by_value.pax
 
