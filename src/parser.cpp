@@ -605,7 +605,7 @@ Ast_Declaration *Parser::parseVarDeclaration()
     Ast_Ident *first = parseIdent();
     if (!first) return nullptr;
 
-    // if there is no comma after first ident then its single identifier 
+    // if there is no comma after first ident then its single identifier
     if(current->type != TOK_COMMA) {
         varDecl->identifier = first;
     } else { // otherwise push the first ident to identifiers' array instead
@@ -680,7 +680,7 @@ Ast_Declaration *Parser::parseVarDeclaration()
     }
 
     varDecl->declared_type = typeDef;
-    varDecl->initializer = initializer;  // since they are initialized by default anyways we can just copy them 
+    varDecl->initializer = initializer;  // since they are initialized by default anyways we can just copy them
     varDecl->initializers = initializers;
 
     Expect(TOK_SEMICOLON, "Expected ';' after variable declaration");
@@ -1029,7 +1029,8 @@ Ast_Statement *Parser::parseStatement()
                 }
             }
             else if (next->type == TOK_COMMA) {
-                Token *t = lexer->peekNextToken(2);
+                int offset = 2;
+                Token *t = lexer->peekNextToken(offset);
 
                 while (t && (t->type == TOK_COMMA || t->type == TOK_IDENTIFIER || t->type == TOK_UNDERSCORE)) {
                     if (t->type == TOK_COMMA) {
@@ -1235,7 +1236,8 @@ Ast_Block *Parser::parseProgram(bool skip_main)
                 program->statements.push_back(static_cast<Ast_Statement*>(decl));
             }
             else if(next->type == TOK_COMMA) {
-                Token *t = lexer->peekNextToken(2);
+                int offset = 2;
+                Token *t = lexer->peekNextToken(offset);
 
                 while (t && (t->type == TOK_COMMA || t->type == TOK_IDENTIFIER || t->type == TOK_UNDERSCORE)) {
                     if (t->type == TOK_COMMA) {
@@ -1299,7 +1301,7 @@ Ast_Block *Parser::parseProgram(bool skip_main)
         }
     }
 
-    
+
     if (!mainFound && exitSuccess && !skip_main) {
         parseError("No 'main' entry point was found in the program.", true);
     }
