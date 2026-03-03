@@ -37,12 +37,11 @@ inline void _init_Node(Node* self){
 
 /*FUNCTION BODIES*/
 
-#line 10 "C:/pax/tests/demo_struct_init_from_global.pax"
+
 void GENERATED_MAIN(){
     __init_global_static_arrays();
     Node n;
     _init_Node(&n);
-#line 12 "C:/pax/tests/demo_struct_init_from_global.pax"
     printf("n.a = %d\n",(n.a));
 }
 

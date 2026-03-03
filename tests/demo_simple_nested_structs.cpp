@@ -76,21 +76,17 @@ inline void _init_A(A* self){
 }
 
 /*FUNCTION BODIES*/
-#line 9 "C:/pax/tests/demo_simple_nested_structs.pax"
 void function_1 () {
     A a;
     _init_A(&a);
-#line 11 "C:/pax/tests/demo_simple_nested_structs.pax"
     (((((((a.b).c).d).e).f).value) = 42);
 }
 
 
-#line 5 "C:/pax/tests/demo_simple_nested_structs.pax"
+
 void GENERATED_MAIN(){
     __init_global_static_arrays();
-#line 6 "C:/pax/tests/demo_simple_nested_structs.pax"
     function_1();
-#line 7 "C:/pax/tests/demo_simple_nested_structs.pax"
     printf("DONE\n");
 }
 

@@ -22,7 +22,7 @@ struct Config;
 
 /*STRUCTS DEFINITIONS*/
 struct Config {
-    char * name;
+    u8 * name;
     s64 count;
     int * data;
 };
@@ -33,19 +33,18 @@ void __init_global_static_arrays(){
 }
 
 inline void _init_Config(Config* self){
-    self->name = "default";
+    self->name = (u8 *)("default");
     self->count = 10;
 }
 
 /*FUNCTION BODIES*/
 
-#line 5 "C:/pax/tests/demo_struct_members_should_get_inferred.pax"
+
 void GENERATED_MAIN(){
     __init_global_static_arrays();
     Config c;
     _init_Config(&c);
     int val = 42;
-#line 7 "C:/pax/tests/demo_struct_members_should_get_inferred.pax"
     ((c.data) = (&val));
     int x = (*(c.data));
 }

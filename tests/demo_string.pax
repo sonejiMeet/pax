@@ -1,0 +1,61 @@
+#import "General.pax"
+#import "String.pax"
+
+main :: () {
+	printf("\n");
+	printf("\n----------string on heap as a builtin struct-------------\n");
+	a := new_string(cast(^u8)"Hello");
+	printstr(a);
+	b := new_string(cast(^u8)" World");
+	printstr(b);
+
+	printf("\n----------concatenate two string together-------------\n");
+	c := concat(a, b);
+	printstr(c);
+
+	printf("\n------------slice string-----------------\n");
+	sub := slice(c, 0, 5);
+	printf("sliced string = ");
+	printstr(sub);
+
+	destroy_str(&c);
+	destroy_str(&sub);
+
+
+	printf("\n----------string on stack-------------\n");
+	aa : String;
+	bb := cast(^u8)"Bruh";
+	aa.data = bb;
+	aa.length = strlen(bb);
+	// printf("%s, %d\n", aa.data, aa.length);
+	printstr(aa);
+
+
+	printf("-----------string_compare-------------\n");
+
+	str_1 := new_string(cast(^u8)"This is a test");
+	str_2 := new_string(cast(^u8)"This is a test");
+
+	if string_compare(str_1, str_2) == 0
+		printf("\nBoth strings are the same\n");
+	else
+		printf("\nBoth strings are different\n");
+
+
+	destroy_str(&str_1);
+	destroy_str(&str_2);
+
+
+	to_clone := new_string(cast(^u8)"clone this string");
+
+	cloned := string_clone(to_clone);
+	if string_compare(to_clone, cloned) == 0
+		printf("\nCloned string is the same\n");
+	else
+		printf("\nCloned string is different\n");
+
+	destroy_str(&to_clone);
+	destroy_str(&cloned);
+
+	printf("---------------------------------\n");
+}

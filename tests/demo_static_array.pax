@@ -37,7 +37,7 @@ main :: () {
         a: [4]int;
         a[0] = 834;
         printf("a[0] = %d\n", a[0]);
-        b:^[]int= &a; // this still not work when type explicitly given
+        b:^[]int= &a;
 
 
         pc:int = 449895;

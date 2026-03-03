@@ -88,6 +88,7 @@ struct CodeManager {
 
     Ast_Declaration *lookup_symbol(const char *name, Ast_Block *scope = nullptr); // here scope is for the case where we can't rely on scope_stack.pop() when going through queued unresolved statements, we pass in the scope.
     Ast_Declaration *lookup_symbol_current_scope(const char *name);
+    Ast_Declaration *lookup_symbol_in_block(const char* name, Ast_Block* block);
 
     ReturnCheckResult checkReturnPathsIf(Ast_If *ifn);
     ReturnCheckResult checkReturnPaths(Ast_Block *block);
@@ -105,6 +106,7 @@ struct CodeManager {
 
     void resolve_idents_if(Ast_If *ifn);
 
+    void try_resolve_type_on_decl(Ast_Declaration *owner, Ast_Type_Definition *&ty);
     void resolve_idents_in_declaration(Ast_Declaration *decl);
     void transform_array_to_struct(Ast_Type_Definition *type);
 

@@ -45,20 +45,17 @@ inline void _init_Outer(Outer* self){
 
 /*FUNCTION BODIES*/
 
-#line 5 "C:/pax/tests/demo_nested_init.pax"
+
 void GENERATED_MAIN(){
     __init_global_static_arrays();
     Outer o1;
     _init_Outer(&o1);
     int val = 42;
     int val2 = 69;
-#line 10 "C:/pax/tests/demo_nested_init.pax"
     (((o1.a).data) = (&val));
-#line 11 "C:/pax/tests/demo_nested_init.pax"
     (((o1.b).data) = (&val2));
     int x = (*((o1.a).data));
     int y = (*((o1.b).data));
-#line 17 "C:/pax/tests/demo_nested_init.pax"
     printf("DONE\n");
 }
 

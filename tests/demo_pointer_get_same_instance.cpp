@@ -49,32 +49,24 @@ inline void _init_CCC(CCC* self){
 
 /*FUNCTION BODIES*/
 
-#line 5 "C:/pax/tests/demo_pointer_get_same_instance.pax"
+
 void GENERATED_MAIN(){
     __init_global_static_arrays();
     AAA a;
     _init_AAA(&a);
     BBB b;
     _init_BBB(&b);
-#line 7 "C:/pax/tests/demo_pointer_get_same_instance.pax"
     ((a.b) = (&b));
     CCC c;
     _init_CCC(&c);
-#line 11 "C:/pax/tests/demo_pointer_get_same_instance.pax"
     (((*(a.b)).c) = (&c));
-#line 12 "C:/pax/tests/demo_pointer_get_same_instance.pax"
     ((b.c) = (&c));
-#line 13 "C:/pax/tests/demo_pointer_get_same_instance.pax"
     (((*((*(a.b)).c)).value) = 42699);
-#line 16 "C:/pax/tests/demo_pointer_get_same_instance.pax"
     printf("a.b.c.value = %d\n",((*((*(a.b)).c)).value));
-#line 16 "C:/pax/tests/demo_pointer_get_same_instance.pax"
     if((((*(a.b)).c) != (b.c))){
-#line 18 "C:/pax/tests/demo_pointer_get_same_instance.pax"
         printf("this is bad\n");
     }
     else {
-#line 21 "C:/pax/tests/demo_pointer_get_same_instance.pax"
         printf("this is good\n");
     }
 }

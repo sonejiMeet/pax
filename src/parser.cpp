@@ -49,6 +49,23 @@ void Parser::parseError(const char *message, bool print_token_type) {
 
 }
 
+void Parser::report_parse_error(const char *fmt, ...)
+{
+    constexpr size_t BUFFER_SIZE = 512;
+    char buffer[BUFFER_SIZE];
+
+    va_list args;
+    va_start(args, fmt);
+    vsnprintf(buffer, BUFFER_SIZE, fmt, args);
+    va_end(args);
+
+    fprintf(stderr, "%s: Parsing Error[%d:%d] %s\n", interp->current_file, current->row, current->col, buffer);
+
+    exitSuccess = false;
+    synchronize();
+}
+
+
 void Parser::expect(TokenType expectedType, const char *errorMessage)
 {
     if (current->type != expectedType) {
@@ -330,6 +347,7 @@ Ast_Expression *Parser::parseExpression(int minPrecedence)
         Ast_Literal *node = AST_NEW(Ast_Literal);
         node->value_type = LITERAL_STRING;
         node->string_value = reinterpret_cast<const char*>(current->string_value.data);
+        node->string_count = current->string_value.count;
         advance();
         left = node;
     }
@@ -359,6 +377,19 @@ Ast_Expression *Parser::parseExpression(int minPrecedence)
         advance();
         left = parseExpression();
         Expect(TOK_RPAREN, "Expected ')' after expression in parentheses.");
+    }
+    else if (current->type == TOK_CAST) {
+        advance();
+        expect(TOK_LPAREN, "Expected '(' after cast");
+        Ast_Type_Definition *target_type = parseTypeSpecifier();
+        expect(TOK_RPAREN, "Expected ')' after cast type");
+
+        Ast_Expression *operand = parseExpression(100);
+
+        Ast_Cast *cast = AST_NEW(Ast_Cast);
+        cast->cast_expression = target_type;
+        cast->expression = operand;
+        left = cast;
     }
     else {
         parseError("Expected a literal, identifier, or an expression.");
@@ -511,7 +542,10 @@ Ast_Type_Definition *Parser::parseTypeSpecifier() {
     else if (strcmp(current->value, "float64") == 0) baseType = interp->type->type_def_float64;
     else if (strcmp(current->value, "void") == 0) baseType = interp->type->type_def_void;
     else if (strcmp(current->value, "bool") == 0) baseType = interp->type->type_def_bool;
-    else if (strcmp(current->value, "string") == 0) baseType = interp->type->type_def_string;
+    else if (strcmp(current->value, "string") == 0) {
+        // interp->type->type_def_string = AST_NEW(Ast_Type_Definition);
+        baseType = interp->type->type_def_string;
+    }
     else if (current->type == TOK_IDENTIFIER) {
         Ast_Type_Definition *user_defined_type = AST_NEW(Ast_Type_Definition);
         user_defined_type->name = current->value;
@@ -553,21 +587,58 @@ Ast_Type_Definition *Parser::parseTypeSpecifier() {
 
 // uint64_t total = 0; // @Temporary
 
-// statement
 Ast_Declaration *Parser::parseVarDeclaration()
 {
     Ast_Declaration *varDecl = AST_NEW(Ast_Declaration);
 
-    const char *varName = current->value;
-    advance();
+    auto parseIdent = [&]() -> Ast_Ident* {
+        if (current->type != TOK_IDENTIFIER /* && current->type != TOK_UNDERSCORE */) {
+            parseError("Expected identifier in declaration");
+            return nullptr;
+        }
+        Ast_Ident *ident = AST_NEW(Ast_Ident);
+        ident->name = current->value;
+        advance();
+        return ident;
+    };
+
+    Ast_Ident *first = parseIdent();
+    if (!first) return nullptr;
+
+    // if there is no comma after first ident then its single identifier 
+    if(current->type != TOK_COMMA) {
+        varDecl->identifier = first;
+    } else { // otherwise push the first ident to identifiers' array instead
+        varDecl->identifiers.push_back(first);
+    }
+
+    while (current->type == TOK_COMMA) {
+        advance();
+        Ast_Ident *ident = parseIdent();
+        if (!ident) return nullptr;
+        varDecl->identifiers.push_back(ident);
+    }
+
+    expect(TOK_COLON, "Expected ':' after identifiers in declaration");
 
     Ast_Type_Definition *typeDef = nullptr;
-
     Ast_Expression *initializer = nullptr;
 
-    if(current->type == TOK_COLON){
-        advance();
+    Ast_Comma_Separated_Args *initializers = nullptr;
 
+    if(varDecl->identifiers.count != 0){
+        if (current->type == TOK_ASSIGN) { // type not given
+            advance();
+            initializers = parseCommaSeparatedExpressions();
+        } else {  // explicit type given
+            typeDef = parseTypeSpecifier();
+
+            if (current->type == TOK_ASSIGN) {
+                advance();
+                initializers = parseCommaSeparatedExpressions();
+            }
+        }
+    } else {
         if (current->type == TOK_ASSIGN) {
             // its non inferred but initialized form
             advance();
@@ -596,20 +667,68 @@ Ast_Declaration *Parser::parseVarDeclaration()
             parseError("Expected either ':' declaration");
         }
 
-    } else {
-        parseError("Only declarations allowed, couldn't find ':' after identifier in a declaration statement");
     }
 
-    Expect(TOK_SEMICOLON, "Expected ';' after variable declaration.");
+    if (initializers) {
+        int identsCount = varDecl->identifiers.count;
+        int initCount = initializers->arguments.count;
+
+        if (initCount != 1 && initCount != identsCount) {
+            report_parse_error("Number of initializers (%d) must match number of identifiers (%d) or be a single value",
+                      initCount, identsCount);
+        }
+    }
 
     varDecl->declared_type = typeDef;
-    varDecl->identifier = AST_NEW(Ast_Ident);
-    varDecl->identifier->name = varName;
-    varDecl->initializer = initializer;
+    varDecl->initializer = initializer;  // since they are initialized by default anyways we can just copy them 
+    varDecl->initializers = initializers;
+
+    Expect(TOK_SEMICOLON, "Expected ';' after variable declaration");
 
     return varDecl;
 }
 
+Ast_Statement *Parser::parseMultipleAssignment() {
+    Ast_Comma_Separated_Args *lhs = AST_NEW(Ast_Comma_Separated_Args);
+
+    do {
+        if (current->type == TOK_IDENTIFIER /* || current->type == TOK_UNDERSCORE */) {
+            Ast_Ident *ident = AST_NEW(Ast_Ident);
+            ident->name = current->value;
+            lhs->arguments.push_back(ident);
+            advance();
+        } else {
+            Ast_Expression *expr = parseExpression();
+            lhs->arguments.push_back(expr);
+        }
+
+        if (current->type == TOK_COMMA) {
+            advance();
+        } else {
+            break;
+        }
+    } while (true);
+
+    expect(TOK_ASSIGN, "Expected '=' in assignment");
+
+    Ast_Comma_Separated_Args *rhs = parseCommaSeparatedExpressions();
+
+    if (rhs->arguments.count != 1 && rhs->arguments.count != lhs->arguments.count) {
+        report_parse_error("Number of expressions on right side (%d) must match left side (%d) or be a single value",
+                  rhs->arguments.count, lhs->arguments.count);
+    }
+
+    Ast_Binary *assignExpr = AST_NEW(Ast_Binary);
+    assignExpr->op = BINOP_ASSIGN;
+    assignExpr->lhs = lhs;
+    assignExpr->rhs = rhs;
+
+    Ast_Statement *stmt = AST_NEW(Ast_Statement);
+    stmt->expression = assignExpr;
+
+    expect(TOK_SEMICOLON, "Expected ';' after assignment");
+    return stmt;
+}
 
 Ast_If *Parser::parseIfStatement(){
     Ast_If *ifNode = AST_NEW(Ast_If);
@@ -688,6 +807,18 @@ Ast_Block *Parser::parseBlockStatement(bool scoped_block, bool if_block) {
     return block;
 }
 
+Ast_Comma_Separated_Args *Parser::parseCommaSeparatedExpressions() {
+    Ast_Comma_Separated_Args *args = AST_NEW(Ast_Comma_Separated_Args);
+
+    args->arguments.push_back(parseExpression());
+
+    while (current->type == TOK_COMMA) {
+        advance();
+        args->arguments.push_back(parseExpression());
+    }
+
+    return args;
+}
 
 Ast_Procedure_Call_Expression *Parser::parseCall()
 {
@@ -897,6 +1028,25 @@ Ast_Statement *Parser::parseStatement()
                     return parseFunctionDeclaration(/*is_local=*/false);
                 }
             }
+            else if (next->type == TOK_COMMA) {
+                Token *t = lexer->peekNextToken(2);
+
+                while (t && (t->type == TOK_COMMA || t->type == TOK_IDENTIFIER || t->type == TOK_UNDERSCORE)) {
+                    if (t->type == TOK_COMMA) {
+                        offset++;
+                        t = lexer->peekNextToken(offset);
+                    } else {
+                        offset++;
+                        t = lexer->peekNextToken(offset);
+                    }
+                }
+
+                if (t && t->type == TOK_COLON) {
+                    return parseVarDeclaration();
+                } else {
+                    return parseMultipleAssignment();
+                }
+            }
             else if (is_lhs_assignment()) {
                 Ast_Expression *lhs = parseExpression();
                 Expect(TOK_ASSIGN, "Expected '=' in assignment");
@@ -1084,6 +1234,24 @@ Ast_Block *Parser::parseProgram(bool skip_main)
                 Ast_Declaration *decl = parseVarDeclaration();
                 program->statements.push_back(static_cast<Ast_Statement*>(decl));
             }
+            else if(next->type == TOK_COMMA) {
+                Token *t = lexer->peekNextToken(2);
+
+                while (t && (t->type == TOK_COMMA || t->type == TOK_IDENTIFIER || t->type == TOK_UNDERSCORE)) {
+                    if (t->type == TOK_COMMA) {
+                        offset++;
+                        t = lexer->peekNextToken(offset);
+                    } else {
+                        offset++;
+                        t = lexer->peekNextToken(offset);
+                    }
+                }
+
+                if (t && t->type == TOK_COLON) {
+                    auto *pv = parseVarDeclaration();
+                    program->statements.push_back(pv);
+                }
+            }
             else if(next->type == TOK_DOUBLECOLON) {
 
                 Token *n = lexer->peekNextToken(2);
@@ -1123,6 +1291,7 @@ Ast_Block *Parser::parseProgram(bool skip_main)
                     parseError("Expected import string.");
                 }
             }
+            else parseError("Only import are supported following a '#'\n");
         }
         else {
             parseError("Unexpected token at top-level. Only declarations and main function allowed.");
@@ -1130,7 +1299,7 @@ Ast_Block *Parser::parseProgram(bool skip_main)
         }
     }
 
-
+    
     if (!mainFound && exitSuccess && !skip_main) {
         parseError("No 'main' entry point was found in the program.", true);
     }

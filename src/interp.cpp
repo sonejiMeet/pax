@@ -116,7 +116,7 @@ char *Pax_Interp::get_absolute_path(const char *path) {
 
 char *Pax_Interp::get_directory(const char *filepath) {
     const char *pos = strrchr(filepath, '/');
-    
+
     if (pos) {
         size_t len = pos - filepath;
         char *out = (char*)malloc(len + 1);
@@ -146,7 +146,7 @@ Ast_Block *Pax_Interp::parse_file(const char *filename, bool skip_main_check) {
 
     FileBuffer buf = read_entire_file(filename);
     if (!buf.data) {
-        // printf("Failed to read file: %s\n", filename);
+         printf("Failed to read file: %s\n", filename);
         return nullptr;
     }
 
@@ -200,7 +200,7 @@ Ast_Block *Pax_Interp::load_and_parse_module(const char *filename) {
     char *abs_path = get_absolute_path(filename);
 
     if (loaded_modules.count(abs_path)) {
-        printf("\n>>>>Module already imported before: %s\n\n", abs_path);
+        // printf("\n>>>>Module already imported before: %s\n\n", abs_path);
         return loaded_modules[abs_path];
     }
 
@@ -244,7 +244,7 @@ void Pax_Interp::printLexer(const char *filename) {
     }
 
     Lexer lexer((const char*)buf.data, buf.size, pool);
-    // printLex(buf, pool);
+    printLex(buf, pool);
 
     free(buf.data);
 

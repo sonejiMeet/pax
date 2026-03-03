@@ -1,32 +1,32 @@
 #import "General.pax";
 
-
 main :: (){
 	n : Node;
-	printf("n.value %d\n", n.value);
+	printf("n.value = %d\n", n.value);  // should be -2247 because of implicit constructor
 
 	ll := make_list(50);
-	printf("ll.value %d\n", ll.value);
+	printf("ll.value = %d\n", ll.value);
 
 	arr: [5]s64;
-	arr[0] = 56677;
-	arr[1] = -23592;
-	arr[2] = 3352;
-	arr[3] = -579;
-	arr[4] = 2555;
+	arr[0] = 1;
+	arr[1] = 2;
+	arr[2] = 3;
+	arr[3] = 4;
+	arr[4] = 5;
 
 	list := do_list(&arr);
-
+	printf("------------------------------\n");
 	print_whole_list(list);
+	printf("------------------------------\n");
 
 	printf("---DONE---\n");
 }
 
 
+// just a random value nothing special
 x := -2247;
-
 Node :: struct {
-    value: int = x;
+    value: int = x;      // lets see if our implicit constructor handles these inits
     next: ^Node = null;
 }
 
@@ -40,11 +40,12 @@ make_list :: (val: s64) -> ^Node {
 
 
 do_list :: (arr: ^[]s64) -> ^Node {
-	i:=0;
 	base: ^Node = null;
 	temp: ^Node;
 
-	while (i != arr.count){
+	i:=0;
+	while (i < arr.count){
+
 		if !base {
 			temp = malloc(sizeof(Node));
 

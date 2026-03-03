@@ -1,7 +1,6 @@
 // #define ENABLE_PROFILER
 #include "all.h"
 
-
 #ifdef _DEBUG
 int totalNbyte = 0;
 #endif
@@ -110,7 +109,7 @@ int main(int argc, char **argv) {
 #endif
 
     printf(" %s SUCCESS %s \n", "\x1B[0;32m", "\x1B[0m");
-
+    printf("Total lines processed %zu\n", LINE_COUNT);
     #ifdef _WIN32
     #ifdef _DEBUG
         _CrtMemState state;

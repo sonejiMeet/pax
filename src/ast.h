@@ -115,11 +115,16 @@ struct Ast_Expression : public Ast {
 };
 
 struct Ast_Declaration : public Ast_Statement {
-    Ast_Declaration(Pool *p) :parameters(p) { type = AST_DECLARATION; }
+    Ast_Declaration(Pool *p) :parameters(p), identifiers(p), identifier_types(p), return_types(p)  { type = AST_DECLARATION; }
 
     Ast_Ident *identifier = nullptr;
+    Array<Ast_Ident *> identifiers;
     Ast_Type_Definition *declared_type = nullptr;
     Ast_Expression *initializer = nullptr;
+
+    Ast_Comma_Separated_Args *initializers = nullptr;
+    Array<Ast_Type_Definition *> identifier_types;
+
 
     Ast_Block *my_scope = nullptr;
 
@@ -130,6 +135,7 @@ struct Ast_Declaration : public Ast_Statement {
     bool is_local_function = false;
     bool is_foreign = false;
 
+    // bool is_
 
     Array<Ast_Declaration*> parameters;     // function parameters
 
@@ -137,6 +143,8 @@ struct Ast_Declaration : public Ast_Statement {
     bool is_declaration_passed_through_function = false;
 
     Ast_Type_Definition *return_type = nullptr; // maybe return_type should be an Array too since we will support more than one return_type in a function
+
+    Array<Ast_Type_Definition *> return_types;
 
     bool initialized = false; // For code_manager
     bool inferred = false;
@@ -169,6 +177,7 @@ struct Ast_Literal : public Ast_Expression {
     Value_Type value_type = LITERAL_UNINITIALIZED;
 
     const char *string_value = nullptr;
+    size_t string_count = 0;
     double float_value = 0;
     int64_t integer_value = 0;
 };
@@ -358,7 +367,7 @@ struct Ast_Type_Definition : public Ast {
 
         else if (base == types.type_def_void) base_name = "void";
         else if (base == types.type_def_bool) base_name = "bool";
-        else if (base == types.type_def_string) base_name = "char *";
+        else if (base == types.type_def_string) base_name = "String";
         else if (base == types.type_def_any) base_name = "/*its an Any type*/";
         else if (base == types.type_def_null) base_name = "nullptr";
 
@@ -378,9 +387,9 @@ struct Ast_Array_Type : public Ast_Type_Definition {
 };
 
 struct Ast_Cast : public Ast_Expression {
-   Ast_Cast() {type = AST_CAST; }
+   Ast_Cast(Pool* = nullptr) {type = AST_CAST; }
 
-   Ast_Type_Definition *target_type = nullptr;
+   Ast_Type_Definition *cast_expression = nullptr;
    Ast_Expression *expression = nullptr;
 
 };
@@ -391,3 +400,5 @@ struct Ast_Import : public Ast_Expression {
    const char *import_path = nullptr;
 
 };
+
+

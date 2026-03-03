@@ -12,8 +12,8 @@
 }())
 
 #define FOR(type) \
-    for(int _i=0; _i < (type).count; ++_i)  \
-        for(auto *it = (type).data[_i]; it; it=nullptr)
+    for(int it_index=0; it_index < (type).count; ++it_index)  \
+        for(auto *it = (type).data[it_index]; it; it=nullptr)
 
 CodeManager::CodeManager(Pax_Interp *_interp)
 {
@@ -71,10 +71,10 @@ void CodeManager::report_error_impl(Ast *ast, const char *fmt, ...)
 #define report_error_with_previous(node, prev, ...) \
         report_error_with_previous_impl(            \
         static_cast<Ast*>(node),                    \
-        static_cast<Ast*>(node),                    \
+        static_cast<Ast*>(prev),                    \
         __VA_ARGS__)                                \
 
-void CodeManager::report_error_with_previous_impl(Ast *ast_node, Ast *ast_prev, const char *fmt, ...) {
+    void CodeManager::report_error_with_previous_impl(Ast *ast_node, Ast *ast_prev, const char *fmt, ...) {
     constexpr size_t BUFFER_SIZE = 512;
     char buffer[BUFFER_SIZE];
 
@@ -125,32 +125,24 @@ void CodeManager::pop_scope()
     if (scope_stack.count) scope_stack.pop_back();
 }
 
-Ast_Declaration *CodeManager::lookup_symbol(const char *name, Ast_Block *scope) {
-    for (int i = (int)scope_stack.count - 1; i >= 0; --i) {
-
-        Ast_Block* block = nullptr;
-        if (scope && scope->statements.count > 0) block = scope; else block = scope_stack.data[i]; // this is for the case where we can't rely on scope_stack.get_back() during resolve_member_access, we have to pass the scope of the unresolved dot expression that was saved during initial queuing. Its kinda messy i dont wanna deal with it right now ugh,.........
-        if(!block) continue;
-
-        for (int j = 0; j < block->statements.count; ++j) {
-            Ast_Statement *stmt = block->statements.data[j];
-            if (!stmt) continue;
-
-            if(stmt->type == AST_DECLARATION){
-                Ast_Declaration *decl = static_cast<Ast_Declaration*>(stmt);
-                if (decl->identifier && strcmp(decl->identifier->name, name) == 0) {
-                    return decl;
-                }
-            }
-
-            if(stmt->expression && stmt->expression->type == AST_STRUCT){
-                auto *str_def = static_cast<Ast_Struct *>(stmt->expression);
-                if(str_def && strcmp(str_def->name, name) == 0){
-                    return static_cast<Ast_Declaration *>(stmt);
-                }
-            }
+Ast_Declaration* CodeManager::lookup_symbol(const char* name, Ast_Block* scope)
+{
+    if (scope) {
+        // for queued phases
+        Ast_Block* current = scope;
+        while (current) {
+            Ast_Declaration* decl = lookup_symbol_in_block(name, current);
+            if (decl) return decl;
+            current = current->parent;
         }
     }
+
+    // first pass
+    for (int i = scope_stack.count - 1; i >= 0; --i) {
+        Ast_Declaration* decl = lookup_symbol_in_block(name, scope_stack.data[i]);
+        if (decl) return decl;
+    }
+
     return nullptr;
 }
 
@@ -166,6 +158,12 @@ Ast_Declaration *CodeManager::lookup_symbol_current_scope(const char *name) {
         if (!stmt || stmt->type != AST_DECLARATION) continue;
 
         Ast_Declaration *decl = static_cast<Ast_Declaration*>(stmt);
+
+        for (int k = 0; k < decl->identifiers.count; ++k) {
+            if (decl->identifiers.data[k] && strcmp(decl->identifiers.data[k]->name, name) == 0)
+                return decl;
+        }
+
         if (decl->identifier && strcmp(decl->identifier->name, name) == 0) {
             return decl;
         }
@@ -173,21 +171,62 @@ Ast_Declaration *CodeManager::lookup_symbol_current_scope(const char *name) {
     return nullptr;
 }
 
-bool CodeManager::declare_variable(Ast_Declaration *decl, bool force_decl) {
-    if (!decl || !decl->identifier) return false;
+Ast_Declaration* CodeManager::lookup_symbol_in_block(const char* name, Ast_Block* block)
+{
+    if (!block) return nullptr;
 
-    auto *looked_up = lookup_symbol_current_scope(decl->identifier->name);
-    if (!force_decl && looked_up) {
-        report_error_with_previous(decl, looked_up, "Variable '%s' already declared", decl->identifier->name);
-        return false;
+    for (int j = 0; j < block->statements.count; ++j) {
+        Ast_Statement *stmt = block->statements.data[j];
+        if (!stmt || stmt->type != AST_DECLARATION) continue;
+
+        Ast_Declaration *decl = static_cast<Ast_Declaration*>(stmt);
+
+        for (int k = 0; k < decl->identifiers.count; ++k) {
+            if (decl->identifiers.data[k] && strcmp(decl->identifiers.data[k]->name, name) == 0)
+                return decl;
+        }
+
+        if (decl->identifier && strcmp(decl->identifier->name, name) == 0)
+            return decl;
     }
 
+    return nullptr;
+}
+
+bool CodeManager::declare_variable(Ast_Declaration *decl, bool force_decl) {
+    if (!decl || (!decl->identifier && decl->identifiers.count == 0)) return false;
+
+    bool is_multi = decl->identifiers.count > 0;
     Ast_Block *current_block = scope_stack.get_back();
+    if (!is_multi) {
+        if (!decl->identifier) return false;
 
-    decl->initialized = (decl->initializer != nullptr);
-    decl->my_scope = current_block;
-    current_block->statements.push_back(static_cast<Ast_Statement*>(decl));
+        auto *looked_up = lookup_symbol_current_scope(decl->identifier->name);
+        if (!force_decl && looked_up) {
+            report_error_with_previous(decl, looked_up, "Variable '%s' already declared", decl->identifier->name);
+            return false;
+        }
 
+        decl->initialized = (decl->initializer != nullptr);
+        decl->my_scope = current_block;
+        current_block->statements.push_back(static_cast<Ast_Statement*>(decl));
+        return true;
+
+    } else {
+        for (int i = 0; i < (int)decl->identifiers.count; i++) {
+            const char *name = decl->identifiers.data[i]->name;
+            auto *looked_up = lookup_symbol_current_scope(name);
+            if (!force_decl && looked_up) {
+                report_error_with_previous(decl, looked_up, "Variable '%s' already declared", name);
+                return false;
+            }
+        }
+
+        decl->initialized = (decl->initializers != nullptr);
+        decl->my_scope = current_block;
+        current_block->statements.push_back(static_cast<Ast_Statement*>(decl));
+        return true;
+    }
     return true;
 }
 
@@ -372,21 +411,46 @@ void CodeManager::resolve_idents(Ast_Block *block) {
                         pop_scope();
                     }
                 } else {
-                    Ast_Declaration *is_decl = lookup_symbol_current_scope(decl->identifier->name);
-                    if (!is_decl) {
-                        declare_variable(decl, true);
+                    if(decl->identifier) {
+                        Ast_Declaration *is_decl = lookup_symbol_current_scope(decl->identifier->name);
+                        if (!is_decl) {
+                            declare_variable(decl, true);
+                        }
+                        else {
+                            // printf("%p \n %p \n", decl, is_decl);
+                            report_error_with_previous(decl, is_decl, "Variable '%s' already declared.", decl->identifier->name);
+                        }
                     }
                     else {
-                        report_error(decl, "Variable '%s' already declared.", decl->identifier->name);
+                        bool collision = false;
+                        FOR(decl->identifiers) {
+                            Ast_Declaration *is_decl = lookup_symbol_current_scope(it->name);
+
+                            if (is_decl && is_decl != decl) {
+                                report_error(decl, "Variable '%s' already declared.", it->name);
+                                collision = true;
+                            }
+
+                            if (!collision) {
+                                declare_variable(decl, true);
+                            }
+                        }
+                    }
+
+                    if (!decl->is_function && decl->initializers && decl->identifiers.count > 0) {
+                        FOR(decl->initializers->arguments) {
+                            resolve_idents_in_expr(it, block);
+                        }
+                        continue;
                     }
 
                     bool should_queue = true;
                     if (decl->declared_type && !decl->is_function) {
+                        resolve_idents_in_declaration(decl);
                         Ast_Type_Definition *base = get_base_type(decl->declared_type);
 
                         if (base && base->is_unresolved) {
-                            resolve_idents_in_declaration(decl);
-                            if(base->is_unresolved) should_queue = false; // so we dont end up queueing this decl second time below... because it should have already been queued if its still unresolved
+                            should_queue = false; // already queued inside resolve_idents_in_declaration
                         }
 
                         if (base && base->struct_def) {
@@ -394,12 +458,8 @@ void CodeManager::resolve_idents(Ast_Block *block) {
                             create_type_instantiation(decl->declared_type);
                         }
                     }
-
-
-                    if (decl->initializer) {
-                        resolve_idents_in_declaration(decl);
-                    }
-                    else if (decl->declared_type && (decl->declared_type->is_unresolved || decl->declared_type->pointed_to_type)) {
+                    else if (decl->declared_type && (decl->declared_type->is_unresolved || decl->declared_type->pointed_to_type))
+                    {
                         Ast_Type_Definition *base = get_base_type(decl->declared_type);
 
                         if (base->is_unresolved && base->name) {
@@ -444,13 +504,7 @@ void CodeManager::resolve_idents(Ast_Block *block) {
             resolve_idents_in_expr(stmt->expression);
         } else if (stmt->block) {
             push_scope();
-            if (stmt->block->is_scoped_block) {
-                push_scope();
-            }
             resolve_idents(stmt->block);
-            if (stmt->block->is_scoped_block) {
-                pop_scope();
-            }
             pop_scope();
         } else if (stmt->type == AST_WHILE){
             Ast_While *_while = static_cast<Ast_While*>(stmt);
@@ -634,6 +688,24 @@ void CodeManager::create_type_instantiation(Ast_Type_Definition *type) {
 
 }
 
+void CodeManager::try_resolve_type_on_decl(Ast_Declaration *owner, Ast_Type_Definition *&ty)
+{
+    if (!owner || !ty) return;
+
+    Ast_Type_Definition *base = get_base_type(ty);
+    if (!base || !base->is_unresolved || !base->name) return;
+
+    Ast_Type_Definition *def = find_struct_type_in_scopes(base->name);
+    if (def && def->struct_def) {
+        base->struct_def    = def->struct_def;
+        base->is_unresolved = false;
+
+        ty = clone_type_definition(ty);
+        create_type_instantiation(ty);
+    } else {
+        push_unresolved_type(owner, base);
+    }
+}
 
 void CodeManager::resolve_idents_in_declaration(Ast_Declaration *decl)
 {
@@ -644,52 +716,35 @@ void CodeManager::resolve_idents_in_declaration(Ast_Declaration *decl)
     }
 
     if (decl->declared_type) {
-        Ast_Type_Definition *t = get_base_type(decl->declared_type);
-        if (t->is_unresolved && t->name) {
-            push_unresolved_type(decl, t);
+        if (decl->declared_type->type == AST_ARRAY_TYPE) {
+            auto *arr_type = static_cast<Ast_Array_Type*>(decl->declared_type);
+            resolve_array_types(arr_type, decl);
         }
+        else if (decl->declared_type->pointed_to_type) {
+            // pointer-to-array case
+            Ast_Array_Type *arr_type = ast_static_cast<Ast_Array_Type>(decl->declared_type, AST_ARRAY_TYPE);
 
-        // if we have pointer-to-array and can resolve it early
-        if (decl->declared_type->pointed_to_type) {
-            auto *arr_type = ast_static_cast<Ast_Array_Type>(decl->declared_type, AST_ARRAY_TYPE);
-            // auto *arr = static_cast<Ast_Array_Type*>(type);
             if (!arr_type) {
-                bool inside_pointer = false;
-
                 Ast_Type_Definition *walker = decl->declared_type;
                 while (walker) {
-                    // If walker points to our array type, then array is behind pointer
-                    if (walker->pointed_to_type == decl->declared_type) {
-                        inside_pointer = true;
+                    if (walker->type == AST_ARRAY_TYPE) {
+                        arr_type = static_cast<Ast_Array_Type*>(walker);
                         break;
                     }
-
-                    if (walker->pointed_to_type) {
-                        walker = walker->pointed_to_type;
-                    }
-                    else if (walker->type == AST_ARRAY_TYPE) {
-                        auto *wa = static_cast<Ast_Array_Type*>(walker);
-                        arr_type = wa;
-                        walker = wa->element_type;
-                    }
-                    else {
-                        break;
-                    }
+                    walker = walker->pointed_to_type;
                 }
             }
-            //auto *arr_type = static_cast<Ast_Array_Type*>(decl->declared_type->pointed_to_type);
 
             if (arr_type && !arr_type->struct_def) {
                 resolve_array_types(arr_type, decl);
             }
         }
+
+        try_resolve_type_on_decl(decl, decl->declared_type);
     }
 
     if (decl->return_type) {
-        Ast_Type_Definition *t = get_base_type(decl->return_type);
-        if (t->is_unresolved && t->name) {
-            push_unresolved_type(decl, t);
-        }
+        try_resolve_type_on_decl(decl, decl->return_type);
     }
 }
 
@@ -770,15 +825,6 @@ void CodeManager::resolve_unresolved_calls()
         if (!decl->is_function) {
             report_error(call, "'%s' is not a function", fn->name);
             continue;
-        }
-
-        if (call->arguments && strcmp(call->function->name, "sizeof") != 0) {
-            FOR(call->arguments->arguments){
-                scope_stack.push_back(my_scope);
-                resolve_idents_in_expr(it);
-                scope_stack.pop_back();
-
-            }
         }
 
         int call_arg_count = call->arguments ? call->arguments->arguments.count : 0;
@@ -1072,16 +1118,15 @@ Ast_Declaration *CodeManager::resolve_member_access(Ast_Binary *dot_expr, Ast_Bl
     if (!base_type && dot_expr->lhs->type == AST_IDENT) {
         Ast_Ident *base_name = static_cast<Ast_Ident*>(dot_expr->lhs);
         base_decl = lookup_symbol(base_name->name, my_scope);
-
         if (!base_decl) {
-            
-            if (!should_infer) { // during phase 1, we can queue
+            if (should_infer) {
+                base_decl = lookup_symbol(base_name->name, scope_stack.data[0]);
+
+            }
+        }
+        if (!base_decl) {
                 if (!skip_queuing) push_unresolved_member_access(dot_expr);
                 return nullptr;
-            }
-            // during later phase, we treat as error
-            report_error(base_name, "Undeclared member variable '%s'", base_name->name);
-            return nullptr;
         }
 
         base_type = base_decl->declared_type;
@@ -1123,7 +1168,7 @@ Ast_Declaration *CodeManager::resolve_member_access(Ast_Binary *dot_expr, Ast_Bl
     }
 
     if (!base_type) {
-        
+
         if (!dot_expr->lhs->inferred_type) {
             resolve_idents_in_expr(dot_expr->lhs, my_scope);
         }
@@ -1229,6 +1274,66 @@ void CodeManager::resolve_idents_in_expr(Ast_Expression *expr, Ast_Block *my_sco
         auto *b = static_cast<Ast_Binary*>(expr);
 
         if (b->op == BINOP_ASSIGN) {
+            if (b->lhs->type == AST_COMMA_SEPARATED_ARGS) {
+                Ast_Comma_Separated_Args *lhs_args = static_cast<Ast_Comma_Separated_Args*>(b->lhs);
+
+                if (b->rhs->type == AST_COMMA_SEPARATED_ARGS) {
+                    Ast_Comma_Separated_Args *rhs_args = static_cast<Ast_Comma_Separated_Args*>(b->rhs);
+
+                    if (rhs_args->arguments.count == 1) {
+                        Ast_Expression *single_rhs = rhs_args->arguments.data[0];
+                        resolve_idents_in_expr(single_rhs, my_scope);
+
+                        for (int i = 0; i < lhs_args->arguments.count; i++) {
+                            Ast_Expression *l_expr = lhs_args->arguments.data[i];
+                            resolve_idents_in_expr(l_expr, my_scope);
+
+                            if (l_expr->type == AST_IDENT) {
+                                Ast_Ident *l_ident = static_cast<Ast_Ident*>(l_expr);
+                                Ast_Declaration *decl = lookup_symbol(l_ident->name);
+                                if (decl) decl->initialized = true;
+                            }
+                        }
+                        return;
+                    }
+
+                    if (lhs_args->arguments.count != rhs_args->arguments.count) {
+                        report_error(b, "Number of variables on LHS (%d) does not match number of values on RHS (%d)",
+                                     lhs_args->arguments.count, rhs_args->arguments.count);
+                        return;
+                    }
+
+                    for (int i = 0; i < lhs_args->arguments.count; i++) {
+                        Ast_Expression *l_expr = lhs_args->arguments.data[i];
+                        Ast_Expression *r_expr = rhs_args->arguments.data[i];
+
+                        resolve_idents_in_expr(l_expr, my_scope);
+                        resolve_idents_in_expr(r_expr, my_scope);
+
+                        if (l_expr->type == AST_IDENT) {
+                            Ast_Ident *l_ident = static_cast<Ast_Ident*>(l_expr);
+                            Ast_Declaration *decl = lookup_symbol(l_ident->name);
+                            if (decl) decl->initialized = true;
+                        }
+                    }
+                    return;
+
+                } else {
+                    resolve_idents_in_expr(b->rhs, my_scope);
+
+                    FOR(lhs_args->arguments) {
+                        resolve_idents_in_expr(it, my_scope);
+
+                        if (it->type == AST_IDENT) {
+                            Ast_Ident *l_ident = static_cast<Ast_Ident*>(it);
+                            Ast_Declaration *decl = lookup_symbol(l_ident->name);
+                            if (decl) decl->initialized = true;
+                        }
+                    }
+                    return;
+                }
+            }
+
             if(b->lhs->type == AST_BINARY){
                 Ast_Binary *lhs_binary = static_cast<Ast_Binary *>(b->lhs);
                 if (lhs_binary->op == BINOP_ARRAY_SUBSCRIPT) {
@@ -1361,6 +1466,13 @@ void CodeManager::resolve_idents_in_expr(Ast_Expression *expr, Ast_Block *my_sco
 
             Ast_Declaration *decl= lookup_symbol(fn->name);
             if (!decl) {
+
+                if (call->arguments) {
+                    // even if we haven't found the function declartion yet, we can still resolve the arguments and let the second pass handle function decl
+                    FOR(call->arguments->arguments){
+                        resolve_idents_in_expr(it, my_scope);
+                    }
+                }
                 push_unresolved_call(call);
             } else if (!decl->is_function) {
                 report_error(fn, "'%s' is not a function", fn->name);
@@ -1588,25 +1700,46 @@ void CodeManager::infer_types_expr(Ast_Expression **expr_ptr)
             }
             return;
         }
-
         case AST_IDENT: {
             Ast_Ident *id = static_cast<Ast_Ident *>(expr);
             Ast_Declaration *decl = lookup_symbol(id->name);
 
-            if (decl)
-            {
-                if (decl->is_function) {
-                    expr->inferred_type = decl->return_type;
-                }else if (decl->declared_type) {
-                    expr->inferred_type = decl->declared_type;
-                } else if (decl->initialized && !decl->inferred) {
-                    infer_types_expr(&decl->initializer);
-                    expr->inferred_type = decl->initializer->inferred_type;
-                } else {
-                    expr->inferred_type = _type->type_def_dummy;
+            if (!decl) {
+                report_error(id, "Use of undeclared identifier '%s'", id->name);
+                expr->inferred_type = _type->type_def_dummy;
+                break;
+            }
+
+            // Functions unchanged
+            if (decl->is_function) {
+                expr->inferred_type = decl->return_type;
+                break;
+            }
+
+            if (decl->identifiers.count > 0) {
+                Ast_Type_Definition* t = nullptr;
+
+                FOR(decl->identifiers){
+                    if (it && strcmp(it->name, id->name) == 0) {
+                        if (it_index < decl->identifier_types.count && decl->identifier_types.data[it_index]) {
+                            t = decl->identifier_types.data[it_index]; // comes from initializers or declared_type
+                        }
+                        break;
+                    }
                 }
+
+                if (!t) t = decl->declared_type;
+                if (!t) t = _type->type_def_dummy;
+                expr->inferred_type = t;
+                break;
+            }
+
+            if (decl->declared_type) {
+                expr->inferred_type = decl->declared_type;
+            } else if (decl->initialized && !decl->inferred && decl->initializer) {
+                infer_types_expr(&decl->initializer);
+                expr->inferred_type = decl->initializer->inferred_type;
             } else {
-                // report_error(id, "Use of undeclared identifier '%s'", id->name);  // COME BACK TO THIS SHIT
                 expr->inferred_type = _type->type_def_dummy;
             }
             break;
@@ -1847,7 +1980,7 @@ void CodeManager::infer_types_expr(Ast_Expression **expr_ptr)
                             expr->inferred_type = _type->type_def_float;
                         } else if (lt == _type->type_def_float32 || rt == _type->type_def_float32) {
                             expr->inferred_type = _type->type_def_float32;
-                        }else if (lt == _type->type_def_float64 || rt == _type->type_def_float64) {
+                        } else if (lt == _type->type_def_float64 || rt == _type->type_def_float64) {
                             expr->inferred_type = _type->type_def_float64;
                         } else if (lt == _type->type_def_int && rt == _type->type_def_int) {
                             expr->inferred_type = _type->type_def_int;
@@ -1965,6 +2098,100 @@ void CodeManager::infer_types_expr(Ast_Expression **expr_ptr)
 
 
                 case BINOP_ASSIGN: {
+                    if (b->lhs->type == AST_COMMA_SEPARATED_ARGS) {
+                        Ast_Comma_Separated_Args *lhs_args = static_cast<Ast_Comma_Separated_Args*>(b->lhs);
+
+                        if (b->rhs->type == AST_COMMA_SEPARATED_ARGS) {
+                            Ast_Comma_Separated_Args *rhs_args = static_cast<Ast_Comma_Separated_Args*>(b->rhs);
+
+                            if (rhs_args->arguments.count == 1) {
+                                Ast_Expression *single_rhs = rhs_args->arguments.data[0];
+                                infer_types_expr(&single_rhs);
+                                Ast_Type_Definition *rhsType = single_rhs->inferred_type;
+
+                                if (rhsType == _type->type_def_dummy) {
+                                    report_error(b, "Right-hand side of assignment has unknown type");
+                                    expr->inferred_type = _type->type_def_dummy;
+                                    return;
+                                }
+
+                                for (int i = 0; i < lhs_args->arguments.count; i++) {
+                                    Ast_Expression *l_expr = lhs_args->arguments.data[i];
+                                    infer_types_expr(&l_expr);
+
+                                    if (l_expr->inferred_type == _type->type_def_dummy) {
+                                        continue;
+                                    }
+
+                                    if (!check_that_types_match(l_expr->inferred_type, rhsType)) {
+                                        report_error(b, "Type mismatch in multiple assignment for variable at position %d. Expected '%s', got '%s'",
+                                                     i + 1, type_to_string(l_expr->inferred_type), type_to_string(rhsType));
+                                    }
+                                }
+                                expr->inferred_type = rhsType;
+                                return;
+                            }
+
+                            // Normal Pairwise checking
+                            if (lhs_args->arguments.count != rhs_args->arguments.count) {
+                                report_error(b, "Type Inference Error: Number of variables on LHS (%d) does not match number of values on RHS (%d)",
+                                             lhs_args->arguments.count, rhs_args->arguments.count);
+                                expr->inferred_type = _type->type_def_dummy;
+                                return;
+                            }
+
+                            for (int i = 0; i < lhs_args->arguments.count; i++) {
+                                Ast_Expression *l_expr = lhs_args->arguments.data[i];
+                                Ast_Expression *r_expr = rhs_args->arguments.data[i];
+
+                                infer_types_expr(&l_expr);
+                                infer_types_expr(&r_expr);
+
+                                if (l_expr->inferred_type == _type->type_def_dummy || r_expr->inferred_type == _type->type_def_dummy) {
+                                    continue;
+                                }
+
+                                if (!check_that_types_match(l_expr->inferred_type, r_expr->inferred_type)) {
+                                    report_error(b, "Type mismatch in multiple assignment at position %d. Expected '%s', got '%s'",
+                                                 i + 1, type_to_string(l_expr->inferred_type), type_to_string(r_expr->inferred_type));
+                                }
+                            }
+
+                            expr->inferred_type = rhs_args->arguments.get_back()->inferred_type;
+                            return;
+                        
+                        } else {
+                            infer_types_expr(&b->rhs);
+                            Ast_Type_Definition *rhsType = b->rhs->inferred_type;
+
+                            if (rhsType == _type->type_def_dummy) {
+                                report_error(b, "Right-hand side of assignment has unknown type");
+                                expr->inferred_type = _type->type_def_dummy;
+                                return;
+                            }
+
+                            bool is_rhs_single_value = true;
+
+                            if (is_rhs_single_value) {
+                                for (int i = 0; i < lhs_args->arguments.count; i++) {
+                                    Ast_Expression *l_expr = lhs_args->arguments.data[i];
+                                    infer_types_expr(&l_expr);
+
+                                    if (l_expr->inferred_type == _type->type_def_dummy) {
+                                        continue;
+                                    }
+
+                                    if (!check_that_types_match(l_expr->inferred_type, rhsType)) {
+                                        report_error(b, "Type mismatch in multiple assignment for variable at position %d. Expected '%s', got '%s'",
+                                                     i + 1, type_to_string(l_expr->inferred_type), type_to_string(rhsType));
+                                    }
+                                }
+
+                                expr->inferred_type = rhsType;
+                                return;
+                            }
+                        }
+                    }
                     infer_types_expr(&b->rhs);
                     Ast_Type_Definition *rhsType = b->rhs->inferred_type;
                     if (rhsType == _type->type_def_dummy) {
@@ -2219,28 +2446,18 @@ void CodeManager::infer_types_expr(Ast_Expression **expr_ptr)
                             report_error(fn, "Function '%s' return type mismatch", fn->name);
                         }
 
-                        int call_arg_count = call->arguments ? call->arguments->arguments.count : 0;
 
                         if (call->arguments) {
-
-                            for (int i = 0; i < call_arg_count; ++i) {
-                                Ast_Expression *arg = call->arguments->arguments.data[i];
-
-                                infer_types_expr(&arg);
-                                Ast_Type_Definition *arg_type = arg->inferred_type;
-                                Ast_Type_Definition *param_type = is_decl->parameters.data[i]->declared_type;
-                                // if (!check_that_types_match(param_type, arg_type)) {
-                                //     report_error(fn, "Type mismatch for argument %d in call to '%s'. Expected '%s', Got '%s'"
-                                //                         ,i + 1, fn->name,type_to_string(param_type), type_to_string(arg_type));
-                                // }
-
+                            FOR(call->arguments->arguments){
+                                infer_types_expr(&it);
+                                Ast_Type_Definition *arg_type = it->inferred_type;
+                                Ast_Type_Definition *param_type = is_decl->parameters.data[it_index]->declared_type;
                                 if (!check_that_types_match(param_type, arg_type)) {
-                                    if (!can_implicitly_convert_const(arg, param_type)) {
-                                        report_error(fn,
-                                            "Type mismatch for argument %d in call to '%s'. Expected '%s', Got '%s'",
-                                            i + 1, fn->name, type_to_string(param_type), type_to_string(arg_type));
+                                    if (!can_implicitly_convert_const(it, param_type)) {
+                                        report_error(it, "Type mismatch for argument %d in call to '%s'. Expected '%s', Got '%s'",
+                                                            it_index + 1, fn->name, type_to_string(param_type), type_to_string(arg_type));
                                     } else {
-                                        arg->inferred_type = param_type;
+                                        it->inferred_type = param_type;
                                     }
                                 }
                             }
@@ -2277,6 +2494,17 @@ void CodeManager::infer_types_expr(Ast_Expression **expr_ptr)
             break;
         }
 
+        case AST_CAST: {
+            Ast_Cast *c = static_cast<Ast_Cast*>(expr);
+
+            if (c->expression) {
+                infer_types_expr(&c->expression);
+            }
+            
+            // for casting is not checked
+            expr->inferred_type = c->cast_expression;
+            break;
+        }
         default:
             expr->inferred_type = _type->type_def_dummy;
             break;
@@ -2362,6 +2590,77 @@ long long CodeManager::wrap_integer_to_type(long long value, Ast_Type_Definition
 
 void CodeManager::infer_types_decl(Ast_Declaration *decl) {
     if (!decl) return;
+
+    if (decl->identifiers.count > 0) {
+        int n = decl->identifiers.count;
+        int init_count = decl->initializers ? decl->initializers->arguments.count : 0;
+
+        // a, b, c: int;
+        // a, b, c: int = 1, 2, 3;
+        // a, b, c := 1, 2, 3;
+        // a, b, c := 1;
+        if (decl->initializers) {
+            if (init_count != 1 && init_count != n) {
+                report_error(decl,
+                             "Number of initializers (%d) must match number of identifiers (%d) or be a single value",
+                             init_count, n);
+                return;
+            }
+        }
+
+        decl->identifier_types.count = 0;
+
+        for (int i = 0; i < n; ++i) {
+            Ast_Ident *id = decl->identifiers.data[i];
+            Ast_Expression *init_expr = nullptr;
+
+            if (decl->initializers) {
+                init_expr = (init_count == 1)
+                            ? decl->initializers->arguments.data[0]   // same expr for all
+                            : decl->initializers->arguments.data[i];  // per‑ident expr
+            }
+
+            Ast_Type_Definition *init_type = nullptr;
+
+            if (init_expr) {
+                Ast_Expression *expr = init_expr;
+                infer_types_expr(&expr);
+                init_type = expr->inferred_type;
+
+                if (!init_type) {
+                    report_error(decl, "Could not infer type for variable '%s' from initializer.", id->name);
+                    decl->identifier_types.push_back(_type->type_def_dummy);
+                    continue;
+                }
+            }
+
+            Ast_Type_Definition *decl_type = decl->declared_type;
+
+            if (decl_type) {
+                // Explicit type: reuse your literal‑fit logic, but per identifier.
+                // We *don’t* want to mutate decl->initializer here since we’re using initializers list.
+                if (init_expr && init_type && init_type != _type->type_def_dummy &&
+                    !check_that_types_match(decl_type, init_type)) {
+                    report_error(decl,
+                        "Type mismatch in initializer for '%s', Expected '%s' Got '%s'",
+                        id->name,
+                        type_to_string(decl_type),
+                        type_to_string(init_type));
+                }
+                decl->identifier_types.push_back(decl_type);
+            } else {
+                // Inferred type: a, b, c := ...
+                if (!init_type || init_type == _type->type_def_dummy) {
+                    report_error(decl, "Cannot infer type for variable '%s' without valid initializer.", id->name);
+                    decl->identifier_types.push_back(_type->type_def_dummy);
+                } else {
+                    decl->identifier_types.push_back(init_type);
+                }
+            }
+        }
+
+        return;
+    }
 
     if (decl->initializer) {
         Ast_Expression *expr = decl->initializer;
@@ -2546,11 +2845,24 @@ void CodeManager::infer_types_block(Ast_Block *block, Ast_Declaration *my_func)
                     pop_scope();
                 }
 
-            } else {
+            }
+            else {
 
-                Ast_Declaration *is_decl = lookup_symbol_current_scope(decl->identifier ? decl->identifier->name : "");
-                if (!is_decl) {
-                    declare_variable(decl);
+                bool is_global = (block->is_global_scope || (decl->my_scope && decl->my_scope->is_global_scope));
+                bool is_multi  = (decl->identifiers.count > 0);
+
+                if (!is_global) {
+                    if (is_multi) {
+                        declare_variable(decl);
+                    } else {
+
+                        if (decl->identifier && decl->identifier->name) {
+                            Ast_Declaration *is_decl = lookup_symbol_current_scope(decl->identifier->name);
+                            if (!is_decl) {
+                                declare_variable(decl);
+                            }
+                        }
+                    }
                 }
                 infer_types_decl(decl);
             }
@@ -2659,9 +2971,9 @@ bool CodeManager::check_that_types_match(Ast_Type_Definition *wanted, Ast_Type_D
 
     // Float promotions
     if ((wanted == _type->type_def_float || wanted == _type->type_def_float32) && have == _type->type_def_s64) return true;
-    if (wanted == _type->type_def_int && have == _type->type_def_s64) return true;
     if ((wanted == _type->type_def_float || wanted == _type->type_def_float32) && have == _type->type_def_int) return true;
 
+    if (wanted == _type->type_def_int && have == _type->type_def_s64) return true;
     if (wanted == _type->type_def_int && (have == _type->type_def_float || have == _type->type_def_float32)) return true;
 
     // Signed integer promotions

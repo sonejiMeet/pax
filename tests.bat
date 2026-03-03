@@ -34,6 +34,7 @@ for %%f in (
     demo_pass_nested_structs_with_members_as_pointers.pax
 
     demo_simple_nested_structs.pax
+    demo_string.pax
 ) do (
     set /a TOTAL_TEST+=1
     echo Testing %%f...
@@ -41,7 +42,7 @@ for %%f in (
 
     .\src\pax.exe .\tests\%%f > "!LOG!" 2>&1
 
-    if errorlevel 1 (
+    if errorlevel 3 (
         echo   FAILED
         set FAIL=1
         set FAIL_LIST=!FAIL_LIST! %%f
@@ -69,8 +70,6 @@ for %%f in (
         echo   FAILED ^(demo_fail passed but should have failed^)
         set FAIL=1
         set FAIL_LIST=!FAIL_LIST! %%f
-    ) else (
-        del "!LOG!" >nul 2>&1
     )
 )
 

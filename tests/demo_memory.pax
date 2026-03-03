@@ -19,7 +19,7 @@ main :: () {
 Data :: struct {
     x: int;
     y: int;
-    name: string;
+    name: ^u8;
 };
 
 // anyfunc :: (t: Any){
@@ -64,7 +64,7 @@ random_modules_testing :: () {
     d: Data;
     d.x = 42;
     d.y = 84;
-    d.name = "Main Data";
+    d.name = cast(^u8)"Main Data";
 
     printf("\nLocal struct: x=%d, y=%d, name=%s\n", d.x, d.y, d.name);
 

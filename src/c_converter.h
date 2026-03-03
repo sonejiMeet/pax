@@ -32,7 +32,7 @@ struct C_Converter {
             fputc(' ', out);
     }
 
-    std::vector<Ast_Statement*> topologically_sort_structs(const std::vector<Ast_Statement*>& structs);
+    Array<Ast_Statement*> topologically_sort_structs(Array<Ast_Statement*>& structs, Pool* pool);
     void emit_static_init_function(FILE *out,Array<Ast_Statement*> const &vars);
     void emit_struct_init_helper(FILE *out,  Ast_Statement *stmt);
 

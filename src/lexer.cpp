@@ -60,7 +60,7 @@ inline void Lexer::lexerError(const char *message) {
 Token *Lexer::stringToken()
 {
     const char *startPtr = Source + Pos+1; // start after quote
-    while (Pos < size && Source[Pos+1] != '"') {
+    while (Pos < size && (Source[Pos+1] != '"' || (Source[Pos] == '\\' && Source[Pos] != '"'))) { // also consider escape quote
         get_and_advance();
     }
 
@@ -207,6 +207,10 @@ Token *Lexer::identifierToken(char first)
 
     else if (strcmp(ident, "while") == 0) type = TOK_WHILE;
     else if (strcmp(ident, "break") == 0) type = TOK_BREAK;
+
+    else if (strcmp(ident, "cast") == 0) type = TOK_CAST;
+    // else if (strcmp(ident, "String") == 0) type = TOK_STRING;
+
     Token *t = makeToken(type, ident);
 
     free(ident);

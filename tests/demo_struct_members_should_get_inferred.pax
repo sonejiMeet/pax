@@ -8,7 +8,7 @@ main :: () {
     x := *c.data;
 }
 Config :: struct { // should be inferred
-    name:= "default";
+    name:= cast(^u8)"default";
     count := 10;
     data: ^int;
 };

@@ -76,13 +76,13 @@ inline void Array<T>::push_back(T value)
         data = new_data;
         capacity = new_cap;
     }
-   else {
+   // else {
 
-    #ifdef _DEBUG
-       printf("\n<<<<<<<< PUSH_BACK ___FAILEDD___ >>>>>>>>>>\n\n");
-    #endif
+   //  #ifdef _DEBUG
+   //     printf("\n<<<<<<<< PUSH_BACK ___FAILEDD___ >>>>>>>>>>\n\n");
+   //  #endif
 
-   }
+   // }
     data[count++] = value;
 }
 

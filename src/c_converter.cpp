@@ -1,4 +1,13 @@
 
+// DO NOT REMOVE THAT EXTRA LINE UNDER fprintf below
+#ifdef _DEBUG
+#define PRINT_DEBUG_INFO(out, ...) \
+        fprintf(out, __VA_ARGS__) \
+
+#else
+#define PRINT_DEBUG_INFO(out, ...)
+#endif
+
 const char *BOILTERPLATE_TOP =
     "/* GENERATED FILE */\n\n"
     "#include <stdlib.h>\n"
@@ -87,6 +96,35 @@ void C_Converter::emitExpression(FILE *out, Ast_Expression *expr, int indent, bo
 
         case AST_BINARY: {
             auto *bin = static_cast<Ast_Binary *>(expr);
+
+            if (bin->lhs->type == AST_COMMA_SEPARATED_ARGS) {
+                Ast_Comma_Separated_Args *lhs_args = static_cast<Ast_Comma_Separated_Args*>(bin->lhs);
+
+                if (bin->rhs->type == AST_COMMA_SEPARATED_ARGS) {
+                    Ast_Comma_Separated_Args *rhs_args = static_cast<Ast_Comma_Separated_Args*>(bin->rhs);
+
+                    if (rhs_args->arguments.count == 1) {
+                        fprintf(out, "(");
+                        for (int i = 0; i < lhs_args->arguments.count; i++) {
+                            emitExpression(out, lhs_args->arguments.data[i], indent);
+                            fprintf(out, " = ");
+                        }
+                        emitExpression(out, rhs_args->arguments.data[0], indent);
+                        fprintf(out, ")");
+                        return;
+                    }
+
+                    fprintf(out, "(");
+                    for (int i = 0; i < lhs_args->arguments.count; i++) {
+                        if (i > 0) fprintf(out, ", ");
+                        emitExpression(out, lhs_args->arguments.data[i], indent);
+                        fprintf(out, " = ");
+                        emitExpression(out, rhs_args->arguments.data[i], indent);
+                    }
+                    fprintf(out, ")");
+                    return;
+                }
+            }
             fprintf(out, "("); // we will enclose binary expression in parenthesis to prove our operator precedence does work correctly and we are not just copy pasting expressions to c code
 
             if(bin->op == BINOP_DOT){
@@ -140,17 +178,19 @@ void C_Converter::emitExpression(FILE *out, Ast_Expression *expr, int indent, bo
                         fprintf(out, "((");
 
                         // this part should really be inside type_to_c_string()
-                        std::string elem_type_str = "void";
+                        const char *elem_type_str = "void";
                         if(arr->element_type){
                             elem_type_str = arr->element_type->to_string(*_type);
                         }
-                        fprintf(out, "%s*)(*", elem_type_str.c_str());
+                        fprintf(out, "%s*)(*", elem_type_str);
 
                         emitExpression(out, bin->lhs, indent);
 
                         fprintf(out, ").data)[");
                         emitExpression(out, bin->rhs, indent);
                         fprintf(out, "]");
+                        if(strcmp(arr->element_type->name, "String") == 0)
+                            fprintf(out, ".data");
                     }
                     else {
                         emitExpression(out, bin->lhs, indent);
@@ -176,7 +216,7 @@ void C_Converter::emitExpression(FILE *out, Ast_Expression *expr, int indent, bo
                         fprintf(out, "((");
 
                         // this part should really be inside type_to_c_string()
-                        std::string elem_type_str = "void";
+                        const char *elem_type_str = "void";
                         int ptr_depth_2 = 0;
                         Ast_Type_Definition *base2 = arr->element_type;
 
@@ -186,7 +226,7 @@ void C_Converter::emitExpression(FILE *out, Ast_Expression *expr, int indent, bo
                         }
 
                         elem_type_str = base2->to_string(*_type);
-                        fprintf(out, "%s", elem_type_str.c_str());
+                        fprintf(out, "%s", elem_type_str);
                         for(int i = 0; i < ptr_depth_2; i++){
                             fprintf(out, "*");
                         }
@@ -210,6 +250,8 @@ void C_Converter::emitExpression(FILE *out, Ast_Expression *expr, int indent, bo
                         fprintf(out, ".data)[");
                         emitExpression(out, bin->rhs, indent);
                         fprintf(out, "]");
+                        if(strcmp(arr->element_type->name, "String") == 0)  // for arrays of String type
+                            fprintf(out, ".data");
                     }
                     else {
                         emitExpression(out, bin->lhs, indent);
@@ -223,7 +265,7 @@ void C_Converter::emitExpression(FILE *out, Ast_Expression *expr, int indent, bo
                 switch (bin->op){
                     case BINOP_ADD: fprintf(out, " + "); break;
                     case BINOP_SUB: fprintf(out, " - "); break;
-                    case BINOP_MUL: fprintf(out, "  *"); break;
+                    case BINOP_MUL: fprintf(out, " * "); break;
                     case BINOP_DIV: fprintf(out, " / "); break;
                     case BINOP_EQ:  fprintf(out, " == "); break;
                     case BINOP_NEQ: fprintf(out, " != "); break;
@@ -263,6 +305,19 @@ void C_Converter::emitExpression(FILE *out, Ast_Expression *expr, int indent, bo
                 }
             }
             fprintf(out, ")");
+            break;
+        }
+        case AST_CAST: {
+            auto *cast = static_cast<Ast_Cast*>(expr);
+
+            type_to_c_string(out, cast->cast_expression, nullptr, false, indent);
+
+            fprintf(out, "(");
+            if (cast->expression) {
+                emitExpression(out, cast->expression, indent);
+            }
+            fprintf(out, ")");
+
             break;
         }
 
@@ -308,37 +363,100 @@ void C_Converter::type_to_c_string(FILE *out, Ast_Type_Definition *type, Ast_Dec
     }
 
     if(decl){
-        fprintf(out, "%s %s", type_str.c_str(), decl->identifier->name);
+        if(decl->identifier){
+            fprintf(out, "%s %s", type_str.c_str(), decl->identifier->name);
 
-        if(decl->initializer && !should_initializer){
-            fprintf(out, " = ");
+            if(decl->initializer && !should_initializer){
+                fprintf(out, " = ");
 
-            // should not fall here normally
-            // if we need a cast Dynamic_Array* to Static_Array*
-            if(pointer_depth > 0 && current->type == AST_ARRAY_TYPE && current->struct_def){
-                const char *target_struct = current->struct_def->name;
+                // should not fall here normally
+                // if we need a cast Dynamic_Array* to Static_Array*
+                if(pointer_depth > 0 && current->type == AST_ARRAY_TYPE && current->struct_def){
+                    const char *target_struct = current->struct_def->name;
 
-                // If initializer is address-of dynamic array, cast it
-                if(decl->initializer->type == AST_UNARY){
-                    auto *unary = static_cast<Ast_Unary*>(decl->initializer);
-                    if(unary->op == UNARY_ADDRESS_OF && unary->operand->inferred_type){
-                        Ast_Type_Definition *operand_type = unary->operand->inferred_type;
+                    // If initializer is address-of dynamic array, cast it
+                    if(decl->initializer->type == AST_UNARY){
+                        auto *unary = static_cast<Ast_Unary*>(decl->initializer);
+                        if(unary->op == UNARY_ADDRESS_OF && unary->operand->inferred_type){
+                            Ast_Type_Definition *operand_type = unary->operand->inferred_type;
 
-                        if(operand_type->type == AST_ARRAY_TYPE && operand_type->struct_def){
-                            const char *source_struct = operand_type->struct_def->name;
+                            if(operand_type->type == AST_ARRAY_TYPE && operand_type->struct_def){
+                                const char *source_struct = operand_type->struct_def->name;
 
-                            // Dynamic → Static view cast
-                            if(strcmp(target_struct, "Static_Array") == 0 &&
-                                strcmp(source_struct, "Dynamic_Array") == 0){
-                                fprintf(out, "(struct Static_Array *)");
+                                // Dynamic → Static view cast
+                                if(strcmp(target_struct, "Static_Array") == 0 &&
+                                    strcmp(source_struct, "Dynamic_Array") == 0){
+                                    fprintf(out, "(struct Static_Array *)");
+                                }
                             }
                         }
                     }
                 }
-            }
 
-            emitExpression(out, decl->initializer, indent);
+                emitExpression(out, decl->initializer, indent);
+            }
         }
+        else {
+            int current_idx = 0;
+
+            FOR(decl->identifiers) {
+                indentLine(out, indent);
+
+                Ast_Type_Definition *this_type = nullptr;
+                if (current_idx < decl->identifier_types.count &&
+                    decl->identifier_types.data[current_idx]) {
+                    this_type = decl->identifier_types.data[current_idx];
+                } else {
+                    this_type = decl->declared_type;
+                }
+
+                std::string this_type_str;
+                Ast_Type_Definition *current = this_type;
+                int ptr_depth_local = 0;
+                while (current && current->pointed_to_type) {
+                    ptr_depth_local++;
+                    current = current->pointed_to_type;
+                }
+
+                if (current) {
+                    if (current->type == AST_ARRAY_TYPE && current->struct_def == nullptr) {
+                        this_type_str = "Static_Array";
+                    } else {
+                        this_type_str = current->to_string(*_type);
+                    }
+                } else {
+                    this_type_str = "/*unknown type*/";
+                }
+                for (int p = 0; p < ptr_depth_local; ++p) {
+                    this_type_str += " *";
+                }
+
+                indentLine(out, indent);
+                fprintf(out, "%s %s", this_type_str.c_str(), it->name);
+
+
+                if ((decl->initializer || decl->initializers) && !should_initializer) {
+                    fprintf(out, " = ");
+
+                    Ast_Expression* expr_to_print = nullptr;
+
+                    if (decl->initializers) {
+                        expr_to_print = decl->initializers->arguments.data[current_idx];
+                    }
+                    else {
+                        expr_to_print = decl->initializer;
+                    }
+
+                    if (expr_to_print) {
+                        emitExpression(out, expr_to_print, indent);
+                    }
+                }
+
+                fprintf(out, ";\n");
+                current_idx++;
+            }
+        }
+
     } else {
         fprintf(out, "(%s)", type_str.c_str());
     }
@@ -393,7 +511,6 @@ void C_Converter::emitStruct(FILE *out, Ast_Statement *stmt, int indent){
 void C_Converter::emitStatement(FILE *out, Ast_Statement *stmt, int indent, bool is_else_if)
 {
     if(!stmt) return;
-    // fprintf(out, "#line %d \"%s\"\n", stmt->line_number, stmt->file_name);
     switch (stmt->type){
 
         case AST_DECLARATION: {
@@ -401,7 +518,7 @@ void C_Converter::emitStatement(FILE *out, Ast_Statement *stmt, int indent, bool
             auto *decl = static_cast<Ast_Declaration*>(stmt);
 
             if(decl->is_function){
-                fprintf(out, "#line %d \"%s\"\n", stmt->line_number, stmt->file_name);
+                PRINT_DEBUG_INFO(out, "#line %d \"%s\"\n", stmt->line_number, stmt->file_name);
 
                 // fprintf(out, "\n");
                 indentLine(out, indent);
@@ -434,6 +551,61 @@ void C_Converter::emitStatement(FILE *out, Ast_Statement *stmt, int indent, bool
                 break;
             }
 
+        if (decl->identifiers.count > 0 && decl->declared_type && decl->declared_type->type == AST_ARRAY_TYPE) {
+
+                Ast_Array_Type *arr = static_cast<Ast_Array_Type*>(decl->declared_type);
+
+                if (!arr->is_resizable && arr->size_expr && arr->size_expr->type == AST_LITERAL) 
+                {
+                    long long size = 0;
+                    Ast_Literal *lit = static_cast<Ast_Literal*>(arr->size_expr);
+                    if (lit->value_type == LITERAL_NUMBER) {
+                        size = lit->integer_value;
+                    }
+
+                    Ast_Type_Definition *elem = arr->element_type;
+                    int elem_ptr_depth = 0;
+                    while (elem && elem->pointed_to_type) {
+                        elem_ptr_depth++;
+                        elem = elem->pointed_to_type;
+                    }
+
+                    const char *elem_type_str = elem ? elem->to_string(*_type) : "void";
+
+                    // For each identifier: emit backing array + Static_Array header
+                    for (int i = 0; i < decl->identifiers.count; ++i) {
+                        Ast_Ident *id = decl->identifiers.data[i];
+                        if (!id || !id->name) continue;
+
+                        indentLine(out, indent);
+                        fprintf(out, "%s", elem_type_str);
+                        for (int p = 0; p < elem_ptr_depth; ++p) {
+                            fprintf(out, "*");
+                        }
+                        fprintf(out, " __data__%s[%lld];\n", id->name, size);
+
+                        indentLine(out, indent);
+                        fprintf(out, "Static_Array %s;\n", id->name);
+
+                        if (!decl->my_scope->is_global_scope) {
+
+                            indentLine(out, indent);
+                            fprintf(out, "%s.data = (void *)__data__%s;\n", id->name, id->name);
+
+                            indentLine(out, indent);
+                            fprintf(out, "%s.count = %lld;\n", id->name, size);
+
+                            if (arr->element_type && arr->element_type->struct_def) {
+                                Ast_Struct *st = arr->element_type->struct_def;
+                                indentLine(out, indent);
+                                fprintf(out, "for(int _i=0; _i < %lld; ++_i) _init_%s(&((%s*)__data__%s)[_i]);\n", 
+                                        size, st->name, st->name, id->name);
+                            }
+                        }
+                    }
+                    break;
+                }
+            }
             indentLine(out, indent);
 
             // static array declarations
@@ -464,7 +636,7 @@ void C_Converter::emitStatement(FILE *out, Ast_Statement *stmt, int indent, bool
 
 
                     // this part should really be inside type_to_c_string()
-                    std::string elem_type_str = "void";
+                    const char *elem_type_str = "void";
 
                     int ptr_depth_2 = 0;
                     Ast_Type_Definition *base2 = arr->element_type;
@@ -476,7 +648,7 @@ void C_Converter::emitStatement(FILE *out, Ast_Statement *stmt, int indent, bool
 
                     elem_type_str = base2->to_string(*_type);
 
-                    fprintf(out, "%s", elem_type_str.c_str());
+                    fprintf(out, "%s", elem_type_str);
                     for(int i = 0; i < ptr_depth_2; i++){
                         fprintf(out, "*");
                     }
@@ -555,8 +727,11 @@ void C_Converter::emitStatement(FILE *out, Ast_Statement *stmt, int indent, bool
                     }
                 }
             }
-            type_to_c_string(out, decl->declared_type, decl, true, indent);
 
+            // type_to_c_string(out, decl->declared_type, decl, true, indent);
+
+            type_to_c_string(out, decl->declared_type ? decl->declared_type : (decl->identifier_types.count > 0 ? decl->identifier_types.data[0] : nullptr), 
+                             decl, true, indent);
 
             if(!decl->my_scope->is_global_scope && ptr_depth == 0)
             {
@@ -600,7 +775,7 @@ void C_Converter::emitStatement(FILE *out, Ast_Statement *stmt, int indent, bool
 
         case AST_STATEMENT: {
 
-            fprintf(out, "#line %d \"%s\"\n", stmt->line_number, stmt->file_name);
+            // PRINT_DEBUG_INFO(out, "#line %d \"%s\"\n", stmt->line_number, stmt->file_name);
 
             if(stmt->expression){
                 indentLine(out, indent);
@@ -617,7 +792,7 @@ void C_Converter::emitStatement(FILE *out, Ast_Statement *stmt, int indent, bool
             }
             else if(stmt->block){
 
-                fprintf(out, "#line %d \"%s\"\n", stmt->line_number, stmt->file_name);
+                PRINT_DEBUG_INFO(out, "#line %d \"%s\"\n", stmt->line_number, stmt->file_name);
 
                 indentLine(out, indent);
                 fprintf(out, "{\n");
@@ -636,8 +811,9 @@ void C_Converter::emitStatement(FILE *out, Ast_Statement *stmt, int indent, bool
 
         case AST_IF: {
 
-            if(!is_else_if) fprintf(out, "#line %d \"%s\"\n", stmt->line_number, stmt->file_name);
-
+            if(!is_else_if){
+                PRINT_DEBUG_INFO(out, "#line %d \"%s\"\n", stmt->line_number, stmt->file_name);
+            }
             auto *ifstmt = static_cast<Ast_If*>(stmt);
 
             if(!is_else_if) indentLine(out, indent);
@@ -667,7 +843,7 @@ void C_Converter::emitStatement(FILE *out, Ast_Statement *stmt, int indent, bool
 
         case AST_WHILE: {
 
-            fprintf(out, "#line %d \"%s\"\n", stmt->line_number, stmt->file_name);
+            PRINT_DEBUG_INFO(out, "#line %d \"%s\"\n", stmt->line_number, stmt->file_name);
 
             auto *while_stmt = static_cast<Ast_While*>(stmt);
             indentLine(out, indent);
@@ -709,74 +885,124 @@ void C_Converter::emitBlock(FILE *out, Ast_Block *block, int indent)
     // fprintf(out, "}\n");
 }
 
-std::vector<Ast_Statement*>
-C_Converter::topologically_sort_structs(const std::vector<Ast_Statement*>& structs){
+struct Struct_Dependency {
+    Ast_Struct* key;
+    Array<Ast_Struct*> values;
+};
 
-    // Build dependency map: struct -> structs it depends on
-    std::map<Ast_Struct*, std::set<Ast_Struct*>> dependencies;
+static bool contains_struct(Array<Ast_Struct*>& arr, Ast_Struct* s) {
+    for(long i = 0; i < arr.count; ++i) {
+        if(arr.data[i] == s) return true;
+    }
+    return false;
+}
 
-    for(auto *stmt : structs){
-        Ast_Struct *s = static_cast<Ast_Struct*>(stmt->expression);
+static Struct_Dependency* find_dependency(Array<Struct_Dependency>& deps,
+                                          Ast_Struct* s) {
+    for(long i = 0; i < deps.count; ++i) {
+        if(deps.data[i].key == s)
+            return &deps.data[i];
+    }
+    return nullptr;
+}
+static void visit_struct(Ast_Statement* stmt, Array<Ast_Statement*>& structs, Array<Struct_Dependency>& dependencies,
+                         Array<Ast_Struct*>& visited, Array<Ast_Struct*>& in_progress,Array<Ast_Statement*>& result) 
+{
+    Ast_Struct *s = static_cast<Ast_Struct*>(stmt->expression);
 
-        for(int i = 0; i < s->members.count; ++i){
-            Ast_Declaration *member = s->members.data[i];
-            if(!member || !member->declared_type) continue;
+    if(contains_struct(visited, s))
+        return;
 
-            Ast_Type_Definition *type = member->declared_type;
+    if(contains_struct(in_progress, s)) {
+        fprintf(stderr,
+            "Error: Circular struct dependency involving '%s'\n",
+            s->name ? s->name : "(unknown)");
+        exit(1);
+    }
 
-            // Skip pointers members
-            if(type->pointed_to_type) continue;
+    in_progress.push_back(s);
 
-            // only add dependency if member is a value of another struct
-            if(type->struct_def){
-                dependencies[s].insert(type->struct_def);
+    Struct_Dependency* dep = find_dependency(dependencies, s);
+    if(dep) {
+        for(long i = 0; i < dep->values.count; ++i) {
+            Ast_Struct* needed = dep->values.data[i];
+
+            for(long j = 0; j < structs.count; ++j) {
+                Ast_Statement* dep_stmt = structs.data[j];
+                Ast_Struct* candidate =
+                    static_cast<Ast_Struct*>(dep_stmt->expression);
+
+                if(candidate == needed) {
+                    visit_struct(dep_stmt, structs,
+                                 dependencies,
+                                 visited,
+                                 in_progress,
+                                 result);
+                    break;
+                }
             }
         }
     }
 
-    // Topological sort using DFS
-    std::vector<Ast_Statement*> result;
-    std::set<Ast_Struct*> visited;
-    std::set<Ast_Struct*> in_progress;
-
-    std::function<void(Ast_Statement*)> visit = [&](Ast_Statement *stmt){
-        Ast_Struct *s = static_cast<Ast_Struct*>(stmt->expression);
-
-        if(visited.count(s)) return;
-
-        if(in_progress.count(s)){
-            fprintf(stderr, "Error: Circular struct dependency involving '%s'\n", s->name ? s->name : "(unknown)");
-
-            exit(1);
+    for(long i = 0; i < in_progress.count; ++i) {
+        if(in_progress.data[i] == s) {
+            in_progress.data[i] =
+                in_progress.data[in_progress.count - 1];
+            in_progress.count--;
+            break;
         }
+    }
 
-        in_progress.insert(s);
+    visited.push_back(s);
+    result.push_back(stmt);
+}
 
-        // Visit dependencies first (depth-first)
-        if(dependencies.count(s)){
-            for(Ast_Struct *dep : dependencies.at(s)){
-                // Find statement forthis dependency
-                for(auto *dep_stmt : structs){
-                    if(static_cast<Ast_Struct*>(dep_stmt->expression) == dep){
-                        visit(dep_stmt);
-                        break;
-                    }
-                }
+Array<Ast_Statement*>
+C_Converter::topologically_sort_structs(Array<Ast_Statement*>& structs, Pool* pool)
+{
+    Array<Struct_Dependency> dependencies(pool);
+
+    // Build dependency map
+    for(long i = 0; i < structs.count; ++i) {
+        Ast_Statement* stmt = structs.data[i];
+        Ast_Struct* s =
+            static_cast<Ast_Struct*>(stmt->expression);
+
+        Struct_Dependency dep;
+        dep.key = s;
+        dep.values = Array<Ast_Struct*>(pool);
+
+        for(long m = 0; m < s->members.count; ++m) {
+            Ast_Declaration* member = s->members.data[m];
+            if(!member || !member->declared_type)
+                continue;
+
+            Ast_Type_Definition* type =
+                member->declared_type;
+
+            if(type->pointed_to_type)
+                continue;
+
+            if(type->struct_def) {
+                if(!contains_struct(dep.values, type->struct_def)) 
+                    dep.values.push_back(type->struct_def);
             }
         }
 
-        in_progress.erase(s);
-        visited.insert(s);
-        result.push_back(stmt);
-    };
+        dependencies.push_back(dep);
+    }
 
-    for(auto *stmt : structs){
-        visit(stmt);
+    Array<Ast_Statement*> result(pool);
+    Array<Ast_Struct*> visited(pool);
+    Array<Ast_Struct*> in_progress(pool);
+
+    for(long i = 0; i < structs.count; ++i) {
+        visit_struct(structs.data[i], structs, dependencies,
+                     visited, in_progress, result);
     }
 
     return result;
 }
-
 void C_Converter::emit_static_init_function(FILE *out, Array<Ast_Statement*> const &vars){
 
 
@@ -796,7 +1022,7 @@ void C_Converter::emit_static_init_function(FILE *out, Array<Ast_Statement*> con
         if(ptr_depth == 0 && base_type && base_type->type == AST_ARRAY_TYPE){
             auto* arr = static_cast<Ast_Array_Type*>(base_type);
             if(!arr->is_resizable && arr->size_expr &&
-                arr->size_expr->type == AST_LITERAL){
+               arr->size_expr->type == AST_LITERAL){
 
                 long long size = 0;
                 auto* lit = static_cast<Ast_Literal*>(arr->size_expr);
@@ -804,11 +1030,26 @@ void C_Converter::emit_static_init_function(FILE *out, Array<Ast_Statement*> con
                     size = lit->integer_value;
                 }
 
-                // backing array name: __data__<name>
-                fprintf(out, "    %s.data = (void *)__data__%s;\n",
-                        decl->identifier->name, decl->identifier->name);
-                fprintf(out, "    %s.count = %lld;\n",
-                        decl->identifier->name, size);
+                // Multi-var global: a, b, c: [N]T;
+                if (decl->identifiers.count > 0) {
+                    for (int k = 0; k < decl->identifiers.count; ++k) {
+                        Ast_Ident *id = decl->identifiers.data[k];
+                        if (!id || !id->name) continue;
+
+                        // backing array name: __data__<name>
+                        fprintf(out, "    %s.data = (void *)__data__%s;\n",
+                                id->name, id->name);
+                        fprintf(out, "    %s.count = %lld;\n",
+                                id->name, size);
+                    }
+                }
+                // Single-var global: a: [N]T;
+                else if (decl->identifier && decl->identifier->name) {
+                    fprintf(out, "    %s.data = (void *)__data__%s;\n",
+                            decl->identifier->name, decl->identifier->name);
+                    fprintf(out, "    %s.count = %lld;\n",
+                            decl->identifier->name, size);
+                }
             }
         }
     }
@@ -886,12 +1127,11 @@ void C_Converter::generate_cpp_code(const char *filename, Ast_Block *program)
 
     fprintf(out, "%s", BOILTERPLATE_TOP);
 
-    // cant replace this with Array<> yet because of sort structs....
-    std::vector<Ast_Statement*> structs; // TEMPORARY
-
+    Array<Ast_Statement*> structs;
     Array<Ast_Statement*> vars;
     Array<Ast_Declaration*> functions;
 
+    structs = interp->pool;
     vars = interp->pool;
     functions = interp->pool;
 
@@ -913,46 +1153,43 @@ void C_Converter::generate_cpp_code(const char *filename, Ast_Block *program)
 
     }
 
-    std::vector<Ast_Statement*> sorted_structs = topologically_sort_structs(structs);
+    Array<Ast_Statement*> sorted_structs = topologically_sort_structs(structs, interp->pool);
 
     fprintf(out, "/*STRUCT FORWARD DECLARATIONS*/\n");
-    for(auto *stmt : sorted_structs){
-        emitStructPrototype(out, stmt, 0);
+    FOR(sorted_structs){
+        emitStructPrototype(out, it, 0);
     }
     fprintf(out, "\n");
 
 
     fprintf(out, "/*GLOBAL FUNCTION FORWARD DECLARATIONS*/\n");
-    for(int i=0; i < functions.count; ++i){
-
-        emitFunctionPrototype(out, functions.data[i], 0);
+    FOR(functions){
+        emitFunctionPrototype(out, it, 0);
     }
     fprintf(out, "\n");
 
 
     fprintf(out, "/*STRUCTS DEFINITIONS*/\n");
-    for(auto *stmt : sorted_structs){
-        emitStruct(out, stmt, 4);
+    FOR(sorted_structs){
+        emitStruct(out, it, 4);
     }
     fprintf(out, "\n");
 
     fprintf(out, "/*BSS SECTION GLOBAL VARIAABLES*/\n");
-    for(int i=0; i < vars.count; ++i){
-
-        emitStatement(out, vars.data[i], 0);
+    FOR(vars){
+        emitStatement(out, it, 0);
     }
     fprintf(out, "\n");
 
     emit_static_init_function(out, vars);
-    for(auto *stmt : sorted_structs){
-        emit_struct_init_helper(out, stmt);
+    FOR(sorted_structs){
+        emit_struct_init_helper(out, it);
     }
 
 
     fprintf(out, "/*FUNCTION BODIES*/\n");
-    for(int i=0; i < functions.count; ++i){
-        auto *stmt = reinterpret_cast<Ast_Statement *>(functions.data[i]);
-        emitStatement(out, stmt, 0);
+    FOR(functions){
+        emitStatement(out, it, 0);
     }
     fprintf(out, "\n");
 
@@ -974,8 +1211,8 @@ void C_Converter::generate_cpp_code(const char *filename, Ast_Block *program)
         fclose(out);
         return;
     }
-
-    fprintf(out, "#line %d \"%s\"", mainBlock->line_number, mainBlock->file_name);
+    // -2 in the parameter below because of these two line void GENERATED_MAIN and init_global_ 
+    PRINT_DEBUG_INFO(out, "#line %d \"%s\"", mainBlock->line_number-2, mainBlock->file_name);
 
     fprintf(out, "\nvoid GENERATED_MAIN()");
     fprintf(out, "{\n");

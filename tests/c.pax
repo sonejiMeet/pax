@@ -1,0 +1,14 @@
+#import "General.pax"
+#import "String.pax"
+
+main :: (){
+	p_str: [5]String;
+	arr : ^[]String = &p_str;
+	arr[0] = cast(^u8)"idk what should I write";
+	printf("arr[0] = %s\n", arr[0]);
+
+	a: int = 256;
+	b: ^s8 = cast(^s8)&a;
+
+	printf("b = %d\n", *b);
+}

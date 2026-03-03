@@ -1,5 +1,7 @@
 #pragma once
 
+extern size_t LINE_COUNT = 0;
+
 struct Lexer
 {
     const char *Source; // entire file
@@ -65,7 +67,7 @@ struct Lexer
     {
        while (Pos < size) {
             char c = Source[Pos];
-
+            if( c== '\n') LINE_COUNT += 1;
             if (c == ' ' || c == '\t' || c == '\r' || c == '\n') {
                 get_and_advance();
                 continue;

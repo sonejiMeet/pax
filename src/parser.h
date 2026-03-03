@@ -19,6 +19,7 @@ struct Parser
     void advance();
 
     void parseError(const char *message, bool print_token_type = false);
+    void report_parse_error(const char *fmt, ...);
 
     void expect(TokenType expectedType, const char *errorMessage);
     void Expect(TokenType expectedType, const char *errorMessage);
@@ -43,8 +44,11 @@ struct Parser
 
     Ast_Type_Definition *parseTypeSpecifier();
     Ast_Declaration *parseVarDeclaration();
+    Ast_Statement *parseMultipleAssignment();
     Ast_If *parseIfStatement();
     Ast_Block *parseBlockStatement(bool scoped_block = false, bool if_block = false);
+    Ast_Comma_Separated_Args *parseCommaSeparatedExpressions();
+
     Ast_Procedure_Call_Expression *parseCall();
 
     Ast_Statement *parseStructDefinition();

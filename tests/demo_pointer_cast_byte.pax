@@ -1,0 +1,34 @@
+main :: () {
+
+	{
+		a: int = 255;
+		b:= cast(^u8)&a;
+		printf("b = %d\n", *b);
+
+		if *b != 255 printf("b != 255");
+	}
+
+	{
+		a: int = 6;
+		b:= cast(^u8)&a;
+		printf("b = %d\n", *b);
+
+		if *b != 6 printf("b != 6");
+	}
+
+	{
+		a: int = 256;
+		b:= cast(^u8)&a;
+		printf("b = %d\n", *b);
+
+		if *b != 0 printf("b != 0");
+	}
+
+	{
+		a: int = 256;
+		b:= cast(^s8)&a;
+		printf("b = %d\n", *b);
+
+		if *b != 0 printf("b != 0");
+	}
+}

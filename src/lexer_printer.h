@@ -1,13 +1,4 @@
 #pragma once
-#include "lexer.h"
-#include "token.h"
-#include "tools.h"
-
-#include "ast.h"
-#include "pool.h"
-
-#include <iostream>
-
 
 
 inline void printLex(FileBuffer buf, Pool *pool){

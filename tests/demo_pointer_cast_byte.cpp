@@ -16,21 +16,14 @@ typedef float      float32;
 typedef double     float64;
 
 /*STRUCT FORWARD DECLARATIONS*/
-struct Data_4;
 
 /*GLOBAL FUNCTION FORWARD DECLARATIONS*/
 
 /*STRUCTS DEFINITIONS*/
-struct Data_4 {
-    int * ptr;
-};
 
 /*BSS SECTION GLOBAL VARIAABLES*/
 
 void __init_global_static_arrays(){
-}
-
-inline void _init_Data_4(Data_4* self){
 }
 
 /*FUNCTION BODIES*/
@@ -38,14 +31,37 @@ inline void _init_Data_4(Data_4* self){
 
 void GENERATED_MAIN(){
     __init_global_static_arrays();
-    Data_4 d;
-    _init_Data_4(&d);
-    int i = 2544;
-    ((d.ptr) = (&i));
-    ((*(d.ptr)) = 224);
-    printf("*d.ptr = %d\n",(*(d.ptr)));
-    if(((*(d.ptr)) == 224)){
-        printf("This is correct\n");
+    {
+        int a = 255;
+        u8 * b = (u8 *)((&a));
+        printf("b = %d\n",(*b));
+        if(((*b) != 255)){
+            printf("b != 255");
+        }
+    }
+    {
+        int a = 6;
+        u8 * b = (u8 *)((&a));
+        printf("b = %d\n",(*b));
+        if(((*b) != 6)){
+            printf("b != 6");
+        }
+    }
+    {
+        int a = 256;
+        u8 * b = (u8 *)((&a));
+        printf("b = %d\n",(*b));
+        if(((*b) != 0)){
+            printf("b != 0");
+        }
+    }
+    {
+        int a = 256;
+        s8 * b = (s8 *)((&a));
+        printf("b = %d\n",(*b));
+        if(((*b) != 0)){
+            printf("b != 0");
+        }
     }
 }
 

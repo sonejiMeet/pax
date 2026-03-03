@@ -88,7 +88,7 @@ inline void _init_C(C* self){
 
 /*FUNCTION BODIES*/
 
-#line 6 "C:/pax/tests/demo_nested_structs.pax"
+
 void GENERATED_MAIN(){
     __init_global_static_arrays();
     AA sdf;
@@ -96,44 +96,33 @@ void GENERATED_MAIN(){
     AA * a = (&sdf);
     BB _b;
     _init_BB(&_b);
-#line 10 "C:/pax/tests/demo_nested_structs.pax"
     (((*a).b) = (&_b));
     CC _c;
     _init_CC(&_c);
-#line 12 "C:/pax/tests/demo_nested_structs.pax"
     (((*((*a).b)).c) = (&_c));
-#line 14 "C:/pax/tests/demo_nested_structs.pax"
     (((((*((*((*a).b)).c)).d).e).num) = 87);
     float local = ((((*((*((*a).b)).c)).d).e).num);
-#line 20 "C:/pax/tests/demo_nested_structs.pax"
     printf("local = %f\n",local);
     A first;
     _init_A(&first);
     B second;
     _init_B(&second);
-#line 23 "C:/pax/tests/demo_nested_structs.pax"
     ((first.b) = (&second));
     C third;
     _init_C(&third);
-#line 27 "C:/pax/tests/demo_nested_structs.pax"
     (((*(first.b)).c) = (&third));
-#line 28 "C:/pax/tests/demo_nested_structs.pax"
     (((*((*(first.b)).c)).final) = 24606);
     int some = ((*((*(first.b)).c)).final);
-#line 34 "C:/pax/tests/demo_nested_structs.pax"
     printf("some =  %d\n",some);
     A first1;
     _init_A(&first1);
     B second1;
     _init_B(&second1);
-#line 36 "C:/pax/tests/demo_nested_structs.pax"
     ((first1.b) = (&second1));
     C third1;
     _init_C(&third1);
-#line 38 "C:/pax/tests/demo_nested_structs.pax"
     (((*(first1.b)).c) = (&third1));
     int some1 = ((*((*(first1.b)).c)).final);
-#line 42 "C:/pax/tests/demo_nested_structs.pax"
     printf("some1 =  %d\n",some1);
 }
 

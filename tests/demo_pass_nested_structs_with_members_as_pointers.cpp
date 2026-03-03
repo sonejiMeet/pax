@@ -73,7 +73,6 @@ inline void _init_FF(FF* self){
 }
 
 /*FUNCTION BODIES*/
-#line 7 "C:/pax/tests/demo_pass_nested_structs_with_members_as_pointers.pax"
 void function_3 () {
     AA a;
     _init_AA(&a);
@@ -83,25 +82,18 @@ void function_3 () {
     _init_DD(&d);
     FF f;
     _init_FF(&f);
-#line 13 "C:/pax/tests/demo_pass_nested_structs_with_members_as_pointers.pax"
     ((a.b) = (&b));
-#line 14 "C:/pax/tests/demo_pass_nested_structs_with_members_as_pointers.pax"
     (((b.c).d) = (&d));
-#line 15 "C:/pax/tests/demo_pass_nested_structs_with_members_as_pointers.pax"
     (((d.e).f) = (&f));
-#line 17 "C:/pax/tests/demo_pass_nested_structs_with_members_as_pointers.pax"
     (((*(((*(((*(a.b)).c).d)).e).f)).value) = 42);
-#line 19 "C:/pax/tests/demo_pass_nested_structs_with_members_as_pointers.pax"
     printf("a.b.c.d.e.f.value = %d\n",((*(((*(((*(a.b)).c).d)).e).f)).value));
-#line 20 "C:/pax/tests/demo_pass_nested_structs_with_members_as_pointers.pax"
     printf("Sucess\n");
 }
 
 
-#line 5 "C:/pax/tests/demo_pass_nested_structs_with_members_as_pointers.pax"
+
 void GENERATED_MAIN(){
     __init_global_static_arrays();
-#line 6 "C:/pax/tests/demo_pass_nested_structs_with_members_as_pointers.pax"
     function_3();
 }
 
