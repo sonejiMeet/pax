@@ -9,4 +9,5 @@ Node :: struct {
 main :: () {
 	n : Node;
 	printf("n.a = %d\n", n.a);
+	if n.a != -351 printf("Test failed\n");
 }

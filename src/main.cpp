@@ -1,4 +1,4 @@
-// #define ENABLE_PROFILER
+#define ENABLE_PROFILER
 #include "all.h"
 
 #ifdef _DEBUG
@@ -20,7 +20,7 @@ extern const Def_Type *ttype = nullptr; // temporary
     return node;                                        \
 }())
 
-static void init_Def_Type(Def_Type *type, Pool *pool) {
+void init_Def_Type(Def_Type *type, Pool *pool) {
     type->type_def_dummy   = AST_NEW(pool, Ast_Type_Definition);
     type->type_def_int     = AST_NEW(pool, Ast_Type_Definition);
     type->type_def_s8      = AST_NEW(pool, Ast_Type_Definition);
@@ -43,7 +43,7 @@ static void init_Def_Type(Def_Type *type, Pool *pool) {
     type->literal_false    = AST_NEW(pool, Ast_Literal);
 }
 
-static void *default_allocator(int mode, size_t size, size_t old_size,
+void *default_allocator(int mode, size_t size, size_t old_size,
                                void *old_memory, void *allocator_data, int options)
 {
     switch(mode) {
@@ -103,22 +103,23 @@ int main(int argc, char **argv) {
     if (!interp.init(argv[1])) return 1;
     defer {interp.release();};
 
-    interp.run_frontend();
+    if(!interp.run_frontend()) return 1;
     interp.generate_cpp();
     interp.compile_cpp();
 #endif
 
     printf(" %s SUCCESS %s \n", "\x1B[0;32m", "\x1B[0m");
     printf("Total lines processed %zu\n", LINE_COUNT);
-    #ifdef _WIN32
-    #ifdef _DEBUG
-        _CrtMemState state;
-        _CrtMemCheckpoint(&state);
-        _CrtMemDumpStatistics(&state);
-        _CrtMemDumpAllObjectsSince(&state);
-        _CrtSetReportMode(_CRT_WARN, _CRTDBG_MODE_DEBUG);
-    #endif
-    #endif
+
+#ifdef _WIN32
+#ifdef _DEBUG
+    _CrtMemState state;
+    _CrtMemCheckpoint(&state);
+    _CrtMemDumpStatistics(&state);
+    _CrtMemDumpAllObjectsSince(&state);
+    _CrtSetReportMode(_CRT_WARN, _CRTDBG_MODE_DEBUG);
+#endif
+#endif
 
     return 0;
 }

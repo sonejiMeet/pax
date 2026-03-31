@@ -1,0 +1,6 @@
+main :: () {
+	{
+		a, b: [5]String;
+		a[0], b[0] = cast(^u8)"idk what should I write";
+	}
+}

@@ -93,7 +93,7 @@ void Parser::Expect(TokenType expectedType, const char *errorMessage)
 void Parser::synchronize() {
 
     while (current->type != TOK_END_OF_FILE) {
-        if (previous->type == TOK_SEMICOLON) return;
+        if (previous && previous->type == TOK_SEMICOLON) return;
         switch (current->type) {
             case TOK_IF:
             case TOK_WHILE:
@@ -347,7 +347,7 @@ Ast_Expression *Parser::parseExpression(int minPrecedence)
         Ast_Literal *node = AST_NEW(Ast_Literal);
         node->value_type = LITERAL_STRING;
         node->string_value = reinterpret_cast<const char*>(current->string_value.data);
-        node->string_count = current->string_value.count;
+        // node->string_count = current->string_value.count;
         advance();
         left = node;
     }
@@ -1307,7 +1307,7 @@ Ast_Block *Parser::parseProgram(bool skip_main)
     }
 
     if(!exitSuccess){
-        printf("\n\nExiting... There were errors.\n\n");
+        printf("\n\nErrors in parser. Exiting.\n");
         exit(1);
     }
     return program;

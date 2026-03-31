@@ -51,19 +51,19 @@ struct CodeManager {
     void is_everything_resolved(){
         bool should_exit = false;
         if(unresolved_calls.count != 0) {
-            printf("unresolved_calls is not empty broo\n");
+            printf("\nINTERNAL: unresolved_calls is not empty broo\n");
             should_exit = true;
         }
         if(unresolved_vars.count != 0) {
-            printf("unresolved_vars is not empty broo\n");
+            printf("\nINTERNAL: unresolved_vars is not empty broo\n");
             should_exit = true;
         }
         if(unresolved_types.count != 0) {
-            printf("unresolved_types is not empty broo\n");
+            printf("\nINTERNAL: unresolved_types is not empty broo\n");
             should_exit = true;
         }
         if(unresolved_member_accesses.count != 0) {
-            printf("unresolved_member_accesses is not empty broo\n");
+            printf("\nINTERNAL: unresolved_member_accesses is not empty broo\n");
             should_exit = true;
         }
         if(should_exit == true) exit(1);
@@ -96,11 +96,11 @@ struct CodeManager {
     bool has_return_statement(Ast_Block *block);
     bool all_paths_return(Ast_Block *block);
 
-    static inline Ast_Array_Type *as_array_type(Ast_Type_Definition *t) {
+    inline Ast_Array_Type *as_array_type(Ast_Type_Definition *t) {
         return (t && t->type == AST_ARRAY_TYPE) ? static_cast<Ast_Array_Type*>(t) : nullptr;
     }
 
-    static Ast_Type_Definition *get_base_type(Ast_Type_Definition *type);
+    Ast_Type_Definition *get_base_type(Ast_Type_Definition *type);
 
     void resolve_idents(Ast_Block *block);
 

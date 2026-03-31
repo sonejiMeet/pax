@@ -59,7 +59,7 @@ inline void Array<T>::push_back(T value)
 {
 
 #ifdef _DEBUG
-   printf("\n<<<<<<<< PUSH_BACK >>>>>>>>>>\n\n");
+   // printf("\n<<<<<<<< PUSH_BACK >>>>>>>>>>\n\n");
 #endif
 
     assert(pool && "Array's pool pointer is null!");
@@ -209,10 +209,10 @@ inline void *pool_alloc(Pool *pool, size_t size) {
     pool->bytes_left -= size;
 
  #ifdef _DEBUG
-     totalNbyte += (int) size;
-     printf("[POOL_ALLOC] extra=%zu\n", extra);
-     printf("[POOL_ALLOC] %zu bytes %p\n", size, retval);
-     printf("[POOL_ALLOC TOTAL SO FAR] %d bytes, %f KiB\n", totalNbyte, (float)totalNbyte/1024);
+     // totalNbyte += (int) size;
+     // printf("[POOL_ALLOC] extra=%zu\n", extra);
+     // printf("[POOL_ALLOC] %zu bytes %p\n", size, retval);
+     // printf("[POOL_ALLOC TOTAL SO FAR] %d bytes, %f KiB\n", totalNbyte, (float)totalNbyte/1024);
  #endif
 
     return retval;

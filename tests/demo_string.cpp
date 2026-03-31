@@ -23,7 +23,7 @@ struct String;
 /*GLOBAL FUNCTION FORWARD DECLARATIONS*/
 Dynamic_Array __NewArray_impl(s64 count, s64 element_size);
 s64 strlen(u8 * str);
-String new_string(u8 * cstr);
+String New_String(u8 * cstr);
 String concat(String a, String b);
 String slice(String s, s64 start, s64 count);
 s64 string_compare(String a, String b);
@@ -35,6 +35,9 @@ bool is_empty(String s);
 void destroy_str(String * s);
 String string_clone(String s);
 void printstr(String s);
+void test_array_of_String(void);
+void test_upper_to_lower_string(void);
+int to_lower(int ch);
 
 /*STRUCTS DEFINITIONS*/
 struct Static_Array {
@@ -47,11 +50,14 @@ struct Dynamic_Array {
     void * data;
 };
 struct String {
-    s64 length;
+    s64 count;
     u8 * data;
 };
 
 /*BSS SECTION GLOBAL VARIAABLES*/
+s64 A = 65;
+s64 Z = 90;
+s64 a = 32;
 
 void __init_global_static_arrays(){
 }
@@ -83,13 +89,13 @@ s64 strlen (u8 * str) {
     return len;
 }
 
-String new_string (u8 * cstr) {
+String New_String (u8 * cstr) {
     String s;
     _init_String(&s);
-    ((s.length) = strlen(cstr));
-    ((s.data) = (u8 *)((void *)malloc(((s.length) + 1))));
+    ((s.count) = strlen(cstr));
+    ((s.data) = (u8 *)((void *)malloc(((s.count) + 1))));
     if(((s.data) != nullptr)){
-        memcpy((s.data),cstr,((s.length) + 1));
+        memcpy((s.data),cstr,((s.count) + 1));
     }
     return s;
 }
@@ -97,12 +103,12 @@ String new_string (u8 * cstr) {
 String concat (String a, String b) {
     String result;
     _init_String(&result);
-    ((result.length) = ((a.length) + (b.length)));
-    ((result.data) = (u8 *)((void *)malloc(((result.length) + 1))));
+    ((result.count) = ((a.count) + (b.count)));
+    ((result.data) = (u8 *)((void *)malloc(((result.count) + 1))));
     if(((result.data) != nullptr)){
-        memcpy((result.data),(a.data),(a.length));
-        memcpy(((result.data) + (a.length)),(b.data),(b.length));
-        ((*((result.data) + (result.length))) = (u8)(0));
+        memcpy((result.data),(a.data),(a.count));
+        memcpy(((result.data) + (a.count)),(b.data),(b.count));
+        ((*((result.data) + (result.count))) = (u8)(0));
     }
     return result;
 }
@@ -113,13 +119,13 @@ String slice (String s, s64 start, s64 count) {
     if((start < 0)){
         (start = 0);
     }
-    if((start >= (s.length))){
+    if((start >= (s.count))){
         return empty();
     }
-    if(((start + count) > (s.length))){
-        (count = ((s.length) - start));
+    if(((start + count) > (s.count))){
+        (count = ((s.count) - start));
     }
-    ((result.length) = count);
+    ((result.count) = count);
     ((result.data) = (u8 *)((void *)malloc((count + 1))));
     if(((result.data) != nullptr)){
         memcpy((result.data),((s.data) + start),count);
@@ -129,9 +135,9 @@ String slice (String s, s64 start, s64 count) {
 }
 
 s64 string_compare (String a, String b) {
-    s64 min = (a.length);
-    if(((b.length) < min)){
-        (min = (b.length));
+    s64 min = (a.count);
+    if(((b.count) < min)){
+        (min = (b.count));
     }
     s64 i = 0;
     while((i < min)){
@@ -140,15 +146,15 @@ s64 string_compare (String a, String b) {
         }
         (i = (i + 1));
     }
-    return ((a.length) - (b.length));
+    return ((a.count) - (b.count));
 }
 
 bool equals (String a, String b) {
-    return (((a.length) == (b.length)) && (string_compare(a,b) == 0));
+    return (((a.count) == (b.count)) && (string_compare(a,b) == 0));
 }
 
 u8 get (String s, s64 index) {
-    if(((index < 0) || (index >= (s.length)))){
+    if(((index < 0) || (index >= (s.count)))){
         return (u8)(0);
     }
     return (*((s.data) + index));
@@ -158,39 +164,75 @@ String empty () {
     String s;
     _init_String(&s);
     ((s.data) = nullptr);
-    ((s.length) = 0);
+    ((s.count) = 0);
     return s;
 }
 
 s64 len (String s) {
-    return (s.length);
+    return (s.count);
 }
 
 bool is_empty (String s) {
-    return ((s.length) == 0);
+    return ((s.count) == 0);
 }
 
 void destroy_str (String * s) {
     if((((*s).data) != nullptr)){
         free(((*s).data));
         (((*s).data) = nullptr);
-        (((*s).length) = 0);
+        (((*s).count) = 0);
     }
 }
 
 String string_clone (String s) {
     String result;
     _init_String(&result);
-    ((result.length) = (s.length));
-    ((result.data) = (u8 *)((void *)malloc(((s.length) + 1))));
+    ((result.count) = (s.count));
+    ((result.data) = (u8 *)((void *)malloc(((s.count) + 1))));
     if(((result.data) != nullptr)){
-        memcpy((result.data),(s.data),((s.length) + 1));
+        memcpy((result.data),(s.data),((s.count) + 1));
     }
     return result;
 }
 
 void printstr (String s) {
-    printf("{{\"%.*s\"}, {%d}}\n",(s.length),(s.data),(s.length));
+    printf("{{\"%.*s\"}, {%d}}\n",(s.count),(s.data),(s.count));
+}
+
+void test_array_of_String () {
+    String __data__p_str[5];
+    Static_Array p_str;
+    p_str.data = (void *)__data__p_str;
+    p_str.count = 5;
+    for(int _i=0; _i < 5; ++_i) _init_String(&((String*)__data__p_str)[_i]);
+    struct Static_Array * arr = (&p_str);
+    ((((String*)(*arr).data)[0].data) = (u8 *)("idk what should I write"));
+    printf("arr[0] = %s\n",(((String*)(*arr).data)[0].data));
+    int a = 256;
+    s8 * b = (s8 *)((&a));
+    printf("b = %d\n",(*b));
+    ((((String*)p_str.data)[1]) = New_String((u8 *)("this string is on the heap")));
+    printstr((((String*)p_str.data)[1]));
+    String idk = (((String*)p_str.data)[1]);
+    _init_String(&idk);
+    printstr(idk);
+}
+
+void test_upper_to_lower_string () {
+    u8 * str = (u8 *)("THIS STRING WAS IN UPPER CASE BUT NOW ITS IN LOWER CASE :)");
+    while((*str)){
+        printf("%c",to_lower((int)((*str))));
+        (str = (str + 1));
+    }
+}
+
+int to_lower (int ch) {
+    if(((ch >= A) && (ch <= Z))){
+        return (ch + a);
+    }
+    else {
+        return ch;
+    }
 }
 
 
@@ -198,57 +240,84 @@ void printstr (String s) {
 void GENERATED_MAIN(){
     __init_global_static_arrays();
     printf("\n");
-    printf("\n----------string on heap as a builtin struct-------------\n");
-    String a = new_string((u8 *)("Hello"));
-    _init_String(&a);
-    printstr(a);
-    String b = new_string((u8 *)(" World"));
-    _init_String(&b);
-    printstr(b);
-    printf("\n----------concatenate two string together-------------\n");
-    String c = concat(a,b);
-    _init_String(&c);
-    printstr(c);
-    printf("\n------------slice string-----------------\n");
-    String sub = slice(c,0,5);
-    _init_String(&sub);
-    printf("sliced string = ");
-    printstr(sub);
-    destroy_str((&c));
-    destroy_str((&sub));
-    printf("\n----------string on stack-------------\n");
-    String aa;
-    _init_String(&aa);
-    u8 * bb = (u8 *)("Bruh");
-    ((aa.data) = bb);
-    ((aa.length) = strlen(bb));
-    printstr(aa);
-    printf("-----------string_compare-------------\n");
-    String str_1 = new_string((u8 *)("This is a test"));
-    _init_String(&str_1);
-    String str_2 = new_string((u8 *)("This is a test"));
-    _init_String(&str_2);
-    if((string_compare(str_1,str_2) == 0)){
-        printf("\nBoth strings are the same\n");
+    {
+        printf("\n----------string on heap as a builtin struct-------------\n");
+        String a = New_String((u8 *)("Hello"));
+        _init_String(&a);
+        printstr(a);
+        String b = New_String((u8 *)(" World"));
+        _init_String(&b);
+        printstr(b);
+        printf("\n----------concatenate two string together-------------\n");
+        String c = concat(a,b);
+        _init_String(&c);
+        printstr(c);
+        printf("\n------------slice string-----------------\n");
+        String sub = slice(c,0,5);
+        _init_String(&sub);
+        printf("sliced string = ");
+        printstr(sub);
+        destroy_str((&c));
+        destroy_str((&sub));
     }
-    else {
-        printf("\nBoth strings are different\n");
+    {
+        printf("\n----------string on stack (read only)-------------\n");
+        String aa;
+        _init_String(&aa);
+        u8 * bb = (u8 *)("Bruh");
+        ((aa.data) = bb);
+        ((aa.count) = strlen(bb));
+        printf("%s, %d\n",(aa.data),(aa.count));
+        printstr(aa);
     }
-    destroy_str((&str_1));
-    destroy_str((&str_2));
-    String to_clone = new_string((u8 *)("clone this string"));
-    _init_String(&to_clone);
-    String cloned = string_clone(to_clone);
-    _init_String(&cloned);
-    if((string_compare(to_clone,cloned) == 0)){
-        printf("\nCloned string is the same\n");
+    {
+        printf("-----------string_compare-------------\n");
+        String str_1 = New_String((u8 *)("This is a test"));
+        _init_String(&str_1);
+        String str_2 = New_String((u8 *)("This is a test"));
+        _init_String(&str_2);
+        if((string_compare(str_1,str_2) == 0)){
+            printf("\nBoth strings are the same\n");
+        }
+        else {
+            printf("\nBoth strings are different\n");
+        }
+        destroy_str((&str_1));
+        destroy_str((&str_2));
     }
-    else {
-        printf("\nCloned string is different\n");
+    {
+        String to_clone = New_String((u8 *)("clone this string"));
+        _init_String(&to_clone);
+        String cloned = string_clone(to_clone);
+        _init_String(&cloned);
+        if((string_compare(to_clone,cloned) == 0)){
+            printf("\nCloned string is the same\n");
+        }
+        else {
+            printf("\nCloned string is different\n");
+        }
+        destroy_str((&to_clone));
+        destroy_str((&cloned));
     }
-    destroy_str((&to_clone));
-    destroy_str((&cloned));
-    printf("---------------------------------\n");
+    {
+        printf("--------array subscript String---------\n");
+        String str = New_String((u8 *)("Hello"));
+        _init_String(&str);
+        printstr(str);
+        s64 i = 0;
+        while((i != (str.count))){
+            printf("str[%d] = %c\n",i,(u8)(((str.data)[i])));
+            (i = (i + 1));
+        }
+        destroy_str((&str));
+    }
+    {
+        printf("\n----------test_array_of_String()-------\n");
+        test_array_of_String();
+        printf("\n-------test_upper_to_lower_string()----\n");
+        test_upper_to_lower_string();
+    }
+    printf("\n-------------------------------\n");
 }
 
 int main(int argc, char **argv){

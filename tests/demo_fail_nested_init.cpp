@@ -16,23 +16,31 @@ typedef float      float32;
 typedef double     float64;
 
 /*STRUCT FORWARD DECLARATIONS*/
-struct Node;
+struct Inner;
+struct Outer;
 
 /*GLOBAL FUNCTION FORWARD DECLARATIONS*/
 
 /*STRUCTS DEFINITIONS*/
-struct Node {
-    s64 a;
+struct Inner {
+    int * data;
+};
+struct Outer {
+    Inner a;
+    Inner b;
 };
 
 /*BSS SECTION GLOBAL VARIAABLES*/
-s64 x = (-351);
 
 void __init_global_static_arrays(){
 }
 
-inline void _init_Node(Node* self){
-    self->a = x;
+inline void _init_Inner(Inner* self){
+}
+
+inline void _init_Outer(Outer* self){
+    _init_Inner(&self->a);
+    _init_Inner(&self->b);
 }
 
 /*FUNCTION BODIES*/
@@ -40,12 +48,15 @@ inline void _init_Node(Node* self){
 
 void GENERATED_MAIN(){
     __init_global_static_arrays();
-    Node n;
-    _init_Node(&n);
-    printf("n.a = %d\n",(n.a));
-    if(((n.a) != (-351))){
-        printf("Test failed\n");
-    }
+    Outer o1;
+    _init_Outer(&o1);
+    int val = 42;
+    int val2 = 69;
+    (((o1.a).data) = (&val));
+    (((o1.b).data) = (&val2));
+    int x = (*((o1.a).data));
+    int y = (*((o1.b).data));
+    printf("DONE\n");
 }
 
 int main(int argc, char **argv){

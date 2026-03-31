@@ -259,7 +259,8 @@ bool CodeManager::declare_struct(Ast_Statement *struct_stmt) {
     if (!struct_stmt->expression || struct_stmt->expression->type != AST_STRUCT) return false;
 
     auto *struct_name = struct_stmt->type_definition->struct_def->name;
-    auto *looked_up = lookup_symbol(struct_name);
+
+    auto *looked_up = find_struct_type_in_scopes(struct_name);
     if (looked_up) {
         report_error_with_previous(struct_stmt, looked_up, "Struct '%s' already defined.", struct_name);
         return false;
@@ -995,7 +996,7 @@ void CodeManager::resolve_array_types(Ast_Array_Type *array_type, Ast_Declaratio
     }
 }
 
-static Ast_Declaration *find_struct_member(Ast_Type_Definition *struct_type, const char *member_name) {
+Ast_Declaration *find_struct_member(Ast_Type_Definition *struct_type, const char *member_name) {
     if (!struct_type || !struct_type->struct_def || !member_name) return nullptr;
     Ast_Struct *sd = struct_type->struct_def;
     for (int i = 0; i < sd->members.count; ++i) {
@@ -1755,10 +1756,9 @@ void CodeManager::infer_types_expr(Ast_Expression **expr_ptr)
             infer_types_expr(&u->operand);
             Ast_Type_Definition *operandType = u->operand->inferred_type;
             if (!operandType) {
-                report_error(u,
-                    "Could not determine type of operand for unary expression");
+                report_error(u, "Could not determine type of operand for unary expression");
                 expr->inferred_type = _type->type_def_dummy;
-
+                break;
             }
 
             Ast_Type_Definition *resultType = AST_NEW(Ast_Type_Definition);
@@ -1879,7 +1879,7 @@ void CodeManager::infer_types_expr(Ast_Expression **expr_ptr)
                             return;
                         }
 
-                        report_error(b, "Cannot subscript non array type"); // @Temporary, this should be checked during resolution
+                        // report_error(b, "Cannot subscript non array type"); // @Temporary, this should be checked during resolution
                         return;
                     }
 
@@ -1946,6 +1946,12 @@ void CodeManager::infer_types_expr(Ast_Expression **expr_ptr)
                         }
 
                         expr->inferred_type = arr->element_type;
+                        return;
+                    }
+
+                    // Kind of a hack, must clean this up at some point
+                    if(array_type && array_type->name && strcmp(array_type->name, "String") == 0){
+                        expr->inferred_type = array_type;
                         return;
                     }
 
@@ -2159,7 +2165,7 @@ void CodeManager::infer_types_expr(Ast_Expression **expr_ptr)
 
                             expr->inferred_type = rhs_args->arguments.get_back()->inferred_type;
                             return;
-                        
+
                         } else {
                             infer_types_expr(&b->rhs);
                             Ast_Type_Definition *rhsType = b->rhs->inferred_type;
@@ -2215,28 +2221,7 @@ void CodeManager::infer_types_expr(Ast_Expression **expr_ptr)
                             lhsType = lhs_dot->inferred_type;
 
                             if (!check_that_types_match(lhsType, rhsType)) {
-                                auto *val_type_r = static_cast<Ast_Literal*>(b->rhs);
-                                auto *val_type_l = static_cast<Ast_Literal*>(b->lhs);
-                                bool do_types_fit = true;
-                                if(val_type_r->value_type == LITERAL_NUMBER){   // @Comeback to this later - 4:16 AM 31 Dec
-                                    if(!check_that_types_fit((long long)val_type_r->integer_value, val_type_l->inferred_type)){
-                                        printf("val = %lld\n", val_type_r->integer_value);
-                                        do_types_fit = false;
-                                    }
-                                }
-                                else if(val_type_r->value_type == LITERAL_FLOAT){
-                                    if(!check_that_types_fit(val_type_r->float_value, val_type_l->inferred_type)){
-                                        printf("val = %f\n", val_type_r->float_value);
-                                        do_types_fit = false;
-                                    }
-
-                                }
-
-                                if(do_types_fit == false) {
-                                    report_error(b, "Right-Hand side value cannot be fit in Left-Hand side type");
-                                } else {
-                                    report_error(b, "Type mismatch in member assignment. Expected '%s' Got '%s'", type_to_string(lhsType), type_to_string(rhsType));
-                                }
+                                report_error(b, "Type mismatch in member assignment. Expected '%s' Got '%s'", type_to_string(lhsType), type_to_string(rhsType));
                             }
                         } else {
                             infer_types_expr(&b->lhs);
@@ -2500,7 +2485,7 @@ void CodeManager::infer_types_expr(Ast_Expression **expr_ptr)
             if (c->expression) {
                 infer_types_expr(&c->expression);
             }
-            
+
             // for casting is not checked
             expr->inferred_type = c->cast_expression;
             break;

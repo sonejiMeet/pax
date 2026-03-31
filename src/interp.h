@@ -46,7 +46,7 @@ struct Pax_Interp {
 
     void printLexer(const char *filename);
 
-    void run_frontend();
+    bool run_frontend();
     void generate_cpp();
 
     void runCompiler(char *command);

@@ -5,11 +5,11 @@
 //
 #ifdef _WIN32
 #ifdef _DEBUG
-    #define _CRTDBG_MAP_ALLOC // for mem leaks
-    #include <crtdbg.h>
+    // #define _CRTDBG_MAP_ALLOC // for mem leaks
+    // #include <crtdbg.h>
 
-    #define malloc(s) _malloc_dbg(s, _NORMAL_BLOCK, __FILE__, __LINE__)
-    #define free(p) _free_dbg(p, _NORMAL_BLOCK)
+    // #define malloc(s) _malloc_dbg(s, _NORMAL_BLOCK, __FILE__, __LINE__)
+    // #define free(p) _free_dbg(p, _NORMAL_BLOCK)
 #endif
 #endif
 
@@ -58,7 +58,7 @@ public:
 
 
 inline
-static char *pool_strdup(Pool *pool, const char *str) {
+char *pool_strdup(Pool *pool, const char *str) {
     size_t len = strlen(str)+1;
     char *p = (char *)pool_alloc(pool, len);
     memcpy(p, str, len);
@@ -68,7 +68,7 @@ static char *pool_strdup(Pool *pool, const char *str) {
 }
 
 inline
-static char *c_concat3(const char *a, const char *b, const char *c) {
+char *c_concat3(const char *a, const char *b, const char *c) {
     size_t la = strlen(a);
     size_t lb = strlen(b);
     size_t lc = strlen(c);

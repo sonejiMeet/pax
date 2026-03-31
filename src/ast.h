@@ -177,7 +177,7 @@ struct Ast_Literal : public Ast_Expression {
     Value_Type value_type = LITERAL_UNINITIALIZED;
 
     const char *string_value = nullptr;
-    size_t string_count = 0;
+    // size_t string_count = 0;
     double float_value = 0;
     int64_t integer_value = 0;
 };

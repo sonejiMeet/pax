@@ -1,6 +1,9 @@
 @echo off
 setlocal enabledelayedexpansion
 
+rem escape code for coloring
+for /f "tokens=*" %%e in ('echo prompt $E^| cmd') do set "ESC=%%e"
+
 set FAIL=0
 set FAIL_LIST=
 set TOTAL_TEST=0
@@ -34,19 +37,20 @@ for %%f in (
     demo_pass_nested_structs_with_members_as_pointers.pax
 
     demo_simple_nested_structs.pax
-    
+
     demo_string.pax
     demo_pointer_cast_byte.pax
 
 ) do (
     set /a TOTAL_TEST+=1
-    echo Testing %%f...
     set LOG=tmp_%%~nf.log
 
     .\src\pax.exe .\tests\%%f > "!LOG!" 2>&1
+    echo Testing %%f... !errorlevel!
 
-    if errorlevel 3 (
-        echo   FAILED
+    if !errorlevel! NEQ 0 (
+        echo %ESC%[91m    Failed%ESC%[0m
+
         set FAIL=1
         set FAIL_LIST=!FAIL_LIST! %%f
     ) else (
@@ -64,13 +68,13 @@ for %%f in (
     demo_fail_nested_structs_with_members_as_pointers.pax
 ) do (
     set /a TOTAL_TEST+=1
-    echo Testing %%f...
     set LOG=tmp_%%~nf.log
 
     .\src\pax.exe .\tests\%%f > "!LOG!" 2>&1
+    echo Testing %%f... !errorlevel!
 
-    if not errorlevel 1 (
-        echo   FAILED ^(demo_fail passed but should have failed^)
+    if !errorlevel! EQU 0 (
+        echo %ESC%[91m   FAILED ^(demo_fail passed but should have failed^) %ESC%[0m
         set FAIL=1
         set FAIL_LIST=!FAIL_LIST! %%f
     )
@@ -81,6 +85,7 @@ if %FAIL%==0 (
     echo ALL TESTS PASSED
     echo Total test count %TOTAL_TEST%
 ) else (
+    echo %ESC%[91mFAILED TESTS%ESC%[0m
     for %%f in (%FAIL_LIST%) do type "tmp_%%~nf.log"
 )
 exit /b %FAIL%

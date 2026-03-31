@@ -17,35 +17,48 @@ typedef double     float64;
 
 /*STRUCT FORWARD DECLARATIONS*/
 struct Node;
+struct Node;
 
 /*GLOBAL FUNCTION FORWARD DECLARATIONS*/
+Node * make_list(s64 val);
 
 /*STRUCTS DEFINITIONS*/
 struct Node {
-    s64 a;
+    int value;
+    Node * next;
+};
+struct Node {
+    int data;
+    Node * next;
+    Node * prev;
 };
 
 /*BSS SECTION GLOBAL VARIAABLES*/
-s64 x = (-351);
 
 void __init_global_static_arrays(){
 }
 
 inline void _init_Node(Node* self){
-    self->a = x;
+    self->value = -24;
+    self->next = nullptr;
+}
+
+inline void _init_Node(Node* self){
+    self->data = -24;
 }
 
 /*FUNCTION BODIES*/
+Node * make_list (s64 val) {
+    Node * base = (Node *)malloc(sizeof(Node));
+    (((*base).value) = val);
+    (((*base).next) = nullptr);
+    return base;
+}
+
 
 
 void GENERATED_MAIN(){
     __init_global_static_arrays();
-    Node n;
-    _init_Node(&n);
-    printf("n.a = %d\n",(n.a));
-    if(((n.a) != (-351))){
-        printf("Test failed\n");
-    }
 }
 
 int main(int argc, char **argv){

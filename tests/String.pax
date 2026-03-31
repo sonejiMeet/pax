@@ -1,7 +1,7 @@
 #import "General.pax"
 
 String :: struct {
-    length: s64;
+    count: s64;
     data: ^u8;
 }
 
@@ -14,13 +14,13 @@ strlen :: (str: ^u8) -> s64 {
 }
 
 // Create from null-terminated C string (copies data)
-new_string :: (cstr: ^u8) -> String {
+New_String :: (cstr: ^u8) -> String {
     s: String;
-    s.length = strlen(cstr);
-    s.data = cast(^u8)malloc(s.length + 1);
+    s.count = strlen(cstr);
+    s.data = cast(^u8)malloc(s.count + 1);
 
     if s.data != null {
-        memcpy(s.data, cstr, s.length + 1);
+        memcpy(s.data, cstr, s.count + 1);
     }
     return s;
 }
@@ -28,13 +28,13 @@ new_string :: (cstr: ^u8) -> String {
 // Concatenate two strings (allocates new memory)
 concat :: (a: String, b: String) -> String {
     result: String;
-    result.length = a.length + b.length;
-    result.data = cast(^u8)malloc(result.length + 1);
+    result.count = a.count + b.count;
+    result.data = cast(^u8)malloc(result.count + 1);
 
     if result.data != null {
-        memcpy(result.data, a.data, a.length);
-        memcpy(result.data + a.length, b.data, b.length);
-        *(result.data + result.length) = cast(u8)0;
+        memcpy(result.data, a.data, a.count);
+        memcpy(result.data + a.count, b.data, b.count);
+        *(result.data + result.count) = cast(u8)0;
     }
     return result;
 }
@@ -44,14 +44,14 @@ slice :: (s: String, start: s64, count: s64) -> String {
     result: String;
 
     if start < 0 { start = 0; }
-    if start >= s.length {
+    if start >= s.count {
         return empty();
     }
-    if start + count > s.length {
-        count = s.length - start;
+    if start + count > s.count {
+        count = s.count - start;
     }
 
-    result.length = count;
+    result.count = count;
     result.data = cast(^u8)malloc(count + 1);
 
     if result.data != null {
@@ -63,8 +63,8 @@ slice :: (s: String, start: s64, count: s64) -> String {
 
 // Compare two strings lexicographically
 string_compare :: (a: String, b: String) -> s64 {
-    min: s64 = a.length;
-    if b.length < min { min = b.length; }
+    min: s64 = a.count;
+    if b.count < min { min = b.count; }
 
     i: s64 = 0;
     while i < min {
@@ -73,16 +73,16 @@ string_compare :: (a: String, b: String) -> s64 {
         }
         i = i + 1;
     }
-    return a.length - b.length;
+    return a.count - b.count;
 }
 
 equals :: (a: String, b: String) -> bool {
-    return a.length == b.length && string_compare(a, b) == 0;
+    return a.count == b.count && string_compare(a, b) == 0;
 }
 
 
 get :: (s: String, index: s64) -> u8 {
-    if index < 0 || index >= s.length {
+    if index < 0 || index >= s.count {
         return cast(u8)0;
     }
     return *(s.data + index);
@@ -91,34 +91,34 @@ get :: (s: String, index: s64) -> u8 {
 empty :: () -> String {
     s: String;
     s.data = null;
-    s.length = 0;
+    s.count = 0;
     return s;
 }
 
-len :: (s: String) -> s64 { return s.length; }
-is_empty :: (s: String) -> bool { return s.length == 0; }
+len :: (s: String) -> s64 { return s.count; }
+is_empty :: (s: String) -> bool { return s.count == 0; }
 
 destroy_str :: (s: ^String) {
     if s.data != null {
         free(s.data);
         s.data = null;
-        s.length = 0;
+        s.count = 0;
     }
 }
 
 
 string_clone :: (s: String) -> String {
     result: String;
-    result.length = s.length;
-    result.data = cast(^u8)malloc(s.length + 1);
+    result.count = s.count;
+    result.data = cast(^u8)malloc(s.count + 1);
 
     if result.data != null {
-        memcpy(result.data, s.data, s.length + 1);
+        memcpy(result.data, s.data, s.count + 1);
     }
     return result;
 }
 
 
 printstr :: (s: String) {
-	printf("{{\"%.*s\"}, {%d}}\n", s.length, s.data, s.length);
+	printf("{{\"%.*s\"}, {%d}}\n", s.count, s.data, s.count);
 }

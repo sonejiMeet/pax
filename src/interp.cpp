@@ -146,7 +146,7 @@ Ast_Block *Pax_Interp::parse_file(const char *filename, bool skip_main_check) {
 
     FileBuffer buf = read_entire_file(filename);
     if (!buf.data) {
-         printf("Failed to read file: %s\n", filename);
+        printf("Error, empty file: %s\n", filename);
         return nullptr;
     }
 
@@ -250,7 +250,7 @@ void Pax_Interp::printLexer(const char *filename) {
 
 }
 
-void Pax_Interp::run_frontend() {
+bool Pax_Interp::run_frontend() {
     TIME_SCOPE("\n\tFrontend finished in");
 
     code_manager->resolve_idents(ast);
@@ -261,13 +261,19 @@ void Pax_Interp::run_frontend() {
     code_manager->resolve_unresolved_member_accesses();
 
     code_manager->is_everything_resolved();
+
+    if (code_manager->count_errors != 0) {
+        printf("\nErrors in code manager. Exiting.\n");
+        return false;
+    }
     code_manager->infer_types_block(ast);
 
     if (code_manager->count_errors != 0) {
         printf("\nErrors in code manager. Exiting.\n");
-        exit(1);
+        return false;
     }
 
+    return true;
 }
 
 void Pax_Interp::generate_cpp() {

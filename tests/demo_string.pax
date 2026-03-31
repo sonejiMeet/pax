@@ -3,59 +3,129 @@
 
 main :: () {
 	printf("\n");
-	printf("\n----------string on heap as a builtin struct-------------\n");
-	a := new_string(cast(^u8)"Hello");
-	printstr(a);
-	b := new_string(cast(^u8)" World");
-	printstr(b);
 
-	printf("\n----------concatenate two string together-------------\n");
-	c := concat(a, b);
-	printstr(c);
+	{
+		printf("\n----------string on heap as a builtin struct-------------\n");
+		a := New_String(cast(^u8)"Hello");
+		printstr(a);
+		b := New_String(cast(^u8)" World");
+		printstr(b);
 
-	printf("\n------------slice string-----------------\n");
-	sub := slice(c, 0, 5);
-	printf("sliced string = ");
-	printstr(sub);
+		printf("\n----------concatenate two string together-------------\n");
+		c := concat(a, b);
+		printstr(c);
 
-	destroy_str(&c);
-	destroy_str(&sub);
+		printf("\n------------slice string-----------------\n");
+		sub := slice(c, 0, 5);
+		printf("sliced string = ");
+		printstr(sub);
+
+		destroy_str(&c);
+		destroy_str(&sub);
+	}
+
+	{
+		printf("\n----------string on stack (read only)-------------\n");
+		aa : String;
+		bb := cast(^u8)"Bruh";
+		aa.data = bb;
+		aa.count = strlen(bb);
+		printf("%s, %d\n", aa.data, aa.count);
+		printstr(aa);
+	}
+
+	{
+		printf("-----------string_compare-------------\n");
+
+		str_1 := New_String(cast(^u8)"This is a test");
+		str_2 := New_String(cast(^u8)"This is a test");
+
+		if string_compare(str_1, str_2) == 0
+			printf("\nBoth strings are the same\n");
+		else
+			printf("\nBoth strings are different\n");
 
 
-	printf("\n----------string on stack-------------\n");
-	aa : String;
-	bb := cast(^u8)"Bruh";
-	aa.data = bb;
-	aa.length = strlen(bb);
-	// printf("%s, %d\n", aa.data, aa.length);
-	printstr(aa);
+		destroy_str(&str_1);
+		destroy_str(&str_2);
+	}
 
+	{
+		to_clone := New_String(cast(^u8)"clone this string");
 
-	printf("-----------string_compare-------------\n");
+		cloned := string_clone(to_clone);
+		if string_compare(to_clone, cloned) == 0
+			printf("\nCloned string is the same\n");
+		else
+			printf("\nCloned string is different\n");
 
-	str_1 := new_string(cast(^u8)"This is a test");
-	str_2 := new_string(cast(^u8)"This is a test");
+		destroy_str(&to_clone);
+		destroy_str(&cloned);
+	}
 
-	if string_compare(str_1, str_2) == 0
-		printf("\nBoth strings are the same\n");
-	else
-		printf("\nBoth strings are different\n");
+	{
+		printf("--------array subscript String---------\n");
 
+		str := New_String(cast(^u8)"Hello");
+		printstr(str);
+		i := 0;
+		while(i != str.count){
+			printf("str[%d] = %c\n", i,cast(u8)str[i]);
+			i = i+1;
+		}
+		destroy_str(&str);
+	}
 
-	destroy_str(&str_1);
-	destroy_str(&str_2);
+	{
+		printf("\n----------test_array_of_String()-------\n");
+		test_array_of_String();
 
+		printf("\n-------test_upper_to_lower_string()----\n");
+		test_upper_to_lower_string();
+	}
 
-	to_clone := new_string(cast(^u8)"clone this string");
+	printf("\n-------------------------------\n");
 
-	cloned := string_clone(to_clone);
-	if string_compare(to_clone, cloned) == 0
-		printf("\nCloned string is the same\n");
-	else
-		printf("\nCloned string is different\n");
-
-	destroy_str(&to_clone);
-	destroy_str(&cloned);
-
-	printf("---------------------------------\n");
 }
+
+
+
+test_array_of_String :: (){
+	p_str: [5]String;
+	arr : ^[]String = &p_str;
+	arr[0] = cast(^u8)"idk what should I write";
+	printf("arr[0] = %s\n", arr[0]);
+
+	a: int = 256;
+	b: ^s8 = cast(^s8)&a;
+
+	printf("b = %d\n", *b);
+
+	p_str[1] = New_String(cast(^u8)"this string is on the heap");
+	printstr(p_str[1]);
+
+	idk := p_str[1];
+	printstr(idk);
+
+
+}
+
+test_upper_to_lower_string :: () {
+	str:= cast(^u8)"THIS STRING WAS IN UPPER CASE BUT NOW ITS IN LOWER CASE :)";
+	while *str {
+		printf("%c", to_lower(cast(int)*str));
+		str = str + 1;
+	}
+}
+
+A := 65;
+Z := 90;
+a := 32;
+
+to_lower :: (ch: int) -> int {
+	if ch >= A && ch <= Z
+		return ch + a;
+	else
+		return ch;
+}
+

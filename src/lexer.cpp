@@ -89,7 +89,7 @@ Token *Lexer::stringToken()
 
 Token *Lexer::numberToken(char first)
 {
-    static char num_str_buffer[MAX_NUM_STR_LEN];
+    char num_str_buffer[MAX_NUM_STR_LEN];
 
     int buffer_idx = 0;
 

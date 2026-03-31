@@ -15,7 +15,7 @@ struct C_Converter {
     void emitExpression(FILE *out, Ast_Expression *expr, int indent = 0, bool _struct = false);
     void emitBlock(FILE *out, Ast_Block *block, int indent = 0);
 
-    static inline Ast_Array_Type *as_array_type(Ast_Type_Definition *t) {
+    inline Ast_Array_Type *as_array_type(Ast_Type_Definition *t) {
         return (t && t->type == AST_ARRAY_TYPE) ? static_cast<Ast_Array_Type*>(t) : nullptr;
     }
 
