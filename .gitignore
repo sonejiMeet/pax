@@ -1,7 +1,5 @@
-# IDE specific files
 .vs/
 
-# Object files
 *.obj
 *.pdb
 *.exe
@@ -22,5 +20,11 @@ benchmarks/
 a.*
 b.*
 c.*
+d.*
 
 *.idb
+
+tests/*.cpp
+tests/bugs.pax
+
+pool_trace.json
