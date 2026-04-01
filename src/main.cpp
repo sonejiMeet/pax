@@ -1,4 +1,5 @@
 #define ENABLE_PROFILER
+// #define ENABLE_TRACER
 #include "all.h"
 
 #ifdef _DEBUG
@@ -15,7 +16,7 @@ extern const Def_Type *ttype = nullptr; // temporary
 
 #define AST_NEW(pool, type) ([&]() -> type* {           \
     assert(pool != nullptr && "Pool must not be null"); \
-    void *mem = pool_alloc(pool, sizeof(type));         \
+    void *mem = pool_alloc_debug(pool, sizeof(type), #type, "MAIN");         \
     type *node = new (mem) type(pool);                  \
     return node;                                        \
 }())
@@ -80,6 +81,11 @@ int main(int argc, char **argv) {
     Pool pool;
     pool_init(&pool);
     pool.block_allocator = default_allocator;
+
+#ifdef _DEBUG
+    pool_trace_init(&pool, "pool_trace.txt");
+    defer { pool_trace_close(&pool); };
+#endif
 
     Def_Type type;
     init_Def_Type(&type, &pool);

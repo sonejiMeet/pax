@@ -10,7 +10,7 @@
 
 #define AST_NEW(pool, type) ([&]() -> type* {           \
     assert(pool != nullptr && "Pool must not be null"); \
-    void *mem = pool_alloc(pool, sizeof(type));         \
+    void *mem =  pool_alloc_debug(pool, sizeof(type), #type, "INTERP");        \
     type *node = new (mem) type(pool);                  \
     return node;                                        \
 }())

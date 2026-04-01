@@ -36,6 +36,21 @@ inline void cycle_new_block(Pool *pool);
 inline void pool_reset(Pool *pool);
 inline void pool_release(Pool *pool);
 
+// Memory Profiling 
+inline void *pool_alloc_debug(Pool *pool, size_t size, char *type_name = nullptr, char *phase = nullptr);
+inline void pool_trace_init(Pool* pool, const char* filename);
+inline void pool_trace_close(Pool* pool);
+inline void pool_trace_alloc(Pool* pool, void* block, size_t block_size, size_t offset,
+                                size_t size, char *type_name = nullptr, void* ptr = nullptr, char *phase = nullptr);
+
+struct PoolTrace
+{
+    FILE* file = nullptr;
+    long long seq = 0;
+    bool enabled = false;
+};
+
+
 template<typename T>
 struct Array
 {
@@ -75,8 +90,8 @@ inline void Array<T>::push_back(T value)
         }
         data = new_data;
         capacity = new_cap;
-    }
-   // else {
+    }   
+    // else {
 
    //  #ifdef _DEBUG
    //     printf("\n<<<<<<<< PUSH_BACK ___FAILEDD___ >>>>>>>>>>\n\n");
@@ -184,6 +199,8 @@ struct Pool {
 
     Block_Allocator *block_allocator = nullptr;
     void *block_allocator_data = nullptr;
+
+    PoolTrace trace;
 };
 
 inline void pool_init(Pool *pool) {
@@ -192,7 +209,41 @@ inline void pool_init(Pool *pool) {
     pool->bytes_left = 0;
 }
 
+inline void pool_trace_init(Pool* pool, const char* filename)
+{
+    pool->trace.file = fopen(filename, "w");
+    assert(pool->trace.file && "Failed to open trace file");
+    pool->trace.seq = 0;
+    pool->trace.enabled = true;
+
+    fprintf(pool->trace.file,
+        "SEQ|BLOCK|BLOCK_SIZE|OFFSET|SIZE|TYPE|PTR|PHASE\n");
+}
+
+inline void pool_trace_close(Pool* pool)
+{
+    if (pool->trace.file) {
+        fclose(pool->trace.file);
+        pool->trace.file = nullptr;
+    }
+    pool->trace.enabled = false;
+}
+
+inline void pool_trace_alloc(Pool* pool, void* block, size_t block_size, size_t offset,
+                                size_t size, char *type_name, void* ptr, char *phase)
+{
+
+    fprintf(pool->trace.file, "%lld|%p|%zu|%zu|%zu|%s|%p|%s\n", 
+                    ++pool->trace.seq, block, block_size, offset, size, 
+                    type_name ? type_name : "raw", ptr, phase ? phase : "");
+}
+
+
 inline void *pool_alloc(Pool *pool, size_t size) {
+    return pool_alloc_debug(pool, size);
+}
+
+inline void *pool_alloc_debug(Pool *pool, size_t size, char *type_name, char *phase) {
     assert(pool != nullptr);
 
     // this version proves to be slighly more memory efficient since it considers the case when size is at perfect alignment and therefore no need to add any extra bytes
@@ -205,8 +256,16 @@ inline void *pool_alloc(Pool *pool, size_t size) {
     ensure_memory_exists(pool, size);
 
     void *retval = pool->current_pos;
+    
+    size_t offset = (size_t)((uintptr_t)pool->current_pos - (uintptr_t)pool->current_memblock);
+
     pool->current_pos = (void*)((uintptr_t)pool->current_pos + size);
     pool->bytes_left -= size;
+    
+    if(pool->trace.enabled) {
+        pool_trace_alloc(pool, pool->current_memblock, pool->memblock_size, offset,
+                            size, type_name, retval, phase);
+    }
 
  #ifdef _DEBUG
      // totalNbyte += (int) size;

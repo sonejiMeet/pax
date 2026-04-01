@@ -16,7 +16,7 @@ bool exitSuccess = true;
 #define AST_NEW(type) ([&]() -> type* {                         \
     AST_NEW_LOG(type)                                           \
     assert(interp->pool != nullptr && "Pool must not be null"); \
-    void *mem = pool_alloc(interp->pool, sizeof(type));         \
+    void *mem = pool_alloc_debug(interp->pool, sizeof(type), #type, "PARSER");         \
     type *node = new (mem) type(interp->pool);                  \
     node->line_number = current->row;                           \
     node->character_number = current->col;                      \
@@ -1188,7 +1188,7 @@ Ast_Statement *Parser::parseStatement()
 }
 
 
-Ast_Block *Parser::parseProgram(bool skip_main)
+Ast_Block *Parser::parseProgram(/*Ast_Block *program,*/ bool skip_main)
 {
     Ast_Block *program = AST_NEW(Ast_Block);
 

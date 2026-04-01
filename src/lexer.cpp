@@ -14,7 +14,9 @@ Token *Lexer::makeToken(TokenType type, const char *value) {
     printf("First pool_alloc in makeToken\n");
 #endif
 
-    Token *t = (Token*)pool_alloc(lex_pool, sizeof(Token));
+    // Token *t = (Token*)pool_alloc(lex_pool, sizeof(Token));
+    Token *t = (Token*)pool_alloc_debug(lex_pool, sizeof(Token), "Token", "LEXER");
+
     t->type = type;
     if (type == TOK_IDENTIFIER || type == TOK_PRINT || type == TOK_IF || type == TOK_STRUCT || type == TOK_KEYWORD_TRUE || type == TOK_KEYWORD_FALSE){
 
@@ -34,7 +36,9 @@ Token *Lexer::makeToken(TokenType type, const char *value) {
 
 Token *Lexer::makeIntToken(TokenType type, unsigned long long val)
 {
-    Token *t = (Token*)pool_alloc(lex_pool, sizeof(Token));
+    // Token *t = (Token*)pool_alloc(lex_pool, sizeof(Token));
+    Token *t = (Token*)pool_alloc_debug(lex_pool, sizeof(Token), "Token", "LEXER");
+
     t->type = type;
     t->int_value = val;
     t->row = row;
@@ -44,7 +48,9 @@ Token *Lexer::makeIntToken(TokenType type, unsigned long long val)
 
 Token *Lexer::makeFloatToken(TokenType type, double val)
 {
-    Token *t = (Token*)pool_alloc(lex_pool, sizeof(Token));
+    // Token *t = (Token*)pool_alloc(lex_pool, sizeof(Token));
+    Token *t = (Token*)pool_alloc_debug(lex_pool, sizeof(Token), "Token", "LEXER");
+
     t->type = type;
     t->float64_value = val;
     t->row = row;
@@ -73,11 +79,13 @@ Token *Lexer::stringToken()
     get_and_advance();
     get_and_advance();
 
-    unsigned char *str = (unsigned char *) pool_alloc(lex_pool, len+1);
+    // unsigned char *str = (unsigned char *) pool_alloc(lex_pool, len+1);
+    unsigned char *str = (unsigned char *) pool_alloc_debug(lex_pool, len+1, "unsigned char *", "LEXER");
     memcpy(str, startPtr, len);
     str[len] = '\0';
 
-    Token *t = (Token*)pool_alloc(lex_pool, sizeof(Token));
+    // Token *t = (Token*)pool_alloc(lex_pool, sizeof(Token));
+    Token *t = (Token*)pool_alloc_debug(lex_pool, sizeof(Token), "Token", "LEXER");
     t->type = TOK_STRING;
     t->string_value.data = str;
     t->string_value.count = len;

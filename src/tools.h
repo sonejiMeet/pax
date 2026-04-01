@@ -60,7 +60,8 @@ public:
 inline
 char *pool_strdup(Pool *pool, const char *str) {
     size_t len = strlen(str)+1;
-    char *p = (char *)pool_alloc(pool, len);
+    // char *p = (char *)pool_alloc(pool, len);
+    char *p = (char *)pool_alloc_debug(pool, len, "char *", "TOOLS");
     memcpy(p, str, len);
     // p[len] = '\0';
     //printf("pool_strdup %d\"%.*s\"\n", len, len, p);

@@ -5,7 +5,7 @@
 
 #define AST_NEW(type) ([&]() -> type *{                         \
     assert(interp->pool != nullptr && "Pool must not be null"); \
-    void *mem = pool_alloc(interp->pool, sizeof(type));         \
+    void *mem = pool_alloc_debug(interp->pool, sizeof(type), #type, "CODE_MANAGER");         \
     type *node = new (mem) type(interp->pool);                  \
     node->file_name = interp->current_file;                     \
     return node;                                                \
@@ -241,7 +241,7 @@ bool CodeManager::declare_function(Ast_Declaration *decl) {
         return false;
     }
     else if(looked_up && !looked_up->is_function){
-        report_error(decl, "Redefinition of '%s', previous definition is not a function", decl->identifier->name);
+        report_error_with_previous(decl, looked_up, "Redefinition of '%s', previous definition is not a function", decl->identifier->name);
         return false;
     }
 
@@ -771,7 +771,7 @@ Ast_Type_Definition *CodeManager::find_struct_type_in_scopes(const char *name) c
 // same as AST_NEW but we dont have file_name so can't set it
 #define UNRESOLVED_NEW(type) ([&]() -> type* {                  \
     assert(interp->pool != nullptr && "Pool must not be null"); \
-    void *mem = pool_alloc(interp->pool, sizeof(type));         \
+    void *mem = pool_alloc_debug(interp->pool, sizeof(type), #type, "UNRESOLVED_CODE_MANAGER");         \
     return new (mem) type;                                      \
 }())
 

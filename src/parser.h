@@ -25,7 +25,7 @@ struct Parser
     void Expect(TokenType expectedType, const char *errorMessage);
 
     void synchronize();
-    Ast_Block *parseProgram(bool skip_main = false);
+    Ast_Block *parseProgram(/*Ast_Block *program, */bool skip_main = false);
 
     //
     //  KEEP THIS OLD RECURSIVE DECENT
