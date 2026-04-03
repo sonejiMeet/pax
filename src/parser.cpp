@@ -16,7 +16,7 @@ bool exitSuccess = true;
 #define AST_NEW(type) ([&]() -> type* {                         \
     AST_NEW_LOG(type)                                           \
     assert(interp->pool != nullptr && "Pool must not be null"); \
-    void *mem = pool_alloc_debug(interp->pool, sizeof(type), #type, "PARSER");         \
+    void *mem = pool_alloc_debug(interp->pool, sizeof(type), #type, "PARSER", current->row, current->col);         \
     type *node = new (mem) type(interp->pool);                  \
     node->line_number = current->row;                           \
     node->character_number = current->col;                      \

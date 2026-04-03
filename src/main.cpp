@@ -1,12 +1,13 @@
 #define ENABLE_PROFILER
 // #define ENABLE_TRACER
+// #define PRINT_LEX
 #include "all.h"
 
 #ifdef _DEBUG
 int totalNbyte = 0;
 #endif
+int total_global_malloc = 0;
 
-// #define PRINT_LEX
 
 extern const Def_Type *ttype = nullptr; // temporary
 
@@ -50,6 +51,7 @@ void *default_allocator(int mode, size_t size, size_t old_size,
     switch(mode) {
         case ALLOCATE: {
             void *ptr = calloc(size, 1);
+            total_global_malloc += 1;
             assert(ptr && "Memory allocation failed");
             return ptr;
         }
@@ -117,8 +119,9 @@ int main(int argc, char **argv) {
     printf(" %s SUCCESS %s \n", "\x1B[0;32m", "\x1B[0m");
     printf("Total lines processed %zu\n", LINE_COUNT);
 
-#ifdef _WIN32
 #ifdef _DEBUG
+    printf("Total global malloc %d\n", total_global_malloc);
+#ifdef _WIN32
     _CrtMemState state;
     _CrtMemCheckpoint(&state);
     _CrtMemDumpStatistics(&state);

@@ -36,12 +36,13 @@ inline void cycle_new_block(Pool *pool);
 inline void pool_reset(Pool *pool);
 inline void pool_release(Pool *pool);
 
-// Memory Profiling 
-inline void *pool_alloc_debug(Pool *pool, size_t size, char *type_name = nullptr, char *phase = nullptr);
+// Memory Profiling
+inline void *pool_alloc_debug(Pool *pool, size_t size, char *type_name = nullptr, char *phase = nullptr, int line_number = 0, int character_number = 0);
 inline void pool_trace_init(Pool* pool, const char* filename);
 inline void pool_trace_close(Pool* pool);
 inline void pool_trace_alloc(Pool* pool, void* block, size_t block_size, size_t offset,
-                                size_t size, char *type_name = nullptr, void* ptr = nullptr, char *phase = nullptr);
+                                size_t size, char *type_name = nullptr, void* ptr = nullptr, char *phase = nullptr,
+                                int line_number = 0, int character_number = 0);
 
 struct PoolTrace
 {
@@ -74,7 +75,7 @@ inline void Array<T>::push_back(T value)
 {
 
 #ifdef _DEBUG
-   // printf("\n<<<<<<<< PUSH_BACK >>>>>>>>>>\n\n");
+   printf("\n<<<<<<<< PUSH_BACK >>>>>>>>>>\n\n");
 #endif
 
     assert(pool && "Array's pool pointer is null!");
@@ -90,7 +91,7 @@ inline void Array<T>::push_back(T value)
         }
         data = new_data;
         capacity = new_cap;
-    }   
+    }
     // else {
 
    //  #ifdef _DEBUG
@@ -216,8 +217,7 @@ inline void pool_trace_init(Pool* pool, const char* filename)
     pool->trace.seq = 0;
     pool->trace.enabled = true;
 
-    fprintf(pool->trace.file,
-        "SEQ|BLOCK|BLOCK_SIZE|OFFSET|SIZE|TYPE|PTR|PHASE\n");
+    fprintf(pool->trace.file, "SEQ|BLOCK|BLOCK_SIZE|OFFSET|SIZE|TYPE|PTR|PHASE|LINE|CHAR\n");
 }
 
 inline void pool_trace_close(Pool* pool)
@@ -230,12 +230,14 @@ inline void pool_trace_close(Pool* pool)
 }
 
 inline void pool_trace_alloc(Pool* pool, void* block, size_t block_size, size_t offset,
-                                size_t size, char *type_name, void* ptr, char *phase)
+                                size_t size, char *type_name, void* ptr, char *phase,
+                                int line_number, int character_number)
 {
 
-    fprintf(pool->trace.file, "%lld|%p|%zu|%zu|%zu|%s|%p|%s\n", 
-                    ++pool->trace.seq, block, block_size, offset, size, 
-                    type_name ? type_name : "raw", ptr, phase ? phase : "");
+    fprintf(pool->trace.file, "%lld|%p|%zu|%zu|%zu|%s|%p|%s|%d|%d\n",
+                    ++pool->trace.seq, block, block_size, offset, size,
+                    type_name ? type_name : "raw", ptr, phase ? phase : "",
+                    line_number, character_number);
 }
 
 
@@ -243,7 +245,7 @@ inline void *pool_alloc(Pool *pool, size_t size) {
     return pool_alloc_debug(pool, size);
 }
 
-inline void *pool_alloc_debug(Pool *pool, size_t size, char *type_name, char *phase) {
+inline void *pool_alloc_debug(Pool *pool, size_t size, char *type_name, char *phase, int line_number, int character_number) {
     assert(pool != nullptr);
 
     // this version proves to be slighly more memory efficient since it considers the case when size is at perfect alignment and therefore no need to add any extra bytes
@@ -256,22 +258,22 @@ inline void *pool_alloc_debug(Pool *pool, size_t size, char *type_name, char *ph
     ensure_memory_exists(pool, size);
 
     void *retval = pool->current_pos;
-    
+
     size_t offset = (size_t)((uintptr_t)pool->current_pos - (uintptr_t)pool->current_memblock);
 
     pool->current_pos = (void*)((uintptr_t)pool->current_pos + size);
     pool->bytes_left -= size;
-    
+
     if(pool->trace.enabled) {
         pool_trace_alloc(pool, pool->current_memblock, pool->memblock_size, offset,
-                            size, type_name, retval, phase);
+                            size, type_name, retval, phase, line_number, character_number);
     }
 
  #ifdef _DEBUG
-     // totalNbyte += (int) size;
-     // printf("[POOL_ALLOC] extra=%zu\n", extra);
-     // printf("[POOL_ALLOC] %zu bytes %p\n", size, retval);
-     // printf("[POOL_ALLOC TOTAL SO FAR] %d bytes, %f KiB\n", totalNbyte, (float)totalNbyte/1024);
+     totalNbyte += (int) size;
+     printf("[POOL_ALLOC] extra=%zu\n", extra);
+     printf("[POOL_ALLOC] %zu bytes %p\n", size, retval);
+     printf("[POOL_ALLOC TOTAL SO FAR] %d bytes, %f KiB\n", totalNbyte, (float)totalNbyte/1024);
  #endif
 
     return retval;
@@ -323,9 +325,9 @@ inline void cycle_new_block(Pool *pool)
         assert(pool->block_allocator != nullptr);
         new_block = pool->block_allocator(ALLOCATE, pool->memblock_size, 0, nullptr, pool->block_allocator_data, 0);
 
-// #ifdef _DEBUG
-//         printf("allocated NEW BLOCK in cycle_new_block\n");
-// #endif
+#ifdef _DEBUG
+        printf("allocated NEW BLOCK in cycle_new_block\n");
+#endif
 
     }
 

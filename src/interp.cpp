@@ -146,7 +146,7 @@ Ast_Block *Pax_Interp::parse_file(const char *filename, bool skip_main_check) {
 
     FileBuffer buf = read_entire_file(filename);
     if (!buf.data) {
-        printf("Error, empty file: %s\n", filename);
+        printf("\nError, empty file: %s\n", filename);
         return nullptr;
     }
 

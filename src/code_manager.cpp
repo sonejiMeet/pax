@@ -3,15 +3,15 @@
 #undef AST_NEW
 #endif
 
-#define AST_NEW(type) ([&]() -> type *{                         \
-    assert(interp->pool != nullptr && "Pool must not be null"); \
-    void *mem = pool_alloc_debug(interp->pool, sizeof(type), #type, "CODE_MANAGER");         \
-    type *node = new (mem) type(interp->pool);                  \
-    node->file_name = interp->current_file;                     \
-    return node;                                                \
+#define AST_NEW(type) ([&]() -> type *{                                              \
+    assert(interp->pool != nullptr && "Pool must not be null");                      \
+    void *mem = pool_alloc_debug(interp->pool, sizeof(type), #type, "CODE_MANAGER"); \
+    type *node = new (mem) type(interp->pool);                                       \
+    node->file_name = interp->current_file;                                          \
+    return node;                                                                     \
 }())
 
-#define FOR(type) \
+#define FOR(type)                                             \
     for(int it_index=0; it_index < (type).count; ++it_index)  \
         for(auto *it = (type).data[it_index]; it; it=nullptr)
 
@@ -41,7 +41,7 @@ Ast_Literal *CodeManager::make_integer_literal(long long value){
     return literal;
 }
 
-#define report_error(node, ...) \
+#define report_error(node, ...)                                 \
         report_error_impl(static_cast<Ast*>(node), __VA_ARGS__) \
 
 void CodeManager::report_error_impl(Ast *ast, const char *fmt, ...)
@@ -74,7 +74,7 @@ void CodeManager::report_error_impl(Ast *ast, const char *fmt, ...)
         static_cast<Ast*>(prev),                    \
         __VA_ARGS__)                                \
 
-    void CodeManager::report_error_with_previous_impl(Ast *ast_node, Ast *ast_prev, const char *fmt, ...) {
+void CodeManager::report_error_with_previous_impl(Ast *ast_node, Ast *ast_prev, const char *fmt, ...) {
     constexpr size_t BUFFER_SIZE = 512;
     char buffer[BUFFER_SIZE];
 
@@ -153,14 +153,13 @@ Ast_Declaration *CodeManager::lookup_symbol_current_scope(const char *name) {
     Ast_Block *block = scope_stack.get_back();
     if(!block) return nullptr;
 
-    for (int j = 0; j < block->statements.count; ++j) {
-        Ast_Statement *stmt = block->statements.data[j];
-        if (!stmt || stmt->type != AST_DECLARATION) continue;
+    FOR(block->statements){
+        if (!it || it->type != AST_DECLARATION) continue;
 
-        Ast_Declaration *decl = static_cast<Ast_Declaration*>(stmt);
+        Ast_Declaration *decl = static_cast<Ast_Declaration*>(it);
 
-        for (int k = 0; k < decl->identifiers.count; ++k) {
-            if (decl->identifiers.data[k] && strcmp(decl->identifiers.data[k]->name, name) == 0)
+        FOR(decl->identifiers){
+            if (it && strcmp(it->name, name) == 0)
                 return decl;
         }
 
@@ -175,14 +174,13 @@ Ast_Declaration* CodeManager::lookup_symbol_in_block(const char* name, Ast_Block
 {
     if (!block) return nullptr;
 
-    for (int j = 0; j < block->statements.count; ++j) {
-        Ast_Statement *stmt = block->statements.data[j];
-        if (!stmt || stmt->type != AST_DECLARATION) continue;
+    FOR(block->statements){
+        if (!it || it->type != AST_DECLARATION) continue;
 
-        Ast_Declaration *decl = static_cast<Ast_Declaration*>(stmt);
+        Ast_Declaration *decl = static_cast<Ast_Declaration*>(it);
 
-        for (int k = 0; k < decl->identifiers.count; ++k) {
-            if (decl->identifiers.data[k] && strcmp(decl->identifiers.data[k]->name, name) == 0)
+        FOR(decl->identifiers){
+            if (it && strcmp(it->name, name) == 0)
                 return decl;
         }
 
@@ -213,8 +211,8 @@ bool CodeManager::declare_variable(Ast_Declaration *decl, bool force_decl) {
         return true;
 
     } else {
-        for (int i = 0; i < (int)decl->identifiers.count; i++) {
-            const char *name = decl->identifiers.data[i]->name;
+        FOR(decl->identifiers){
+            const char *name = it->name;
             auto *looked_up = lookup_symbol_current_scope(name);
             if (!force_decl && looked_up) {
                 report_error_with_previous(decl, looked_up, "Variable '%s' already declared", name);
@@ -299,16 +297,15 @@ ReturnCheckResult CodeManager::checkReturnPaths(Ast_Block *block)
 
     bool fallthrough = true;
 
-    for (size_t i = 0; i < block->statements.count; ++i) {
-        Ast_Statement *stmt = block->statements.data[i];
-        if (!stmt || !fallthrough) continue;
+    FOR(block->statements){
+        if (!it || !fallthrough) continue;
 
-        if (stmt->is_return) {
+        if (it->is_return) {
             result.has_return = true;
             fallthrough = false;
             break;
-        } else if (stmt->type == AST_IF) {
-            Ast_If *ifn = static_cast<Ast_If*>(stmt);
+        } else if (it->type == AST_IF) {
+            Ast_If *ifn = static_cast<Ast_If*>(it);
 
             ReturnCheckResult if_result = checkReturnPathsIf(ifn);
 
@@ -318,9 +315,9 @@ ReturnCheckResult CodeManager::checkReturnPaths(Ast_Block *block)
                 fallthrough = false;
                 break;
             }
-        } else if (stmt->block && stmt->block->is_scoped_block) {
+        } else if (it->block && it->block->is_scoped_block) {
             // recurse normal blocks/scoped
-            ReturnCheckResult block_result = checkReturnPaths(stmt->block);
+            ReturnCheckResult block_result = checkReturnPaths(it->block);
             result.has_return |= block_result.has_return;
             if (block_result.all_paths_return) {
                 fallthrough = false;
@@ -390,11 +387,13 @@ void CodeManager::resolve_idents(Ast_Block *block) {
                 resolve_idents_in_declaration(decl);
                 if (decl->is_function && decl->my_scope && decl->is_function_body) {
                     push_scope();
-                    for (int j = 0; j < decl->parameters.count; ++j) {
-                        declare_variable(decl->parameters.data[j]);
-                        resolve_idents_in_declaration(decl->parameters.data[j]);
+
+                    FOR(decl->parameters){
+                        declare_variable(it);
+                        resolve_idents_in_declaration(it);
                     }
                     resolve_idents(decl->my_scope);
+
                     pop_scope();
                 }
             } else {
@@ -403,10 +402,9 @@ void CodeManager::resolve_idents(Ast_Block *block) {
                     declare_function(decl);
                     if (decl->my_scope && decl->is_function_body) {
                         push_scope();
-                        for (int j = 0; j < decl->parameters.count; ++j) {
-                            Ast_Declaration *param = decl->parameters.data[j];
-                            declare_variable(param);
-                            resolve_idents_in_declaration(param);
+                        FOR(decl->parameters){
+                            declare_variable(it);
+                            resolve_idents_in_declaration(it);
                         }
                         resolve_idents(decl->my_scope);
                         pop_scope();
@@ -629,14 +627,12 @@ void CodeManager::create_type_instantiation(Ast_Type_Definition *type) {
     base_type->type_instance = instance;
 
     Ast_Struct *struct_def = base_type->struct_def;
-    for (int i = 0; i < struct_def->members.count; ++i) {
-        Ast_Declaration *def_member = struct_def->members.data[i];
-
+    FOR(struct_def->members){
         Ast_Declaration *instance_member = AST_NEW(Ast_Declaration);
-        instance_member->identifier = def_member->identifier;
+        instance_member->identifier = it->identifier;
 
-        if (def_member->declared_type) {
-            instance_member->declared_type = clone_type_definition(def_member->declared_type);
+        if (it->declared_type) {
+            instance_member->declared_type = clone_type_definition(it->declared_type);
 
             // ensure arrays in members have struct_def set, otherwise it
             if (instance_member->declared_type->type == AST_ARRAY_TYPE &&
@@ -659,14 +655,14 @@ void CodeManager::create_type_instantiation(Ast_Type_Definition *type) {
                     }
                 }
             }
-        } else if (def_member->initializer) {
+        } else if (it->initializer) {
             instance_member->declared_type = nullptr;
             instance_member->inferred = false;
         } else {
             instance_member->declared_type = nullptr;
         }
 
-        instance_member->initializer = def_member->initializer;
+        instance_member->initializer = it->initializer;
         instance_member->initialized = false;
         instance_member->is_declaration_function_argument = false;
 
@@ -751,16 +747,18 @@ void CodeManager::resolve_idents_in_declaration(Ast_Declaration *decl)
 
 Ast_Type_Definition *CodeManager::find_struct_type_in_scopes(const char *name) const {
     if (!name) return nullptr;
-    for (int si = (int)scope_stack.count - 1; si >= 0; --si) {
-        Ast_Block *b = scope_stack.data[si];
-        if (!b) continue;
-        for (int i = 0; i < b->statements.count; ++i) {
-            Ast_Statement *s = b->statements.data[i];
-            if (!s) continue;
-            if (s->expression && s->expression->type == AST_STRUCT && s->type_definition) {
-                Ast_Struct *st = static_cast<Ast_Struct*>(s->expression);
-                if (st->name && strcmp(st->name, name) == 0) {
-                    return s->type_definition;
+
+    for (int i = (int)scope_stack.count - 1; i >= 0; --i) {
+        Ast_Block *block = scope_stack.data[i];
+
+        if (!block) continue;
+
+        FOR(block->statements){
+            if (!it) continue;
+            if (it->expression && it->expression->type == AST_STRUCT && it->type_definition) {
+                Ast_Struct *expr = static_cast<Ast_Struct*>(it->expression);
+                if (expr->name && strcmp(expr->name, name) == 0) {
+                    return it->type_definition;
                 }
             }
         }
@@ -794,10 +792,8 @@ void CodeManager::resolve_unresolved_vars()
     unresolved_vars = still_unresolved;
 
     if (scope_stack.count == 1 && unresolved_vars.count != 0) {
-        for (int j = 0; j < unresolved_vars.count; ++j) {
-            auto *data = unresolved_vars.data[j];
-
-            report_error(data->ident, "Use of undeclared variable '%s'", data->ident->name);
+        FOR(unresolved_vars){
+            report_error(it->ident, "Use of undeclared variable '%s'", it->ident->name);
         }
     }
 }
@@ -854,18 +850,16 @@ void CodeManager::resolve_unresolved_types()
     Array<Unresolved_Type*> still_unresolved;
     still_unresolved = interp->pool;
 
-    for (int j = 0; j < unresolved_types.count; ++j) {
-
-        auto *data = unresolved_types.data[j];
-        Ast_Type_Definition *base = data->base_type;
+    FOR(unresolved_types){
+        Ast_Type_Definition *base = it->base_type;
 
         if (!base) continue;
         if (!base->is_unresolved) continue;
         if (base->struct_def) { base->is_unresolved = false; continue; }
         if (!base->name) {
             Unresolved_Type *u = UNRESOLVED_NEW(Unresolved_Type);
-            u->decl = data->decl;
-            u->base_type = data->base_type;
+            u->decl = it->decl;
+            u->base_type = it->base_type;
             still_unresolved.push_back(u); continue;
         }
 
@@ -874,13 +868,13 @@ void CodeManager::resolve_unresolved_types()
                 base->struct_def = def->struct_def;
                 base->is_unresolved = false;
 
-                data->decl->declared_type = clone_type_definition(data->decl->declared_type);
-                create_type_instantiation(data->decl->declared_type);
+                it->decl->declared_type = clone_type_definition(it->decl->declared_type);
+                create_type_instantiation(it->decl->declared_type);
 
                 continue;
             }
         } else {
-            report_error(data->decl, "Undeclared type '%s'", data->base_type->name);
+            report_error(it->decl, "Undeclared type '%s'", it->base_type->name);
         }
         // still_unresolved.push_back(u);
     }
@@ -894,14 +888,13 @@ void CodeManager::resolve_unresolved_member_accesses() {
     Array<Unresolved_Member_Access*> still_unresolved;
     still_unresolved = interp->pool;
 
-    for (int j = 0; j < unresolved_member_accesses.count; ++j) {
-        auto *data = unresolved_member_accesses.data[j];
-        Ast_Declaration *field = resolve_member_access(data->dot_expr, data->my_scope, false, true,/*should_infer=*/true);
+    FOR(unresolved_member_accesses){
+        Ast_Declaration *field = resolve_member_access(it->dot_expr, it->my_scope, false, true,/*should_infer=*/true);
         if (!field) {
             auto *u = UNRESOLVED_NEW(Unresolved_Member_Access);
-            u->dot_expr = data->dot_expr;
-            u->assignment_expr = data->assignment_expr;
-            u->my_scope = data->my_scope;
+            u->dot_expr = it->dot_expr;
+            u->assignment_expr = it->assignment_expr;
+            u->my_scope = it->my_scope;
 
             still_unresolved.push_back(u);
             continue;
@@ -909,12 +902,12 @@ void CodeManager::resolve_unresolved_member_accesses() {
         // printf("[%d,%d]\n", u.line_number, u.character_number);
         // printf("Numer %d, resolved to member at: %p, name: %s\n", ++temp, field, field->identifier->name);
 
-        if (data->assignment_expr) {
+        if (it->assignment_expr) {
             // printf("Numer %d, inside if at: %p\n", temp, u.assignment_expr);
 
-            scope_stack.push_back(data->my_scope);
-            resolve_idents_in_expr(data->assignment_expr->rhs);
-            field->initializer = data->assignment_expr->rhs;
+            scope_stack.push_back(it->my_scope);
+            resolve_idents_in_expr(it->assignment_expr->rhs);
+            field->initializer = it->assignment_expr->rhs;
             field->initialized = true;
 
             scope_stack.pop_back();
@@ -923,9 +916,8 @@ void CodeManager::resolve_unresolved_member_accesses() {
 
     unresolved_member_accesses = still_unresolved;
     if (unresolved_member_accesses.count != 0) {
-        for (int j = 0; j < unresolved_member_accesses.count; ++j) {
-            auto *data = unresolved_member_accesses.data[j];
-            report_error(data->dot_expr, "Cannot resolve member access: base expression has unknown type");
+        FOR(unresolved_member_accesses){
+            report_error(it->dot_expr, "Cannot resolve member access: base expression has unknown type");
         }
     }
 }
@@ -998,11 +990,11 @@ void CodeManager::resolve_array_types(Ast_Array_Type *array_type, Ast_Declaratio
 
 Ast_Declaration *find_struct_member(Ast_Type_Definition *struct_type, const char *member_name) {
     if (!struct_type || !struct_type->struct_def || !member_name) return nullptr;
-    Ast_Struct *sd = struct_type->struct_def;
-    for (int i = 0; i < sd->members.count; ++i) {
-        Ast_Declaration *m = sd->members.data[i];
-        if (m && m->identifier && m->identifier->name && strcmp(m->identifier->name, member_name) == 0) {
-            return m;
+    Ast_Struct *struct_def = struct_type->struct_def;
+
+    FOR(struct_def->members){
+        if (it && it->identifier && it->identifier->name && strcmp(it->identifier->name, member_name) == 0) {
+            return it;
         }
     }
     return nullptr;
@@ -1222,14 +1214,13 @@ Ast_Declaration *CodeManager::resolve_member_access(Ast_Binary *dot_expr, Ast_Bl
     Ast_Ident *member_id = static_cast<Ast_Ident*>(dot_expr->rhs);
 
     if (current_instance) {
-        for (int i = 0; i < current_instance->member_instances.count; ++i) {
-            Ast_Declaration *m = current_instance->member_instances.data[i];
-            if (m && m->identifier && m->identifier->name && strcmp(m->identifier->name, member_id->name) == 0) {
+        FOR(current_instance->member_instances){
+            if (it && it->identifier && it->identifier->name && strcmp(it->identifier->name, member_id->name) == 0) {
                 // Set the inferred type on this dot expression
-                if (m->declared_type) {
-                    dot_expr->inferred_type = m->declared_type;
+                if (it->declared_type) {
+                    dot_expr->inferred_type = it->declared_type;
                 }
-                return m;
+                return it;
             }
         }
     } else {
@@ -1276,21 +1267,20 @@ void CodeManager::resolve_idents_in_expr(Ast_Expression *expr, Ast_Block *my_sco
 
         if (b->op == BINOP_ASSIGN) {
             if (b->lhs->type == AST_COMMA_SEPARATED_ARGS) {
-                Ast_Comma_Separated_Args *lhs_args = static_cast<Ast_Comma_Separated_Args*>(b->lhs);
+                auto *lhs_args = static_cast<Ast_Comma_Separated_Args*>(b->lhs);
 
                 if (b->rhs->type == AST_COMMA_SEPARATED_ARGS) {
-                    Ast_Comma_Separated_Args *rhs_args = static_cast<Ast_Comma_Separated_Args*>(b->rhs);
+                    auto *rhs_args = static_cast<Ast_Comma_Separated_Args*>(b->rhs);
 
                     if (rhs_args->arguments.count == 1) {
                         Ast_Expression *single_rhs = rhs_args->arguments.data[0];
                         resolve_idents_in_expr(single_rhs, my_scope);
 
-                        for (int i = 0; i < lhs_args->arguments.count; i++) {
-                            Ast_Expression *l_expr = lhs_args->arguments.data[i];
-                            resolve_idents_in_expr(l_expr, my_scope);
+                        FOR(lhs_args->arguments){
+                            resolve_idents_in_expr(it, my_scope);
 
-                            if (l_expr->type == AST_IDENT) {
-                                Ast_Ident *l_ident = static_cast<Ast_Ident*>(l_expr);
+                            if (it->type == AST_IDENT) {
+                                Ast_Ident *l_ident = static_cast<Ast_Ident*>(it);
                                 Ast_Declaration *decl = lookup_symbol(l_ident->name);
                                 if (decl) decl->initialized = true;
                             }
@@ -1458,9 +1448,8 @@ void CodeManager::resolve_idents_in_expr(Ast_Expression *expr, Ast_Block *my_sco
             if(strcmp(fn->name, "sizeof") == 0) return;
 
             if(strcmp(fn->name, "printf") == 0){
-                for (int i = 0; i < call->arguments->arguments.count; ++i) {
-                    Ast_Expression *arg = call->arguments->arguments.data[i];
-                    resolve_idents_in_expr(arg, my_scope);
+                FOR(call->arguments->arguments){
+                    resolve_idents_in_expr(it, my_scope);
                 }
                 return;
             }
@@ -1487,21 +1476,18 @@ void CodeManager::resolve_idents_in_expr(Ast_Expression *expr, Ast_Block *my_sco
                                  fn->name, decl_arg_count, call_arg_count);
                 } else if (call->arguments) {
 
-                    for (int i = 0; i < call_arg_count; ++i) {
-                        Ast_Expression *arg = call->arguments->arguments.data[i];
-                        resolve_idents_in_expr(arg, my_scope);
+                    FOR(call->arguments->arguments){
+                        resolve_idents_in_expr(it, my_scope);
                     }
                 }
             }
         }
 
         if (call->arguments) {
-            for (int i = 0; i < call->arguments->arguments.count; ++i) {
-                Ast_Expression *arg = call->arguments->arguments.data[i];
-
+            FOR(call->arguments->arguments){
                 // flagging the tag for assuming that the local uninitialized pointer of struct/member
                 // is atleast being to a proc call (in the hopes that function will initialize it)
-                if (Ast_Unary *addr = ast_static_cast<Ast_Unary>(arg, AST_UNARY)) {
+                if (Ast_Unary *addr = ast_static_cast<Ast_Unary>(it, AST_UNARY)) {
                     if (addr->op == UNARY_ADDRESS_OF) {
 
                         if (Ast_Ident *var = ast_static_cast<Ast_Ident>(addr->operand, AST_IDENT)) {
@@ -1529,9 +1515,8 @@ void CodeManager::resolve_idents_in_expr(Ast_Expression *expr, Ast_Block *my_sco
     case AST_COMMA_SEPARATED_ARGS: {
         auto *args = static_cast<Ast_Comma_Separated_Args*>(expr);
 
-        for (int i = 0; i < args->arguments.count; ++i) {
-            Ast_Expression *a = args->arguments.data[i];
-            resolve_idents_in_expr(a, my_scope);
+        FOR(args->arguments){
+            resolve_idents_in_expr(it, my_scope);
         }
         break;
     }
@@ -1540,28 +1525,27 @@ void CodeManager::resolve_idents_in_expr(Ast_Expression *expr, Ast_Block *my_sco
         auto *s = static_cast<Ast_Struct *>(expr);
         if(!s) return;
 
-        for(int i = 0; i < s->members.count; ++i){
-            Ast_Declaration *decl = s->members.data[i];
+        FOR(s->members){
 
-            if(decl) {
-                Ast_Type_Definition *base_type = decl->declared_type;
-                while(base_type && base_type->pointed_to_type){
-                    if(base_type->pointed_to_type) {
-                        base_type = base_type->pointed_to_type;
-                    }
+            if(!it) break;
+            Ast_Type_Definition *base_type = it->declared_type;
+
+            while(base_type && base_type->pointed_to_type){
+                if(base_type->pointed_to_type) {
+                    base_type = base_type->pointed_to_type;
                 }
-                if(base_type && base_type->is_unresolved){
-                    auto *struct_n = base_type->name;
-                    Ast_Declaration *struct_ = lookup_symbol(struct_n);
-                    auto *def_ = reinterpret_cast<Ast_Type_Definition*>(struct_);
-                    if(struct_) {
-                        base_type->struct_def = def_->pointed_to_type->struct_def;
-                        base_type->is_unresolved = false;
-                    } else {
-                        push_unresolved_type(decl, base_type);
-                    }
+            }
+
+            if(base_type && base_type->is_unresolved){
+                auto *struct_n = base_type->name;
+                Ast_Declaration *struct_ = lookup_symbol(struct_n);
+                auto *def_ = reinterpret_cast<Ast_Type_Definition*>(struct_);
+                if(struct_) {
+                    base_type->struct_def = def_->pointed_to_type->struct_def;
+                    base_type->is_unresolved = false;
+                } else {
+                    push_unresolved_type(it, base_type);
                 }
-                continue;
             }
         }
         break;
@@ -2062,23 +2046,21 @@ void CodeManager::infer_types_expr(Ast_Expression **expr_ptr)
                     Ast_Type_Definition *member_type = nullptr;
                     Ast_Declaration *member_decl = nullptr;
                     if (dereferenced->type_instance) {
-                        for (int i = 0; i < dereferenced->type_instance->member_instances.count; ++i) {
-                            Ast_Declaration *m = dereferenced->type_instance->member_instances.data[i];
-                            if (m && m->identifier && m->identifier->name &&
-                                strcmp(m->identifier->name, member->name) == 0) {
-                                member_type = m->declared_type;
-                                member_decl = m;
+                        FOR(dereferenced->type_instance->member_instances){
+                            if (it && it->identifier && it->identifier->name &&
+                                strcmp(it->identifier->name, member->name) == 0) {
+                                member_type = it->declared_type;
+                                member_decl = it;
                                 break;
                             }
                         }
                     } else {
                         Ast_Struct *sd = dereferenced->struct_def;
-                        for (int i = 0; i < sd->members.count; ++i) {
-                            Ast_Declaration *m = sd->members.data[i];
-                            if (m && m->identifier && m->identifier->name &&
-                                strcmp(m->identifier->name, member->name) == 0) {
-                                member_type = m->declared_type;
-                                member_decl = m;
+                        FOR(sd->members){
+                            if (it && it->identifier && it->identifier->name &&
+                                strcmp(it->identifier->name, member->name) == 0) {
+                                member_type = it->declared_type;
+                                member_decl = it;
                                 break;
                             }
                         }
@@ -2333,15 +2315,15 @@ void CodeManager::infer_types_expr(Ast_Expression **expr_ptr)
             if(!s) return;
 
             Ast_Block *temp_scope = AST_NEW(Ast_Block);
-            for(int i = 0; i < s->members.count; ++i){
-                temp_scope->statements.push_back(s->members.data[i]);
+
+            FOR(s->members){
+                temp_scope->statements.push_back(it);
             }
             scope_stack.push_back(temp_scope);
 
-            for(int i = 0; i < s->members.count; ++i){
-                Ast_Declaration *decl = s->members.data[i];
-                if(decl) {
-                    infer_types_decl(decl);
+            FOR(s->members){
+                if(it) {
+                    infer_types_decl(it);
                 }
             }
 
@@ -2412,9 +2394,8 @@ void CodeManager::infer_types_expr(Ast_Expression **expr_ptr)
 
                     // Still infer arguments normally (malloc expects s64/int)
                     if (call->arguments) {
-                        for (int i = 0; i < call->arguments->arguments.count; ++i) {
-                            Ast_Expression *arg = call->arguments->arguments.data[i];
-                            infer_types_expr(&arg);
+                        FOR(call->arguments->arguments){
+                            infer_types_expr(&it);
                         }
                     }
 
@@ -2461,10 +2442,8 @@ void CodeManager::infer_types_expr(Ast_Expression **expr_ptr)
 
             if (call->arguments)
             {
-                for (int i = 0; i < call->arguments->arguments.count; ++i)
-                {
-                    Ast_Expression *p = call->arguments->arguments.data[i];
-                    infer_types_expr(&p);
+                FOR(call->arguments->arguments){
+                    infer_types_expr(&it);
                 }
             }
             // If this call is part of an assignment, check the LHS type
@@ -2823,8 +2802,8 @@ void CodeManager::infer_types_block(Ast_Block *block, Ast_Declaration *my_func)
                 if (decl->my_scope && decl->is_function_body) {
                     push_scope();
 
-                    for (int j = 0; j < decl->parameters.count; ++j) {
-                        declare_variable(decl->parameters.data[j]);
+                    FOR(decl->parameters){
+                        declare_variable(it);
                     }
                     infer_types_block(decl->my_scope, decl); // Infer types in function body
                     pop_scope();
