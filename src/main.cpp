@@ -1,4 +1,4 @@
-#define ENABLE_PROFILER
+// #define ENABLE_PROFILER
 // #define ENABLE_TRACER
 // #define PRINT_LEX
 #include "all.h"
@@ -22,7 +22,7 @@ extern const Def_Type *ttype = nullptr; // temporary
     return node;                                        \
 }())
 
-void init_Def_Type(Def_Type *type, Pool *pool) {
+static void init_Def_Type(Def_Type *type, Pool *pool) {
     type->type_def_dummy   = AST_NEW(pool, Ast_Type_Definition);
     type->type_def_int     = AST_NEW(pool, Ast_Type_Definition);
     type->type_def_s8      = AST_NEW(pool, Ast_Type_Definition);
@@ -45,7 +45,7 @@ void init_Def_Type(Def_Type *type, Pool *pool) {
     type->literal_false    = AST_NEW(pool, Ast_Literal);
 }
 
-void *default_allocator(int mode, size_t size, size_t old_size,
+static void *default_allocator(int mode, size_t size, size_t old_size,
                                void *old_memory, void *allocator_data, int options)
 {
     switch(mode) {
@@ -84,7 +84,7 @@ int main(int argc, char **argv) {
     pool_init(&pool);
     pool.block_allocator = default_allocator;
 
-#ifdef _DEBUG
+#ifdef ENABLE_TRACER
     pool_trace_init(&pool, "pool_trace.txt");
     defer { pool_trace_close(&pool); };
 #endif
