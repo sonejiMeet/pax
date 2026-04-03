@@ -1,8 +1,8 @@
-## About Pax language
+# About Pax language
 Pax is a strongly and statically typed, systems language with type inference and
 order-independent struct and function declarations.
 
-## About Pax compiler/transpiler
+# About Pax compiler/transpiler
 At present, Pax is still a transpiler (transpiles to C-like C++) it does not rely 
 on C's compiler for error messages whatsoever (or atleast its the goal).
 
@@ -14,7 +14,7 @@ from C compiler (otherwise its a bug in Pax transpiler that should be fixed).
 Eventually, the aim is to shift from transpiling to a native backend.
 For now, I wanted to focus on language design and frontend implementation.
 
-## Memory tracing
+# Memory tracing
 Pax uses Pool allocator (aka bump allocator), where a huge chunk of memory (ex. 128 KiB)
 is allocated by the global malloc and data is pushed in contiguous form and pointer is 
 bumped as the memory block gets filled. To debug allocator I had all the different 
@@ -33,6 +33,19 @@ see below.
 https://github.com/user-attachments/assets/5eb5fc7f-b7d5-4cc5-8596-2fdbb91050db
 
 ---
+## How to use it
+1. To enable memory profiling, add following at the top of `src/main.cpp`
+```cpp
+#define ENABLE_PROFILER
+```
+2. Rebuild project
+3. Now when you compile a Pax file, it will output `pool_trace.txt`
+4. Run following to generate json file
+```bash
+python mem_tracing\main.py pool_trace.txt
+```
+5. Upload `pool_trace.json` to [Perfetto](https://ui.perfetto.dev/)
+
 (This project is under development)
 
 ###### P.S. Language design is heavily inspired by Jonathan Blow's Jai programming language.
