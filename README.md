@@ -36,4 +36,3 @@ https://github.com/user-attachments/assets/5eb5fc7f-b7d5-4cc5-8596-2fdbb91050db
 (This project is under development)
 
 ###### P.S. Language design is heavily inspired by Jonathan Blow's Jai programming language.
-P.S. Language design is heavily inspired by Jonathan Blow's Jai programming language.
