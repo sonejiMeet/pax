@@ -85,6 +85,8 @@ char *c_concat3(const char *a, const char *b, const char *c) {
 #define TINY_TIMER
 
 #ifdef ENABLE_PROFILER
+
+#ifdef _WIN32
 extern "C" {
     __declspec(dllimport) int __stdcall QueryPerformanceCounter(long long* lpPerformanceCount);
     __declspec(dllimport) int __stdcall QueryPerformanceFrequency(long long* lpFrequency);
@@ -107,6 +109,30 @@ struct ScopedTimer {
         printf("%s: %fs\n\n", name, (double)(end - start) / freq);
     }
 };
+
+#else
+
+#include <time.h>
+
+class ScopedTimer {
+private:
+    struct timespec start;
+    const char* name;
+public:
+    ScopedTimer(const char* timer_name) : name(timer_name) {
+        clock_gettime(CLOCK_MONOTONIC, &start);
+    }
+    
+    ~ScopedTimer() {
+        struct timespec end;
+        clock_gettime(CLOCK_MONOTONIC, &end);
+        double elapsed = (end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec) / 1e9;
+        printf("%s: %fs\n\n", name, elapsed);
+    }
+};
+
+#endif
+
 
 #define TIME_SCOPE(name) ScopedTimer timer_##__LINE__(name)
 
