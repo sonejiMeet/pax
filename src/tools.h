@@ -14,6 +14,10 @@
 #endif
 
 
+#define FOR(type)                                             \
+    for(int it_index=0; it_index < (type).count; ++it_index)  \
+        for(auto *it = (type).data[it_index]; it; it=nullptr)
+
 
 int isNumeric(char c);
 int isAlpha(char c);
@@ -84,7 +88,7 @@ char *c_concat3(const char *a, const char *b, const char *c) {
 #ifndef TINY_TIMER
 #define TINY_TIMER
 
-#ifdef ENABLE_PROFILER
+#ifdef ENABLE_TIME_PROFILER
 
 #ifdef _WIN32
 extern "C" {
@@ -122,7 +126,7 @@ public:
     ScopedTimer(const char* timer_name) : name(timer_name) {
         clock_gettime(CLOCK_MONOTONIC, &start);
     }
-    
+
     ~ScopedTimer() {
         struct timespec end;
         clock_gettime(CLOCK_MONOTONIC, &end);
@@ -138,6 +142,6 @@ public:
 
 #else
 #define TIME_SCOPE(name)
-#endif // ENABLE_PROFILER
+#endif // ENABLE_TIME_PROFILER
 
 #endif // TINY_TIMER

@@ -11,10 +11,6 @@
     return node;                                                                     \
 }())
 
-#define FOR(type)                                             \
-    for(int it_index=0; it_index < (type).count; ++it_index)  \
-        for(auto *it = (type).data[it_index]; it; it=nullptr)
-
 CodeManager::CodeManager(Pax_Interp *_interp)
 {
     interp = _interp;

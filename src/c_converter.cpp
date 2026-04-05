@@ -25,8 +25,58 @@ const char *BOILTERPLATE_TOP =
     "typedef float      float32;\n"
     "typedef double     float64;\n"
     "\n"
-;
 
+    "#ifdef _WIN32\n"
+    "#define WIN32_LEAN_AND_MEAN\n"
+    "#define NOMINMAX\n"
+    "#include <windows.h>\n"
+    "#endif\n"
+    "#include <dbghelp.h>\n"
+    "\n"
+    "#pragma comment(lib, \"Dbghelp.lib\")\n"
+    "\n"
+    "LONG WINAPI SimpleCrashHandler(EXCEPTION_POINTERS* ep) {\n"
+    "    DWORD code = ep->ExceptionRecord->ExceptionCode;\n"
+    "    if (code == EXCEPTION_STACK_OVERFLOW) {\n"
+    "        puts(\" \x1B[91m STACK OVERFLOW \x1B[0m\");\n"
+    "        return EXCEPTION_EXECUTE_HANDLER;\n"
+    "    }\n"
+    "    HANDLE proc = GetCurrentProcess();\n"
+    "    SymInitialize(proc, NULL, TRUE);\n"
+    "    STACKFRAME64 frame = {};\n"
+    "    DWORD machine = IMAGE_FILE_MACHINE_AMD64;\n"
+    "    frame.AddrPC.Offset = ep->ContextRecord->Rip;\n"
+    "    frame.AddrPC.Mode = AddrModeFlat;\n"
+    "    printf(\"\\n \x1B[91m--- RUNTIME CRASH STACK TRACE ---\x1B[0m \\n\");\n"
+    "    printf(\"\\n*******\");\n"
+    "    while (StackWalk64(machine, proc, GetCurrentThread(), &frame, ep->ContextRecord, NULL, SymFunctionTableAccess64, SymGetModuleBase64, NULL)) {\n"
+    "        if (frame.AddrPC.Offset == 0) break;\n"
+    "        char buf[sizeof(SYMBOL_INFO) + MAX_SYM_NAME];\n"
+    "        SYMBOL_INFO* sym = (SYMBOL_INFO*)buf;\n"
+    "        sym->SizeOfStruct = sizeof(SYMBOL_INFO);\n"
+    "        sym->MaxNameLen = MAX_SYM_NAME;\n"
+    "        IMAGEHLP_LINE64 line = { sizeof(IMAGEHLP_LINE64) };\n"
+    "        DWORD disp;\n"
+    "        DWORD64 d64;\n"
+    "        if (SymFromAddr(proc, frame.AddrPC.Offset, &d64, sym)) {\n"
+    "            if (SymGetLineFromAddr64(proc, frame.AddrPC.Offset, &disp, &line))\n"
+    "                printf(\"\t%s:%lu\", line.FileName, line.LineNumber);\n"
+    "            printf(\"  %s\", sym->Name);\n"
+    "            printf(\"\\n\");\n"
+    "        }\n"
+    "       if (strcmp(sym->Name, \"GENERATED_MAIN\") == 0) break;"
+    "    }\n"
+    "    printf(\"\\n \x1B[91m--- END OF STACK TRACE ---\x1B[0m \\n\");\n"
+
+    "    SymCleanup(proc);\n"
+    "    return EXCEPTION_EXECUTE_HANDLER;\n"
+    "}\n"
+    "void InstallHandler() {\n"
+    "     ULONG reserve = 16*1024;\n"
+    "     SetThreadStackGuarantee(&reserve);\n"
+    "    SetUnhandledExceptionFilter(SimpleCrashHandler);\n"
+    "}\n"
+;
 C_Converter::C_Converter(Pax_Interp *_interp) : interp(_interp) , _type(interp->type){
 }
 
@@ -96,6 +146,8 @@ void C_Converter::emitExpression(FILE *out, Ast_Expression *expr, int indent, bo
 
         case AST_BINARY: {
             auto *bin = static_cast<Ast_Binary *>(expr);
+            // indentLine(out, indent);
+            PRINT_DEBUG_INFO(out, "\n#line %d \"%s\"\n", expr->line_number, expr->file_name);
 
             if (bin->lhs->type == AST_COMMA_SEPARATED_ARGS) {
                 Ast_Comma_Separated_Args *lhs_args = static_cast<Ast_Comma_Separated_Args*>(bin->lhs);
@@ -302,6 +354,8 @@ void C_Converter::emitExpression(FILE *out, Ast_Expression *expr, int indent, bo
             break;
         }
         case AST_PROCEDURE_CALL_EXPRESSION: {
+            PRINT_DEBUG_INFO(out, "\n#line %d \"%s\"\n", expr->line_number, expr->file_name);
+
             auto *call = static_cast<Ast_Procedure_Call_Expression*>(expr);
 
             // Special cast for malloc return type
@@ -325,6 +379,8 @@ void C_Converter::emitExpression(FILE *out, Ast_Expression *expr, int indent, bo
             break;
         }
         case AST_CAST: {
+            PRINT_DEBUG_INFO(out, "\n#line %d \"%s\"\n", expr->line_number, expr->file_name);
+
             auto *cast = static_cast<Ast_Cast*>(expr);
 
             type_to_c_string(out, cast->cast_expression, nullptr, false, indent);
@@ -535,8 +591,8 @@ void C_Converter::emitStatement(FILE *out, Ast_Statement *stmt, int indent, bool
 
             auto *decl = static_cast<Ast_Declaration*>(stmt);
 
+            PRINT_DEBUG_INFO(out, "#line %d \"%s\"\n", stmt->line_number, stmt->file_name);
             if(decl->is_function){
-                PRINT_DEBUG_INFO(out, "#line %d \"%s\"\n", stmt->line_number, stmt->file_name);
 
                 // fprintf(out, "\n");
                 indentLine(out, indent);
@@ -1238,6 +1294,7 @@ void C_Converter::generate_cpp_code(const char *filename, Ast_Block *program)
     fprintf(out, "}\n");
 
     fprintf(out, "\nint main(int argc, char **argv){\n");
+    fprintf(out, "    InstallHandler();\n");
     fprintf(out, "    GENERATED_MAIN();\n");
     fprintf(out, "    return 0;\n");
     fprintf(out, "}\n");
