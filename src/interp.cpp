@@ -154,7 +154,7 @@ Ast_Block *Pax_Interp::parse_file(const char *filename, bool skip_main_check) {
 
     Lexer temp_lexer((const char*)buf.data, buf.size, pool);
     Parser temp_parser(&temp_lexer, this);
-    Ast_Block *parsed_ast = temp_parser.parseProgram(skip_main_check);
+    Ast_Block *parsed_ast = temp_parser.parseProgram(ast, skip_main_check);
     parsed_ast->file_name = (const char *) abs_path;
 
     free(buf.data);
@@ -171,8 +171,11 @@ void Pax_Interp::load_imports(Ast_Block *module_ast, const char *module_path) {
 }
 
 bool Pax_Interp::init(const char *entry_file) {
-    // must pass the pool pointer to this Array
-    module_parse_order = pool;
+
+    all_unique_import_paths = pool;
+   Ast_Block *program = AST_NEW(pool, Ast_Block);
+   ast = program;
+
 
     parse_filename(entry_file);
 
@@ -180,28 +183,35 @@ bool Pax_Interp::init(const char *entry_file) {
     if (!entry_ast) {
         return false;
     }
-
+    ast = AST_NEW(pool, Ast_Block);
     char *abs_path = get_absolute_path(entry_file);
 
-    loaded_modules[abs_path] = entry_ast;
-
+    all_unique_import_paths.push_back(abs_path);
     load_imports(entry_ast, abs_path);
 
-    module_parse_order.push_back(abs_path);
+    FOR(entry_ast->statements){
+        ast->statements.push_back(it);
+    }
 
-    ast = merge_all_modules();
     ast->file_name = abs_path;
 
     return true;
 }
 
+bool Pax_Interp::does_import_already_exist(char *path){
+
+    FOR(all_unique_import_paths){
+        if(strcmp(it, path) == 0) return true;
+    }
+    return false;
+}
 
 Ast_Block *Pax_Interp::load_and_parse_module(const char *filename) {
     char *abs_path = get_absolute_path(filename);
 
-    if (loaded_modules.count(abs_path)) {
+    if(does_import_already_exist(abs_path) == true){
         // printf("\n>>>>Module already imported before: %s\n\n", abs_path);
-        return loaded_modules[abs_path];
+        return {};
     }
 
     // printf("<<<Inside interp>>> Loading module: %s\n", filename);
@@ -213,28 +223,13 @@ Ast_Block *Pax_Interp::load_and_parse_module(const char *filename) {
         return nullptr;
     }
 
-    loaded_modules[abs_path] = mod_ast;
-    module_parse_order.push_back(abs_path);
+    all_unique_import_paths.push_back(abs_path);
 
     load_imports(mod_ast, abs_path);
 
     return mod_ast;
 }
 
-Ast_Block *Pax_Interp::merge_all_modules() {
-    Ast_Block *root = AST_NEW(pool, Ast_Block);
-
-    for(int j=0; j < module_parse_order.count; ++j) {
-        char *mod_path = module_parse_order.data[j];
-        Ast_Block *mod_ast = loaded_modules[mod_path];
-
-        for (int i = 0; i < mod_ast->statements.count; i++) {
-            root->statements.push_back(mod_ast->statements.data[i]);
-        }
-    }
-
-    return root;
-}
 
 void Pax_Interp::printLexer(const char *filename) {
     FileBuffer buf = read_entire_file(filename);
@@ -309,10 +304,12 @@ void Pax_Interp::compile_cpp() {
 
     char command[256];
 #ifdef _WIN32                               /* vvvvvvvvvvvvvv @Temporary */
-    snprintf(command, sizeof(command), "cl.exe /Z7 /wd4477 /wd4313 /Od /EHsc /nologo %s.cpp", base_name);
+    snprintf(command, sizeof(command), "cl.exe /Z7 /w /Od /EHsc /nologo %s.cpp", base_name);
+    // printf("Running C compiler: %s\n", command);
     runCompiler(command);
 #else
     snprintf(command, sizeof(command), "g++ -w -o %s %s.cpp", file_name_only, base_name);
+    printf("Running C compiler: %s\n", command);
     runCompiler(command);
 #endif
 }

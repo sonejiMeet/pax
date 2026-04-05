@@ -11,7 +11,7 @@ if "%~1"=="" 								   echo [Default mode]
 
 pushd src\
 
-cl %debug% %optimize% /Z7 /W3 /EHsc /nologo /Zc:preprocessor /Zc:inline main.cpp logo.res /Fe:pax.exe /link /INCREMENTAL:NO /DYNAMICBASE:NO
+cl %debug% %optimize% /Z7 /w /EHsc /nologo /Zc:preprocessor /Zc:inline main.cpp logo.res /Fe:pax.exe /link /INCREMENTAL:NO /DYNAMICBASE:NO
 
 
 : for .i file

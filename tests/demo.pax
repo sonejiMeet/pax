@@ -216,13 +216,13 @@ main :: () {
     idk = 293824;
     printf("\nidk = %d\n", idk);
 
-    boolean = false;
+    global_var = false;
     printf("\n");
 }
 
 idk : int = 1;
 
-boolean: bool = true;
+global_var: bool = true;
 
 
 func :: (aa: ^int, sssd: int) -> int {

@@ -1,7 +1,7 @@
 #pragma once
 
-#include "lexer.h"
-#include "ast.h"
+// #include "lexer.h"
+// #include "ast.h"
 
 struct Pax_Interp;
 
@@ -25,7 +25,7 @@ struct Parser
     void Expect(TokenType expectedType, const char *errorMessage);
 
     void synchronize();
-    Ast_Block *parseProgram(/*Ast_Block *program, */bool skip_main = false);
+    Ast_Block *parseProgram(Ast_Block *program, bool skip_main = false);
 
     //
     //  KEEP THIS OLD RECURSIVE DECENT

@@ -1,5 +1,5 @@
-// #define ENABLE_PROFILER
-// #define ENABLE_TRACER
+// #define ENABLE_TIME_PROFILER
+// #define ENABLE_MEMORY_TRACER
 // #define PRINT_LEX
 #include "all.h"
 
@@ -71,7 +71,7 @@ int main(int argc, char **argv) {
 #endif
 #endif
 
-    printf(" %s RUNNING %s \n", "\x1B[0;33m", "\x1B[0m");
+    // printf(" %s RUNNING %s \n", "\x1B[0;33m", "\x1B[0m");
 
     if (argc < 2) {
         printf("Usage: %s <file>.pax\n", argv[0]);
@@ -84,9 +84,12 @@ int main(int argc, char **argv) {
     pool_init(&pool);
     pool.block_allocator = default_allocator;
 
-#ifdef ENABLE_TRACER
+#ifdef ENABLE_MEMORY_TRACER
     pool_trace_init(&pool, "pool_trace.txt");
-    defer { pool_trace_close(&pool); };
+    defer {
+        printf("\nOutputted trace file: pool_trace.txt\n\n");
+        pool_trace_close(&pool);
+    };
 #endif
 
     Def_Type type;
@@ -116,7 +119,7 @@ int main(int argc, char **argv) {
     interp.compile_cpp();
 #endif
 
-    printf(" %s SUCCESS %s \n", "\x1B[0;32m", "\x1B[0m");
+    // printf(" %s SUCCESS %s \n", "\x1B[0;32m", "\x1B[0m");
     printf("Total lines processed %zu\n", LINE_COUNT);
 
 #ifdef _DEBUG

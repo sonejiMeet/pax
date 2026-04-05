@@ -21,8 +21,7 @@ struct Pax_Interp {
 
     Ast_Block *ast;
 
-    std::unordered_map<std::string, Ast_Block *> loaded_modules;
-    Array<char *> module_parse_order;
+    Array<char *> all_unique_import_paths;
 
     const char *current_file;
 
@@ -36,6 +35,7 @@ struct Pax_Interp {
     Ast_Block *parse_file(const char *filename, bool skip_main_check);
     void load_imports(Ast_Block *module_ast, const char *module_path);
 
+    bool does_import_already_exist(char*path);
     Ast_Block *load_and_parse_module(const char *filename);
     Ast_Block *merge_all_modules();
 

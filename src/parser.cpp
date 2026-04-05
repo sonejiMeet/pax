@@ -1188,9 +1188,8 @@ Ast_Statement *Parser::parseStatement()
 }
 
 
-Ast_Block *Parser::parseProgram(/*Ast_Block *program,*/ bool skip_main)
+Ast_Block *Parser::parseProgram(Ast_Block *program, bool skip_main)
 {
-    Ast_Block *program = AST_NEW(Ast_Block);
 
     // printf("---Inside parser--- Parsing file: %s\n", interp->current_file);
 
