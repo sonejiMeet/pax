@@ -1,7 +1,5 @@
 #pragma once
 
-#include <map>
-#include <set>
 #include <functional> // these are temporary
 
 struct Pax_Interp;

@@ -173,9 +173,7 @@ void Pax_Interp::load_imports(Ast_Block *module_ast, const char *module_path) {
 bool Pax_Interp::init(const char *entry_file) {
 
     all_unique_import_paths = pool;
-   Ast_Block *program = AST_NEW(pool, Ast_Block);
-   ast = program;
-
+    ast = AST_NEW(pool, Ast_Block);
 
     parse_filename(entry_file);
 

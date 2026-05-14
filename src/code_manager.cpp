@@ -431,7 +431,10 @@ void CodeManager::resolve_idents(Ast_Block *block) {
                             }
                         }
                     }
+                    if (!decl->is_function && decl->initializer) {
+                        resolve_idents_in_expr(decl->initializer, block);
 
+                    }
                     if (!decl->is_function && decl->initializers && decl->identifiers.count > 0) {
                         FOR(decl->initializers->arguments) {
                             resolve_idents_in_expr(it, block);
@@ -878,7 +881,12 @@ void CodeManager::resolve_unresolved_types()
     unresolved_types = still_unresolved;
 }
 
-
+Ast_Ident *CodeManager::get_member_ident(Ast_Binary *dot_expr)
+{
+    if (!dot_expr || !dot_expr->rhs) return nullptr;
+    if (dot_expr->rhs->type != AST_IDENT) return nullptr;
+    return static_cast<Ast_Ident*>(dot_expr->rhs);
+}
 // int temp = 0;
 void CodeManager::resolve_unresolved_member_accesses() {
     Array<Unresolved_Member_Access*> still_unresolved;
@@ -911,11 +919,11 @@ void CodeManager::resolve_unresolved_member_accesses() {
     }
 
     unresolved_member_accesses = still_unresolved;
-    if (unresolved_member_accesses.count != 0) {
-        FOR(unresolved_member_accesses){
-            report_error(it->dot_expr, "Cannot resolve member access: base expression has unknown type");
-        }
-    }
+    // if (unresolved_member_accesses.count != 0) {
+    //     FOR(unresolved_member_accesses){
+    //         report_error(it->dot_expr, "Unresolved member access");
+    //     }
+    // }
 }
 
 
@@ -1026,26 +1034,37 @@ inline void CodeManager::push_unresolved_call(Ast_Procedure_Call_Expression *cal
     unresolved_calls.push_back(u);
 }
 
-
 Ast_Declaration *CodeManager::resolve_member_access(Ast_Binary *dot_expr, Ast_Block *my_scope, bool skip_init_check, bool skip_queuing, bool should_infer) {
     Ast_Type_Definition *base_type = nullptr;
     Ast_Declaration *base_decl = nullptr;
     Ast_Type_Instantiation *current_instance = nullptr;
 
+    Ast_Ident *member_id = get_member_ident(dot_expr);
+
+    auto report_unresolved_member = [&]() {
+        if (!should_infer) return;
+        if (member_id && member_id->name) {
+            report_error(member_id, "Could not resolve member '%s'", member_id->name);
+        } else {
+            report_error(dot_expr, "Could not resolve member access");
+        }
+    };
+
     Ast_Binary *base_dot = static_cast<Ast_Binary*>(dot_expr->lhs);
     if (dot_expr->lhs->type == AST_BINARY) {
         if (base_dot->op == BINOP_DOT) {
-            Ast_Declaration *nested_field = resolve_member_access(base_dot, my_scope, skip_init_check, true, should_infer); // skip_queuing at first bad resolve to avoid sub dot_expr nodes being pushed to unresolved queue
+            Ast_Declaration *nested_field = resolve_member_access(base_dot, my_scope, skip_init_check, true, should_infer);
             if (!nested_field) {
-                if(!skip_queuing){
-                    push_unresolved_member_access(dot_expr);
+                if (!skip_queuing) {
+                    // push_unresolved_member_access(dot_expr);
+                } else {
+                    report_unresolved_member();
                 }
                 return nullptr;
             }
 
             base_type = nested_field->declared_type;
 
-            // idk if this is neccessary? when we have a locally declared type being passed by value and returned through pointer it breaks saying base expressioon has unknown type. BUT maybe there shoudl still be a check when in the future we implement heap alloc....
             if (!base_type && nested_field->initializer && should_infer) {
                 scope_stack.push_back(my_scope);
                 infer_types_expr(&nested_field->initializer);
@@ -1057,28 +1076,29 @@ Ast_Declaration *CodeManager::resolve_member_access(Ast_Binary *dot_expr, Ast_Bl
                 }
             }
 
-
             if (base_type) {
                 dot_expr->lhs->inferred_type = base_type;
             }
 
             if (!base_type) {
-                if(!skip_queuing){
+                if (!skip_queuing) {
                     push_unresolved_member_access(dot_expr);
+                } else {
+                    report_unresolved_member();
                 }
                 return nullptr;
             }
 
             Ast_Type_Definition *check_resolved = base_type;
-            while (check_resolved->pointed_to_type){
-                if (check_resolved->pointed_to_type) {
-                    check_resolved = check_resolved->pointed_to_type;
-                    continue;
-                }
+            while (check_resolved->pointed_to_type) {
+                check_resolved = check_resolved->pointed_to_type;
             }
+
             if (check_resolved->is_unresolved) {
-                if(!skip_queuing){
+                if (!skip_queuing) {
                     push_unresolved_member_access(dot_expr);
+                } else {
+                    report_unresolved_member();
                 }
                 return nullptr;
             }
@@ -1086,23 +1106,18 @@ Ast_Declaration *CodeManager::resolve_member_access(Ast_Binary *dot_expr, Ast_Bl
             if (!skip_init_check && base_type && base_type->pointed_to_type) {
                 if (!nested_field->initialized) {
                     report_error(dot_expr, "Cannot access member through uninitialized pointer member '%s'",
-                                    nested_field->identifier ? nested_field->identifier->name : "(unknown)");
+                                 nested_field->identifier ? nested_field->identifier->name : "(unknown)");
                     return nullptr;
                 }
             }
 
-            // Auto-dereference to get to the struct type
             while (base_type->pointed_to_type) {
                 base_type = base_type->pointed_to_type;
             }
 
-
-            // Get instance AFTER dereferencing
             current_instance = base_type->type_instance;
         }
     }
-
-
 
     if (!base_type && dot_expr->lhs->type == AST_IDENT) {
         Ast_Ident *base_name = static_cast<Ast_Ident*>(dot_expr->lhs);
@@ -1110,19 +1125,21 @@ Ast_Declaration *CodeManager::resolve_member_access(Ast_Binary *dot_expr, Ast_Bl
         if (!base_decl) {
             if (should_infer) {
                 base_decl = lookup_symbol(base_name->name, scope_stack.data[0]);
-
             }
         }
+
         if (!base_decl) {
-                if (!skip_queuing) push_unresolved_member_access(dot_expr);
-                return nullptr;
+            if (!skip_queuing) {
+                push_unresolved_member_access(dot_expr);
+            } else {
+                report_unresolved_member();
+            }
+            return nullptr;
         }
 
         base_type = base_decl->declared_type;
 
-
-        if (!base_type && base_decl->initializer && should_infer) // the declarations with explicit type given that dot_expr depend on need to be inferred first. should_infer is only set during reslolve_unresolved_member_accesses_queue()
-        {
+        if (!base_type && base_decl->initializer && should_infer) {
             scope_stack.push_back(my_scope);
             infer_types_expr(&base_decl->initializer);
             scope_stack.pop_back();
@@ -1134,8 +1151,10 @@ Ast_Declaration *CodeManager::resolve_member_access(Ast_Binary *dot_expr, Ast_Bl
         }
 
         if (!base_type) {
-            if(!skip_queuing){
+            if (!skip_queuing) {
                 push_unresolved_member_access(dot_expr);
+            } else {
+                report_unresolved_member();
             }
             return nullptr;
         }
@@ -1157,7 +1176,6 @@ Ast_Declaration *CodeManager::resolve_member_access(Ast_Binary *dot_expr, Ast_Bl
     }
 
     if (!base_type) {
-
         if (!dot_expr->lhs->inferred_type) {
             resolve_idents_in_expr(dot_expr->lhs, my_scope);
         }
@@ -1167,16 +1185,18 @@ Ast_Declaration *CodeManager::resolve_member_access(Ast_Binary *dot_expr, Ast_Bl
             infer_types_expr(&dot_expr->lhs);
             scope_stack.pop_back();
         }
+
         base_type = dot_expr->lhs->inferred_type;
 
         if (!base_type || base_type == _type->type_def_dummy || base_type->is_unresolved) {
             if (!skip_queuing) {
                 push_unresolved_member_access(dot_expr);
+            } else {
+                report_unresolved_member();
             }
             return nullptr;
         }
 
-        // Deref pointers
         while (base_type->pointed_to_type) {
             base_type = base_type->pointed_to_type;
         }
@@ -1184,6 +1204,8 @@ Ast_Declaration *CodeManager::resolve_member_access(Ast_Binary *dot_expr, Ast_Bl
         if (!base_type->struct_def || base_type->is_unresolved) {
             if (!skip_queuing) {
                 push_unresolved_member_access(dot_expr);
+            } else {
+                report_unresolved_member();
             }
             return nullptr;
         }
@@ -1191,28 +1213,31 @@ Ast_Declaration *CodeManager::resolve_member_access(Ast_Binary *dot_expr, Ast_Bl
         current_instance = base_type->type_instance;
     }
 
-    //  queue for later pass if no struct definition was found
     if (!base_type->struct_def) {
         if (base_type->is_unresolved) {
-            if(!skip_queuing){
+            if (!skip_queuing) {
                 push_unresolved_member_access(dot_expr);
+            } else {
+                report_unresolved_member();
+            }
+        } else if (should_infer) {
+            if (member_id && member_id->name) {
+                report_error(member_id, "Member '%s' is not resolvable because base expression is not a struct", member_id->name);
+            } else {
+                report_error(dot_expr, "Member access requires a struct");
             }
         }
         return nullptr;
     }
 
-    // this will happen for function return type so create the instance from existing function
     if (!current_instance && base_type->struct_def) {
         create_type_instantiation(base_type);
         current_instance = base_type->type_instance;
     }
 
-    Ast_Ident *member_id = static_cast<Ast_Ident*>(dot_expr->rhs);
-
     if (current_instance) {
-        FOR(current_instance->member_instances){
+        FOR(current_instance->member_instances) {
             if (it && it->identifier && it->identifier->name && strcmp(it->identifier->name, member_id->name) == 0) {
-                // Set the inferred type on this dot expression
                 if (it->declared_type) {
                     dot_expr->inferred_type = it->declared_type;
                 }
@@ -1220,12 +1245,14 @@ Ast_Declaration *CodeManager::resolve_member_access(Ast_Binary *dot_expr, Ast_Bl
             }
         }
     } else {
-        report_error(dot_expr, "INTERNAL, no struct definition was found. We should not be here!"); // TEMPORARY
+        report_error(dot_expr, "INTERNAL, no struct definition was found. We should not be here!");
         return nullptr;
     }
 
     Ast_Struct *sd = base_type->struct_def;
-    report_error(member_id, "Struct '%s' has no member '%s'", sd->name ? sd->name : "(unknown)", member_id->name);
+    report_error(member_id, "Struct '%s' has no member '%s'",
+                 sd->name ? sd->name : "(unknown)",
+                 member_id && member_id->name ? member_id->name : "(unknown)");
     return nullptr;
 }
 

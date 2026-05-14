@@ -110,6 +110,8 @@ struct CodeManager {
     void resolve_idents_in_declaration(Ast_Declaration *decl);
     void transform_array_to_struct(Ast_Type_Definition *type);
 
+    Ast_Ident *get_member_ident(Ast_Binary *dot_expr);
+
     Ast_Declaration *resolve_member_access(Ast_Binary *dot_expr, Ast_Block *my_scope = nullptr, bool skip_init_check =false, bool skip_queuing = false, bool should_infer = false);
 
     Ast_Type_Definition *clone_type_definition(Ast_Type_Definition *original);

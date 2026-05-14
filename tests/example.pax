@@ -1,0 +1,22 @@
+
+main :: (){
+
+	local: A;
+
+	func(&local);
+
+	printf("local.b.c = %d\n", local.b.c);
+}
+
+func :: (a: ^A){
+	a.b.c = 100;
+}
+
+A :: struct {
+	b: B;
+}
+
+B :: struct {
+	c: int;
+}
+

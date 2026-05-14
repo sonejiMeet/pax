@@ -936,6 +936,12 @@ Ast_Declaration *Parser::parseFunctionDeclaration(bool is_local) {
 
             func_decl->parameters.push_back(param);
 
+            if(current->type == TOK_ASSIGN){
+                advance();
+
+                param->initializer = parseExpression();
+            }
+
             if (current->type != TOK_COMMA)
                 break;
             advance(); // consume comma
@@ -1028,6 +1034,19 @@ Ast_Statement *Parser::parseStatement()
                     return parseFunctionDeclaration(/*is_local=*/false);
                 }
             }
+            else if (next->type == TOK_COLON){
+                Ast_Declaration *decl = parseVarDeclaration();
+                return decl;
+            }
+            else if(next->type == TOK_LPAREN){
+                Ast_Procedure_Call_Expression *expr = parseCall();
+
+                Expect(TOK_SEMICOLON, "Expected ';' after procedure call.");
+
+                Ast_Statement *stmt = AST_NEW(Ast_Statement);
+                stmt->expression = expr;
+                return stmt;
+            }
             else if (next->type == TOK_COMMA) {
                 int offset = 2;
                 Token *t = lexer->peekNextToken(offset);
@@ -1063,19 +1082,6 @@ Ast_Statement *Parser::parseStatement()
 
                 stmt->expression = assignExpr;
                 return stmt;
-            }
-            else if(next->type == TOK_LPAREN){
-                Ast_Procedure_Call_Expression *expr = parseCall();
-
-                Expect(TOK_SEMICOLON, "Expected ';' after printf call.");
-
-                Ast_Statement *stmt = AST_NEW(Ast_Statement);
-                stmt->expression = expr;
-                return stmt;
-            }
-            else if (next->type == TOK_COLON){
-                Ast_Declaration *decl = parseVarDeclaration();
-                return decl;
             }
             else {
                 parseError("This a fucked up statement." );

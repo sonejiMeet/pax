@@ -1,0 +1,38 @@
+
+
+main :: () {
+	printf(" Running crassh handler \n");
+
+	// A();
+
+	infinite_recurse();
+
+	printf("-------SUCCESS-----------\n");
+}
+
+
+A :: () {
+ 	B();
+}
+
+B :: () {
+	C();
+}
+
+C :: (){
+	deref_null_ptr();
+}
+
+deref_null_ptr :: () {
+    p: ^s64 = null;
+	_p := 0;
+	p = &_p;
+    *p = 42;
+}
+
+
+infinite_recurse :: () {
+    infinite_recurse();
+}
+
+

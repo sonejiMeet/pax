@@ -1,6 +1,4 @@
 
-// TEST: compile pass
-// demo_simple_nested_structs.pax
 main :: (){
     function_1();
     printf("DONE\n");

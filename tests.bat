@@ -41,6 +41,8 @@ for %%f in (
     demo_string.pax
     demo_pointer_cast_byte.pax
 
+    demo_runtime_crash_handler.pax
+
 ) do (
     set /a TOTAL_TEST+=1
     set LOG=tmp_%%~nf.log

@@ -127,7 +127,7 @@ struct Ast_Declaration : public Ast_Statement {
 
 
     Ast_Block *my_scope = nullptr;
-
+    
     // replace this with flags and use & operator to check flags for simplicity
     bool is_function = false;
     bool is_function_header = false;

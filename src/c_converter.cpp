@@ -25,7 +25,9 @@ const char *BOILTERPLATE_TOP =
     "typedef float      float32;\n"
     "typedef double     float64;\n"
     "\n"
+;
 
+const char *WINDOWS_RUNTIME_CRASH_HANDLER_HELPER =
     "#ifdef _WIN32\n"
     "#define WIN32_LEAN_AND_MEAN\n"
     "#define NOMINMAX\n"
@@ -77,6 +79,7 @@ const char *BOILTERPLATE_TOP =
     "    SetUnhandledExceptionFilter(SimpleCrashHandler);\n"
     "}\n"
 ;
+
 C_Converter::C_Converter(Pax_Interp *_interp) : interp(_interp) , _type(interp->type){
 }
 
@@ -988,8 +991,9 @@ void visit_struct(Ast_Statement* stmt, Array<Ast_Statement*>& structs, Array<Str
 
     if(contains_struct(in_progress, s)) {
         fprintf(stderr,
-            "Error: Circular struct dependency involving '%s'\n",
-            s->name ? s->name : "(unknown)");
+            "%s[%d:%d]: Circular struct dependency involving '%s'\n\n",
+            s->file_name, s->line_number, s->character_number, s->name ? s->name : "(unknown)");
+        fprintf(stderr, "There were errors. Exiting...\n");
         exit(1);
     }
 
@@ -1199,6 +1203,10 @@ void C_Converter::generate_cpp_code(const char *filename, Ast_Block *program)
     }
 
     fprintf(out, "%s", BOILTERPLATE_TOP);
+
+#ifdef _WIN32
+    fprintf(out, "%s", WINDOWS_RUNTIME_CRASH_HANDLER_HELPER);
+#endif
 
     Array<Ast_Statement*> structs;
     Array<Ast_Statement*> vars;
