@@ -1302,7 +1302,9 @@ void C_Converter::generate_cpp_code(const char *filename, Ast_Block *program)
     fprintf(out, "}\n");
 
     fprintf(out, "\nint main(int argc, char **argv){\n");
+#ifdef _WIN32
     fprintf(out, "    InstallHandler();\n");
+#endif
     fprintf(out, "    GENERATED_MAIN();\n");
     fprintf(out, "    return 0;\n");
     fprintf(out, "}\n");
