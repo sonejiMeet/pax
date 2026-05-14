@@ -306,7 +306,7 @@ void Pax_Interp::compile_cpp() {
     // printf("Running C compiler: %s\n", command);
     runCompiler(command);
 #else
-    snprintf(command, sizeof(command), "g++ -w -o %s %s.cpp", file_name_only, base_name);
+    snprintf(command, sizeof(command), "g++ -w -o %s.exe %s.cpp", file_name_only, base_name);
     printf("Running C compiler: %s\n", command);
     runCompiler(command);
 #endif
