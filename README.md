@@ -36,7 +36,7 @@ https://github.com/user-attachments/assets/5eb5fc7f-b7d5-4cc5-8596-2fdbb91050db
 ## How to use it
 1. To enable memory profiling, add following at the top of `src/main.cpp`
 ```cpp
-#define ENABLE_TRACER
+#define ENABLE_MEMORY_TRACER
 ```
 2. Rebuild project
 3. Now when you compile a Pax file, it will output `pool_trace.txt`
