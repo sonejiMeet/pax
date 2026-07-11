@@ -65,9 +65,14 @@ struct Lexer
 
     inline void skipUnwantedChar()
     {
+       char prev = '\0';
        while (Pos < size) {
             char c = Source[Pos];
+
             if( c== '\n') LINE_COUNT += 1;
+            if(c == '\n' && prev == '\n') LINE_COUNT -= 1; // to skip counting blank lines
+            prev = c;
+
             if (c == ' ' || c == '\t' || c == '\r' || c == '\n') {
                 get_and_advance();
                 continue;

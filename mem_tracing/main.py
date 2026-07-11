@@ -13,7 +13,7 @@ def convert_txt_to_chrome_trace(input_file: str, output_file: str):
 
     block_number = 0
 
-    global print_extra
+    print_extra = 0
 
     with open(input_file, 'r') as f:
         header = f.readline().strip()

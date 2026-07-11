@@ -18,7 +18,6 @@ struct Parser
 
     void advance();
 
-    void parseError(const char *message, bool print_token_type = false);
     void report_parse_error(const char *fmt, ...);
 
     void expect(TokenType expectedType, const char *errorMessage);

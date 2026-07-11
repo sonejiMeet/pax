@@ -59,6 +59,16 @@ static void *default_allocator(int mode, size_t size, size_t old_size,
     return 0;
 }
 
+// std::at_exit should be registered in main function so we make sure to clean up release pool even if there is unexpected exit
+static Pool* global_pool = nullptr;
+void cleanup_pool() {
+    if (global_pool) {
+        printf("Cleaning up memory pool on exit...\n");
+        pool_release(global_pool);
+        global_pool = nullptr;
+    }
+}
+
 
 int main(int argc, char **argv) {
 
@@ -83,6 +93,11 @@ int main(int argc, char **argv) {
     Pool pool;
     pool_init(&pool);
     pool.block_allocator = default_allocator;
+
+   global_pool = &pool;
+
+    // register the cleanup func
+    std::atexit(cleanup_pool);
 
 #ifdef ENABLE_MEMORY_TRACER
     pool_trace_init(&pool, "pool_trace.txt");

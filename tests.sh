@@ -41,13 +41,21 @@ pass_tests=(
   demo_pointer_cast_byte.pax
 
   demo_runtime_crash_handler.pax
+
+  demo_named_defaults_parameter.pax
+
 )
 
 fail_tests=(
   demo_fail_uninitialized_ptr_member_passed_by_value.pax
+
   demo_fail_is_declaration_passed_through_function.pax
+
   demo_fail_nested_init.pax
   demo_fail_nested_structs_with_members_as_pointers.pax
+
+  demo_fail_named_defaults_parameter.pax
+  demo_fail_named_defaults_parameter_2.pax
 )
 
 for f in "${pass_tests[@]}"; do

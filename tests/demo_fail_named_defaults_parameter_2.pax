@@ -1,0 +1,8 @@
+// Parser error for named args
+bad_pos_after :: (x: int = 10, y: int = 20) {}
+
+
+main :: () {
+    // EXPECT: Positional argument cannot appear after a named argument.
+    bad_pos_after(b=5, 99);  // named then positional
+}

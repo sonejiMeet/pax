@@ -153,4 +153,8 @@ struct CodeManager {
     Ast_Type_Definition *extract_sizeof_type(Ast_Expression *expr);
     Ast_Type_Definition *resolve_type_by_name(const char *name);
 
+    Ast_Expression *get_call_argument_value(Ast_Expression *argument);
+    Ast_Declaration *find_call_parameter(Ast_Declaration *function_decl, const char *parameter_name);
+    bool validate_call_arguments(Ast_Procedure_Call_Expression *call, Ast_Declaration *function_decl);
+
 };

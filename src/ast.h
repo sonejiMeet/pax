@@ -30,6 +30,7 @@ struct Ast_Import;
 struct Ast_Array_Type;
 
 struct Ast_Break;
+struct Ast_Named_Argument;
 
 enum Ast_Type {
     AST_UNKNOWN,
@@ -56,6 +57,9 @@ enum Ast_Type {
     AST_IMPORT,
     AST_ARRAY_TYPE,
     AST_BREAK,
+
+    AST_NAMED_ARGUMENT,
+
 };
 
 
@@ -81,6 +85,7 @@ inline std::string astTypeToString(Ast_Type type) {
         case AST_CAST: return "Cast";
         case AST_IMPORT: return "Import";
         case AST_BREAK: return "breakStmt";
+        case AST_NAMED_ARGUMENT: return "namedArg";
         default:                 return "Unknown";
     }
 }
@@ -114,6 +119,25 @@ struct Ast_Expression : public Ast {
 
 };
 
+
+
+// int IS_FUNCTION = 0x1;
+// int IS_FUNCTION_HEADER = 0x2;
+// int IS_FUNCTION_BODY = 0x4;
+// int IS_LOCAL_FUNCTION = 0x8;
+// int IS_LOCAL_FUNCTION = 0x16;
+
+
+//     function_flags |= IS_FUNCTION;
+
+
+//  if(function_flags & IS_FUNCTION) {
+
+
+//  }
+
+
+
 struct Ast_Declaration : public Ast_Statement {
     Ast_Declaration(Pool *p) :parameters(p), identifiers(p), identifier_types(p), return_types(p)  { type = AST_DECLARATION; }
 
@@ -127,14 +151,14 @@ struct Ast_Declaration : public Ast_Statement {
 
 
     Ast_Block *my_scope = nullptr;
-    
+
     // replace this with flags and use & operator to check flags for simplicity
     bool is_function = false;
     bool is_function_header = false;
     bool is_function_body = false;
     bool is_local_function = false;
     bool is_foreign = false;
-
+    // int function_flags = 0x0;
     // bool is_
 
     Array<Ast_Declaration*> parameters;     // function parameters
@@ -401,4 +425,9 @@ struct Ast_Import : public Ast_Expression {
 
 };
 
-
+struct Ast_Named_Argument : Ast_Expression {
+    Ast_Named_Argument(Pool* = nullptr) { type = AST_NAMED_ARGUMENT; }
+    
+    Ast_Ident *name = nullptr;
+    Ast_Expression *value = nullptr;
+};

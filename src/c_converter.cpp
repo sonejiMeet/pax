@@ -358,7 +358,7 @@ void C_Converter::emitExpression(FILE *out, Ast_Expression *expr, int indent, bo
         }
         case AST_PROCEDURE_CALL_EXPRESSION: {
             PRINT_DEBUG_INFO(out, "\n#line %d \"%s\"\n", expr->line_number, expr->file_name);
-
+            
             auto *call = static_cast<Ast_Procedure_Call_Expression*>(expr);
 
             // Special cast for malloc return type
@@ -366,21 +366,60 @@ void C_Converter::emitExpression(FILE *out, Ast_Expression *expr, int indent, bo
                 type_to_c_string(out, expr->inferred_type, nullptr, false, indent);
             }
             fprintf(out, "%s(", call->function->name);
-            if(call->arguments)
-            {
-                bool first = true;
-                for(int i = 0; i < call->arguments->arguments.count; i++)
-                {
-                    Ast_Expression *arg = call->arguments->arguments.data[i];
 
-                    if(!first) fprintf(out, ",");
-                    emitExpression(out, arg, indent);
-                    first = false;
+            Ast_Declaration *function_decl = find_function_declaration(call);
+
+
+            if (!function_decl || function_decl->is_foreign) {
+                if (call->arguments) {
+                    bool first = true;
+                    FOR(call->arguments->arguments) 
+                    {
+                        Ast_Expression *value = get_call_argument_value(it);
+
+                        if(!value) continue;
+
+                        if(!first) fprintf(out, ",");
+                        emitExpression(out, value, indent);
+                        first = false;
+                    }
                 }
+                fprintf(out, ")");
+                break;
             }
+
+            
+            // For each param: use its matching named argument, otherwise consume the next positional argument, otherwise use its default initializer.
+            int next_positional_argument = 0;
+
+            FOR(function_decl->parameters)
+            {
+                if (!it) continue; 
+
+                Ast_Expression *argument = find_call_argument(call, it, &next_positional_argument);
+
+                if (!argument) {
+                    argument = it->initializer;
+                }
+
+                if (it_index != 0) {
+                    fprintf(out, ", ");
+                }
+
+                // this should be checked in previous phases but just in case 
+                if (!argument) {
+                    fprintf(out, "/* missing argument %s */ 0",
+                                 it->identifier && it->identifier->name ? it->identifier->name : "(unknown)");
+                    continue;
+                }
+
+                emitExpression(out, argument, indent);
+            }
+
             fprintf(out, ")");
             break;
         }
+
         case AST_CAST: {
             PRINT_DEBUG_INFO(out, "\n#line %d \"%s\"\n", expr->line_number, expr->file_name);
 
@@ -403,6 +442,130 @@ void C_Converter::emitExpression(FILE *out, Ast_Expression *expr, int indent, bo
     }
 }
 
+Ast_Expression *C_Converter::get_call_argument_value(Ast_Expression *argument)
+{
+    if (!argument) {
+        return nullptr;
+    }
+
+    if (argument->type == AST_NAMED_ARGUMENT) {
+        Ast_Named_Argument *named = static_cast<Ast_Named_Argument *>(argument);
+
+        return named->value;
+    }
+
+    return argument;
+}
+
+Ast_Declaration *C_Converter::find_function_declaration(Ast_Procedure_Call_Expression *call)
+{
+    if (!call || !call->function) {
+        return nullptr;
+    }
+
+    if (call->function->type != AST_IDENT) {
+        return nullptr;
+    }
+
+    Ast_Ident *function_name = static_cast<Ast_Ident *>(call->function);
+
+    if (!function_name->name) {
+        return nullptr;
+    }
+
+    /*
+     fix:
+        The semantic pass should ideally store this directly on the call AST, call->resolved_function = decl.
+    */
+    Ast_Block *global_scope = interp->ast;
+
+    if (!global_scope) {
+        return nullptr;
+    }
+
+    FOR(global_scope->statements) {
+        Ast_Statement *statement = it;
+
+        if (!statement || statement->type != AST_DECLARATION) {
+            continue;
+        }
+
+        Ast_Declaration *declaration = static_cast<Ast_Declaration *>(statement);
+
+        if (!declaration->is_function || !declaration->identifier || !declaration->identifier->name){
+            continue;
+        }
+
+        if (strcmp(declaration->identifier->name, function_name->name) == 0) {
+            return declaration;
+        }
+    }
+
+    return nullptr;
+}
+
+
+Ast_Expression *C_Converter::find_call_argument(Ast_Procedure_Call_Expression *call, 
+                                                Ast_Declaration *parameter, int *next_positional_argument)
+{
+    if (!call || !parameter || !parameter->identifier ||
+        !parameter->identifier->name || !next_positional_argument)
+    {
+        return nullptr;
+    }
+
+    if (!call->arguments) {
+        return nullptr;
+    }
+
+    const char *parameter_name = parameter->identifier->name;
+
+    /*
+        Named arguments win by name. This makes a mixed call such as
+        func(10, c=4.0, b=20) map correctly once semantic validation allows it.
+    */
+    FOR(call->arguments->arguments) {
+        Ast_Expression *raw_argument = it;
+
+        if (!raw_argument || raw_argument->type != AST_NAMED_ARGUMENT)
+        {
+            continue;
+        }
+
+        Ast_Named_Argument *named = static_cast<Ast_Named_Argument *>(raw_argument);
+
+        if (!named->name || !named->name->name) {
+            continue;
+        }
+
+        if (strcmp(named->name->name, parameter_name) == 0) {
+            return named->value;
+        }
+    }
+
+    
+    // Positional arguments are consumed in source order, but named arguments do not occupy a positional slot.
+    
+    int seen_positional_arguments = 0;
+
+    FOR(call->arguments->arguments) {
+        Ast_Expression *raw_argument = it;
+
+        if (!raw_argument || raw_argument->type == AST_NAMED_ARGUMENT)
+        {
+            continue;
+        }
+
+        if (seen_positional_arguments == *next_positional_argument) {
+            ++(*next_positional_argument);
+            return raw_argument;
+        }
+
+        ++seen_positional_arguments;
+    }
+
+    return nullptr;
+}
 
 void C_Converter::type_to_c_string(FILE *out, Ast_Type_Definition *type, Ast_Declaration *decl, bool need_semicolon, int indent, bool should_initializer){
     if(!type) return;

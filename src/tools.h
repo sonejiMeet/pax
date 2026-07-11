@@ -140,7 +140,7 @@ public:
 
 #define TIME_SCOPE(name) ScopedTimer timer_##__LINE__(name)
 
-#else
+#else // ENABLE_TIME_PROFILER
 #define TIME_SCOPE(name)
 #endif // ENABLE_TIME_PROFILER
 

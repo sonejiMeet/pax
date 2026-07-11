@@ -37,18 +37,6 @@ void Parser::advance() {
     current = lexer->nextToken();
 }
 
-void Parser::parseError(const char *message, bool print_token_type) {
-
-    if(!print_token_type)
-        printf("\n%s: Parsing Error[%d:%d] %s", interp->current_file, current->row, current->col, message);
-    else
-        printf("\n%s: Parsing Error: %s TokenType: '%s'", interp->current_file, message, tokenTypeToString(current->type));
-
-    exitSuccess = false;
-    synchronize();
-
-}
-
 void Parser::report_parse_error(const char *fmt, ...)
 {
     constexpr size_t BUFFER_SIZE = 512;
@@ -69,7 +57,7 @@ void Parser::report_parse_error(const char *fmt, ...)
 void Parser::expect(TokenType expectedType, const char *errorMessage)
 {
     if (current->type != expectedType) {
-        parseError(errorMessage);
+        report_parse_error(errorMessage);
         exitSuccess = false;
         synchronize();
         return;
@@ -101,6 +89,7 @@ void Parser::synchronize() {
             case TOK_PRINT:
             case TOK_MAIN_ENTRY_POINT:
             case TOK_LCURLY_PAREN:
+            case TOK_SEMICOLON:
                 return;
             default:
                 break;
@@ -135,7 +124,7 @@ void Parser::synchronize() {
 //     else if (current->type == TOK_MINUS) {
 //         Token *lookahead = lexer->peekNextToken();
 //         if (lookahead->type == TOK_MINUS) {
-//             parseError("Consecutive unary minus operators are not allowed.");
+//             report_parse_error("Consecutive unary minus operators are not allowed.");
 //         }
 //         advance();
 //         Ast_Unary *node = AST_NEW(Ast_Unary);
@@ -146,7 +135,7 @@ void Parser::synchronize() {
 //     else if (current->type == TOK_EXCLAMATION_MARK) {
 //         Token *lookahead = lexer->peekNextToken();
 //         if (lookahead->type == TOK_EXCLAMATION_MARK) {
-//             parseError("Consecutive unary exclamation mark operators are not allowed.");
+//             report_parse_error("Consecutive unary exclamation mark operators are not allowed.");
 //         }
 //         advance();
 //         Ast_Unary *node = AST_NEW(Ast_Unary);
@@ -215,7 +204,7 @@ void Parser::synchronize() {
 //         return expr;
 //     }
 
-//     parseError("Expected a literal, identifier, or parenthesised expression factor.");
+//     report_parse_error("Expected a literal, identifier, or parenthesised expression factor.");
 
 //     return nullptr;
 // }
@@ -311,7 +300,7 @@ Ast_Expression *Parser::parseExpression(int minPrecedence)
     }
     else if (current->type == TOK_MINUS) {
         if (lexer->peekNextToken()->type == TOK_MINUS) {
-            parseError("Consecutive unary minus operators are not allowed.");
+            report_parse_error("Consecutive unary minus operators are not allowed.");
         }
         advance();
         Ast_Unary *node = AST_NEW(Ast_Unary);
@@ -321,7 +310,7 @@ Ast_Expression *Parser::parseExpression(int minPrecedence)
     }
     else if (current->type == TOK_EXCLAMATION_MARK) {
         if (lexer->peekNextToken()->type == TOK_EXCLAMATION_MARK) {
-            parseError("Consecutive unary exclamation mark operators are not allowed.");
+            report_parse_error("Consecutive unary exclamation mark operators are not allowed.");
         }
         advance();
         Ast_Unary *node = AST_NEW(Ast_Unary);
@@ -392,7 +381,7 @@ Ast_Expression *Parser::parseExpression(int minPrecedence)
         left = cast;
     }
     else {
-        parseError("Expected a literal, identifier, or an expression.");
+        report_parse_error("Expected a literal, identifier, or an expression.");
         return nullptr;
     }
 
@@ -553,7 +542,7 @@ Ast_Type_Definition *Parser::parseTypeSpecifier() {
         baseType = user_defined_type;
     }
     else {
-        parseError("Expected a base type (e.g 'int', 'float', 'string', 'bool', or user-defined type)");
+        report_parse_error("Expected a base type (e.g 'int', 'float', 'string', 'bool', or user-defined type)");
         return nullptr;
     }
     advance();
@@ -593,7 +582,7 @@ Ast_Declaration *Parser::parseVarDeclaration()
 
     auto parseIdent = [&]() -> Ast_Ident* {
         if (current->type != TOK_IDENTIFIER /* && current->type != TOK_UNDERSCORE */) {
-            parseError("Expected identifier in declaration");
+            report_parse_error("Expected identifier in declaration");
             return nullptr;
         }
         Ast_Ident *ident = AST_NEW(Ast_Ident);
@@ -664,7 +653,7 @@ Ast_Declaration *Parser::parseVarDeclaration()
             }
 
         } else {
-            parseError("Expected either ':' declaration");
+            report_parse_error("Expected either ':' declaration");
         }
 
     }
@@ -745,7 +734,7 @@ Ast_If *Parser::parseIfStatement(){
     if(should_consume_paren)
         expect(TOK_RPAREN, "Expected ')' after end of expression in if statement.");
     else if (current->type == TOK_RPAREN) {
-        parseError("Unexpected ')' after end of expression in if statement");
+        report_parse_error("Unexpected ')' after end of expression in if statement");
     }
 
     Ast_Block *thenBlock = parseBlockStatement(false, true);
@@ -791,7 +780,7 @@ Ast_Block *Parser::parseBlockStatement(bool scoped_block, bool if_block) {
             block->statements.push_back(stmt);
             if(if_block && only_one_stmt) return block; // we only allow one statement to get inside block and leave
         } else {
-            parseError("Failed to parse statement within block.");
+            report_parse_error("Failed to parse statement within block.");
             break;
         }
     }
@@ -802,7 +791,7 @@ Ast_Block *Parser::parseBlockStatement(bool scoped_block, bool if_block) {
         if (current->type == TOK_RCURLY_PAREN && should_close_paren)
             advance();
         else
-            parseError("Unexpected '}' in a block statement");
+            report_parse_error("Unexpected '}' in a block statement");
     }
     return block;
 }
@@ -835,26 +824,62 @@ Ast_Procedure_Call_Expression *Parser::parseCall()
 
     Ast_Comma_Separated_Args *argsNode = AST_NEW(Ast_Comma_Separated_Args);
 
-    if(current->type != TOK_RPAREN)
+    bool saw_named_argument = false;
+
+    while(current->type != TOK_RPAREN && current->type != TOK_END_OF_FILE)
     {
-        while(true)
+        Ast_Expression *arg = nullptr;
+
+        if (current->type == TOK_IDENTIFIER && lexer->peekNextToken()->type == TOK_ASSIGN)
         {
+            Ast_Named_Argument *named_arg = AST_NEW(Ast_Named_Argument);
 
-            Ast_Expression *arg = parseExpression();
-            argsNode->arguments.push_back(arg);
+            named_arg->name = AST_NEW(Ast_Ident);
+            named_arg->name->name = current->value;
 
-            if(current->type == TOK_COMMA){
-                advance();
+            advance(); // consume ident 
+            advance();  // consume = sign
 
-                if(current->type == TOK_RPAREN)
-                {
-                    parseError("Expected argument after ',' in function call");
-                    break;
-                }
+            named_arg->value = parseExpression();
 
-            } else {
-                break; // at this point is probably a ')'
+            if (!named_arg->value) {
+                report_parse_error("Expected an expression after '=' for named argument '%s'.", named_arg->name->name);
+                return nullptr;
             }
+
+            arg = named_arg;
+            saw_named_argument = true;
+        }
+        else
+        {
+            // Valid:   func(10, b=5)
+            // Invalid: func(a=10, 5)
+            if (saw_named_argument) {
+                report_parse_error("Positional argument cannot appear after a named argument.");
+                return nullptr;
+            }
+
+            arg = parseExpression();
+
+            if (!arg) {
+                report_parse_error("Expected function argument.");
+                return nullptr;
+            }
+        }
+
+        argsNode->arguments.push_back(arg);
+
+        if(current->type == TOK_COMMA){
+            advance();
+
+            if(current->type == TOK_RPAREN)
+            {
+                report_parse_error("Expected argument after ',' in function call");
+                break;
+            }
+        
+        } else {
+            break; // at this point is probably a ')'
         }
     }
     expect(TOK_RPAREN, "Expected ')' after function call arguments");
@@ -898,7 +923,7 @@ Ast_Statement *Parser::parseStructDefinition()
 
 Ast_Declaration *Parser::parseFunctionDeclaration(bool is_local) {
     if (current->type != TOK_IDENTIFIER) {
-        parseError("Expected function name at start of declaration");
+        report_parse_error("Expected function name at start of declaration");
         return nullptr;
     }
 
@@ -916,7 +941,7 @@ Ast_Declaration *Parser::parseFunctionDeclaration(bool is_local) {
     if (current->type != TOK_RPAREN) {
         while (true) {
             if (current->type != TOK_IDENTIFIER) {
-                parseError("Expected parameter name");
+                report_parse_error("Expected parameter name");
                 return nullptr;
             }
 
@@ -930,7 +955,7 @@ Ast_Declaration *Parser::parseFunctionDeclaration(bool is_local) {
 
             param->declared_type = parseTypeSpecifier();
             if (!param->declared_type) {
-                parseError("Invalid parameter type");
+                report_parse_error("Invalid parameter type");
                 return nullptr;
             }
 
@@ -977,7 +1002,7 @@ Ast_Declaration *Parser::parseFunctionDeclaration(bool is_local) {
             expect(TOK_SEMICOLON, "Expected ';' after function prototype");
         }
         else if (current->type == TOK_SEMICOLON){
-            parseError("Function header only allowed for foreign function calls.");
+            report_parse_error("Function header only allowed for foreign function calls.");
         }
     }
 
@@ -1084,7 +1109,7 @@ Ast_Statement *Parser::parseStatement()
                 return stmt;
             }
             else {
-                parseError("This a fucked up statement." );
+                report_parse_error("This a fucked up statement." );
                 return nullptr;
             }
 
@@ -1136,7 +1161,7 @@ Ast_Statement *Parser::parseStatement()
             return parseIfStatement();
         case TOK_ELSE:
         {
-            parseError("Got 'else' without an 'if' statement.");
+            report_parse_error("Got 'else' without an 'if' statement.");
             advance();
             // break;
             return nullptr;
@@ -1188,7 +1213,7 @@ Ast_Statement *Parser::parseStatement()
             // printf("Here is underscore");
             // return NULL;
         default:
-            parseError("Unexpected token at start of statement: " );
+            report_parse_error("Unexpected token at start of statement: " );
             return nullptr;
     }
 }
@@ -1212,11 +1237,11 @@ Ast_Block *Parser::parseProgram(Ast_Block *program, bool skip_main)
     {
         if (current->type == TOK_MAIN_ENTRY_POINT) {
             if(skip_main == true){
-                parseError("'main' entry point should not be inside a module.");
+                report_parse_error("'main' entry point should not be inside a module.");
             }
 
             if (mainFound) {
-                parseError("Multiple 'main' functions not allowed.");
+                report_parse_error("Multiple 'main' functions not allowed.");
             }
             mainFound = true;
             Ast_Statement *stmt = AST_NEW(Ast_Statement);
@@ -1274,7 +1299,7 @@ Ast_Block *Parser::parseProgram(Ast_Block *program, bool skip_main)
                 }
             }
             else {
-                parseError("Top-level executable statements not allowed. Only declarations and main.");
+                report_parse_error("Top-level executable statements not allowed. Only declarations and main.");
                 break;
             }
         } else if (current->type == TOK_HASHTAG){
@@ -1295,20 +1320,20 @@ Ast_Block *Parser::parseProgram(Ast_Block *program, bool skip_main)
 
                 }
                 else {
-                    parseError("Expected import string.");
+                    report_parse_error("Expected import string.");
                 }
             }
-            else parseError("Only import are supported following a '#'\n");
+            else report_parse_error("Only import are supported following a '#'\n");
         }
         else {
-            parseError("Unexpected token at top-level. Only declarations and main function allowed.");
+            report_parse_error("Unexpected token at top-level. Only declarations and main function allowed.");
             break;
         }
     }
 
 
     if (!mainFound && exitSuccess && !skip_main) {
-        parseError("No 'main' entry point was found in the program.", true);
+        report_parse_error("No 'main' entry point was found in the program.", true);
     }
 
     if(!exitSuccess){

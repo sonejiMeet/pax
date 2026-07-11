@@ -302,7 +302,7 @@ void Pax_Interp::compile_cpp() {
 
     char command[256];
 #ifdef _WIN32                               /* vvvvvvvvvvvvvv @Temporary */
-    snprintf(command, sizeof(command), "cl.exe /Z7 /w /Od /EHsc /nologo %s.cpp", base_name);
+    snprintf(command, sizeof(command), "cl.exe /Z7 /w /Od /EHsc /nologo %s.cpp /link /INCREMENTAL:NO", base_name);
     // printf("Running C compiler: %s\n", command);
     runCompiler(command);
 #else

@@ -823,14 +823,7 @@ void CodeManager::resolve_unresolved_calls()
             continue;
         }
 
-        int call_arg_count = call->arguments ? call->arguments->arguments.count : 0;
-        int decl_arg_count = decl->parameters.count;
-        if (call_arg_count != decl_arg_count) {
-            report_error(call, "Function '%s' expects %d arguments, but %d were provided",
-                         fn->name, decl_arg_count, call_arg_count);
-            continue;
-        }
-        // we infer args later on....
+        validate_call_arguments(call, decl);
     }
 
     unresolved_calls = still_unresolved;
@@ -1483,7 +1476,11 @@ void CodeManager::resolve_idents_in_expr(Ast_Expression *expr, Ast_Block *my_sco
                 if (call->arguments) {
                     // even if we haven't found the function declartion yet, we can still resolve the arguments and let the second pass handle function decl
                     FOR(call->arguments->arguments){
-                        resolve_idents_in_expr(it, my_scope);
+                        Ast_Expression *value = get_call_argument_value(it);
+
+                        if (value) {
+                            resolve_idents_in_expr(value, my_scope);
+                        }
                     }
                 }
                 push_unresolved_call(call);
@@ -1491,16 +1488,15 @@ void CodeManager::resolve_idents_in_expr(Ast_Expression *expr, Ast_Block *my_sco
                 report_error(fn, "'%s' is not a function", fn->name);
             }
             else {
-                // Check parameter count
-                int call_arg_count = call->arguments ? call->arguments->arguments.count : 0;
-                int decl_arg_count = decl->parameters.count;
-                if (call_arg_count != decl_arg_count) {
-                    report_error(fn, "Function '%s' expects %d arguments, but %d were provided",
-                                 fn->name, decl_arg_count, call_arg_count);
-                } else if (call->arguments) {
+                validate_call_arguments(call, decl);
 
-                    FOR(call->arguments->arguments){
-                        resolve_idents_in_expr(it, my_scope);
+                if(call->arguments){
+                    FOR(call->arguments->arguments) {
+                        Ast_Expression *value = get_call_argument_value(it);
+
+                        if (value) {
+                            resolve_idents_in_expr(value, my_scope);
+                        }
                     }
                 }
             }
@@ -2437,21 +2433,55 @@ void CodeManager::infer_types_expr(Ast_Expression **expr_ptr)
 
 
                         if (call->arguments) {
+                            int next_positional_parameter = 0;
+
                             FOR(call->arguments->arguments){
-                                infer_types_expr(&it);
-                                Ast_Type_Definition *arg_type = it->inferred_type;
-                                Ast_Type_Definition *param_type = is_decl->parameters.data[it_index]->declared_type;
+                                Ast_Expression *raw_argument = it;
+                                Ast_Expression *value = get_call_argument_value(raw_argument);
+
+                                if(!value) {
+                                    continue;
+                                }
+
+                                Ast_Declaration *parameter = nullptr;
+
+                                if(raw_argument->type == AST_NAMED_ARGUMENT) {
+                                    Ast_Named_Argument *named = static_cast<Ast_Named_Argument *>(raw_argument);
+
+                                    parameter = find_call_parameter(is_decl, named->name ? named->name->name : nullptr);
+                                }
+                                else {
+                                    if (next_positional_parameter < is_decl->parameters.count){
+                                        parameter = is_decl->parameters.data[next_positional_parameter];
+                                    }
+
+                                    ++next_positional_parameter;
+                                }
+
+                                // validate_call_arguments already reports unknown parameter names
+                                if(!parameter || !parameter->declared_type) {
+                                    continue;
+                                }
+
+                                infer_types_expr(&value);
+
+                                Ast_Type_Definition *arg_type = value->inferred_type;
+                                Ast_Type_Definition *param_type = parameter->declared_type;
+
+                                if (!arg_type || arg_type == interp->type->type_def_dummy) {
+                                    continue;
+                                }
+
                                 if (!check_that_types_match(param_type, arg_type)) {
-                                    if (!can_implicitly_convert_const(it, param_type)) {
-                                        report_error(it, "Type mismatch for argument %d in call to '%s'. Expected '%s', Got '%s'",
-                                                            it_index + 1, fn->name, type_to_string(param_type), type_to_string(arg_type));
+                                    if (!can_implicitly_convert_const(value, param_type)) {
+                                        report_error(value, "Type mismatch for argument %s in call to '%s'. Expected '%s', Got '%s'",
+                                                            parameter->identifier->name, fn->name, type_to_string(param_type), type_to_string(arg_type));
                                     } else {
-                                        it->inferred_type = param_type;
+                                        value->inferred_type = param_type;
                                     }
                                 }
                             }
                         }
-
                     } else {
                         return_type = _type->type_def_void;
                     }
@@ -3041,4 +3071,129 @@ Ast_Type_Definition *CodeManager::resolve_type_by_name(const char *name) {
     }
 
     return nullptr;
+}
+
+
+Ast_Expression *CodeManager::get_call_argument_value(Ast_Expression *argument)
+{
+    if (!argument) return nullptr;
+
+    if (argument->type == AST_NAMED_ARGUMENT) {
+        Ast_Named_Argument *named = static_cast<Ast_Named_Argument *>(argument);
+
+        return named->value;
+    }
+
+    return argument;
+}
+
+Ast_Declaration *CodeManager::find_call_parameter(Ast_Declaration *function_decl, const char *parameter_name)
+{
+    if (!function_decl || !parameter_name) return nullptr;
+
+    FOR(function_decl->parameters) {
+        if (!it || !it->identifier || !it->identifier->name)
+            continue;
+
+        if (strcmp(it->identifier->name, parameter_name) == 0)
+            return it;
+    }
+
+    return nullptr;
+}
+
+
+bool CodeManager::validate_call_arguments(Ast_Procedure_Call_Expression *call, Ast_Declaration *function_decl)
+{
+    if (!call || !function_decl) return false;
+
+    Array<bool> parameter_was_provided = interp->pool;
+
+    FOR(function_decl->parameters) {
+        parameter_was_provided.push_back(false);
+    }
+
+    int next_positional_parameter = 0;
+    bool valid = true;
+
+    FOR(call->arguments->arguments)
+    {
+
+        if (!it) {
+            continue;
+        }
+
+        if (it->type == AST_NAMED_ARGUMENT) {
+            Ast_Named_Argument *named =
+                static_cast<Ast_Named_Argument *>(it);
+
+            if (!named->name || !named->name->name) {
+                report_error(it, "Invalid named argument");
+                valid = false;
+                continue;
+            }
+
+            Ast_Declaration *parameter = find_call_parameter(function_decl, named->name->name);
+
+            if (!parameter) {
+                report_error(named->name, "Function '%s' has no parameter named '%s'",
+                                          function_decl->identifier->name, named->name->name);
+
+                valid = false;
+                continue;
+            }
+
+            int parameter_index = -1;
+            for (int i = 0; i < function_decl->parameters.count; ++i) {
+                if (function_decl->parameters.data[i] == parameter) {
+                    parameter_index = i;
+                    break;
+                }
+            }
+
+            if (parameter_index == -1) {
+                // Should not happen if find_call_parameter succeeded
+                valid = false;
+                continue;
+            }
+
+            if (parameter_was_provided.data[parameter_index]) {
+                report_error(named->name, "Argument '%s' was provided more than once",
+                                            named->name->name
+                );
+
+                valid = false;
+                continue;
+            }
+
+            parameter_was_provided.data[parameter_index] = true;
+            continue;
+        }
+
+        if (next_positional_parameter >= function_decl->parameters.count) {
+            report_error(it, "Function '%s' accepts at most %d arguments",
+                             function_decl->identifier->name, function_decl->parameters.count);
+
+            valid = false;
+            continue;
+        }
+
+        parameter_was_provided.data[next_positional_parameter] = true;
+        ++next_positional_parameter;
+    }
+
+    // Omitted parameters are allowed only when they have a default initializer.
+    FOR(function_decl->parameters){
+        if (!it || parameter_was_provided.data[it_index])
+            continue;
+
+        if (!it->initializer) {
+            report_error(call, "Function '%s' requires argument '%s' at position %d as it has no default initializer",
+                               function_decl->identifier->name, it->identifier && it->identifier->name ? it->identifier->name : "(unknown)", it_index+1);
+
+            valid = false;
+        }
+    }
+
+    return valid;
 }

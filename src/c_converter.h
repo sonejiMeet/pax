@@ -13,6 +13,10 @@ struct C_Converter {
     void emitExpression(FILE *out, Ast_Expression *expr, int indent = 0, bool _struct = false);
     void emitBlock(FILE *out, Ast_Block *block, int indent = 0);
 
+    Ast_Expression *get_call_argument_value(Ast_Expression *argument);
+    Ast_Expression *find_call_argument(Ast_Procedure_Call_Expression *call, Ast_Declaration *parameter, int *next_positional_argument);
+    Ast_Declaration *find_function_declaration(Ast_Procedure_Call_Expression *call);
+
     inline Ast_Array_Type *as_array_type(Ast_Type_Definition *t) {
         return (t && t->type == AST_ARRAY_TYPE) ? static_cast<Ast_Array_Type*>(t) : nullptr;
     }
@@ -33,7 +37,7 @@ struct C_Converter {
     Array<Ast_Statement*> topologically_sort_structs(Array<Ast_Statement*>& structs, Pool* pool);
     void emit_static_init_function(FILE *out,Array<Ast_Statement*> const &vars);
     void emit_struct_init_helper(FILE *out,  Ast_Statement *stmt);
-
+    
     void generate_cpp_code(const char *filename, Ast_Block *program);
 
 };

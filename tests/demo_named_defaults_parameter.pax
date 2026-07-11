@@ -1,0 +1,49 @@
+main :: () {
+
+    printf("\n");
+    func_1();                  // 42
+    func_1(1234);              // 1234
+    func_1(val=777);           // 777
+
+    printf("\n");
+    func_2();                  // 1 2 3
+    func_2(100);               // 100 2 3
+    func_2(100, 200);          // 100 200 3
+    func_2(100, 200, 300);     // 100 200 300
+
+    printf("\n");
+    func_2(b=999);             // 1 999 3
+    func_2(c=111, a=222);      // 222 2 111
+    func_2(a=5, c=6, b=7);     // 5 7 6
+    func_2(10, c=30);          // 10 2 30
+
+    printf("\n");
+    func_3(5);                 // 5 10 20
+    func_3(5, 6);              // 5 6 20
+    func_3(5, 6, 7);           // 5 6 7
+    func_3(5, z=99);           // 5 10 99
+
+    printf("\n");
+    func_4(q=5);               // 36 5 0.5
+    func_4(100, 5);            // 100 5 0.5
+    func_4(p=200, q=5, r=9.9); // 200 5 9.9
+    func_4(q=7, r=1.25);       // 36 7 1.25
+
+    printf("\n---------DONE------");
+}
+
+func_1 :: (val: int = 42) {
+    printf("%d\n", val);
+}
+func_2 :: (a: int = 1, b: int = 2, c: int = 3) {
+    printf("%d %d %d\n", a, b, c);
+}
+
+func_3 :: (x: int, y: int = 10, z: int = 20) {
+    printf("%d %d %d\n", x, y, z);
+}
+
+func_4 :: (p: int = 36, q: int, r: float = 0.5) {
+    printf("%d %d %f\n", p, q, r);
+}
+

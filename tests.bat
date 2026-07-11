@@ -43,6 +43,8 @@ for %%f in (
 
     demo_runtime_crash_handler.pax
 
+    demo_named_defaults_parameter.pax
+
 ) do (
     set /a TOTAL_TEST+=1
     set LOG=tmp_%%~nf.log
@@ -68,6 +70,9 @@ for %%f in (
 
     demo_fail_nested_init.pax
     demo_fail_nested_structs_with_members_as_pointers.pax
+
+    demo_fail_named_defaults_parameter.pax
+    demo_fail_named_defaults_parameter_2.pax
 ) do (
     set /a TOTAL_TEST+=1
     set LOG=tmp_%%~nf.log
