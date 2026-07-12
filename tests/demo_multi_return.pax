@@ -1,0 +1,80 @@
+#import "General.pax"  // for array
+
+main :: () {
+    newline();
+
+    q, r := divide(20, 3);
+    printf("q=%d r=%d\n", q, r);
+
+    x, y := ret();
+    printf("x=%d y=%d\n", x, y);
+
+    tmp1, b := ret();
+    printf("b=%d\n", b);
+
+    p, tmp2 := divide(10, 3);
+    printf("p=%d\n", p);
+
+    newline();
+    {
+        // basic multi return assign
+        a, b := multi2();
+        printf("a=%d b=%d\n", a, b);  // expect 42 1 (true as 1 in %d)
+
+        // leading _ to disregard first return
+        _, bb := multi2();
+        printf("bb=%d\n", bb);  // expect 1
+
+        // multiple leading _
+        _, _, cc := multi3();
+        printf("cc=%d\n", cc);  // 3
+
+        // full
+        x, y, z := multi3();
+        printf("x=%d y=%d z=%d\n", x, y, z);
+    }
+
+    newline();
+
+	{
+        a: [2]int;
+        a[0], a[1] = multi2();
+        printf("a[0] = %d\n", a[0]);
+        printf("a[1] = %d\n", a[1]);
+
+        newline();
+
+        b: [3]int;
+        _, _, b[2]= multi3();
+        printf("b[0] = %d\n", b[0]);  // this should be initialized to 0 implicitly
+        printf("b[1] = %d\n", b[1]);
+        printf("b[2] = %d\n", b[2]);
+
+	}
+    newline();
+
+}
+
+
+divide :: (a: int, b: int) -> int, int {
+    q := a / b;
+    r := a - (q * b);
+    return q, r;
+}
+
+ret :: () -> int, int {
+    a : int = 1;
+    b : int = 2;
+    return a, b;
+}
+
+
+multi2 :: () -> int, int {
+    return 42, 1;
+}
+
+multi3 :: () -> int, int, int {
+    return 1, 2, 3;
+}
+
+newline :: () { printf("--------------------------\n");}

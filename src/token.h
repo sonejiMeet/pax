@@ -19,6 +19,7 @@ enum TokenType {
     TOK_NULL,  // null
     TOK_WHILE, // while
     TOK_BREAK,
+    TOK_DEFER,
     TOK_CAST,
 
     TOK_KEYWORD_TRUE, // true
@@ -91,6 +92,7 @@ inline const char *tokenTypeToString(TokenType type) {
         case TOK_NULL: return "TOK_NULL";
         case TOK_WHILE: return "TOK_WHILE";
         case TOK_BREAK: return "TOK_BREAK";
+        case TOK_DEFER: return "TOK_DEFER";
 
         case TOK_KEYWORD_TRUE: return "TOK_KEYWORD_TRUE";
         case TOK_KEYWORD_FALSE: return "TOK_KEYWORD_FALSE";

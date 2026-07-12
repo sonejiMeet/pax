@@ -45,6 +45,8 @@ for %%f in (
 
     demo_named_defaults_parameter.pax
 
+    demo_multi_return.pax
+
 ) do (
     set /a TOTAL_TEST+=1
     set LOG=tmp_%%~nf.log

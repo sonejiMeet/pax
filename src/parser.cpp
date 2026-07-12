@@ -356,6 +356,12 @@ Ast_Expression *Parser::parseExpression(int minPrecedence)
             left = node;
         }
     }
+    else if (current->type == TOK_UNDERSCORE) {
+        Ast_Ident *node = AST_NEW(Ast_Ident);
+        node->name = "_";
+        advance();
+        left = node;
+    }
     else if (current->type == TOK_NULL){
         Ast_Literal *node = AST_NEW(Ast_Literal);
         node->value_type = LITERAL_NULL;
@@ -581,12 +587,16 @@ Ast_Declaration *Parser::parseVarDeclaration()
     Ast_Declaration *varDecl = AST_NEW(Ast_Declaration);
 
     auto parseIdent = [&]() -> Ast_Ident* {
-        if (current->type != TOK_IDENTIFIER /* && current->type != TOK_UNDERSCORE */) {
+        if (current->type != TOK_IDENTIFIER && current->type != TOK_UNDERSCORE) {
             report_parse_error("Expected identifier in declaration");
             return nullptr;
         }
         Ast_Ident *ident = AST_NEW(Ast_Ident);
-        ident->name = current->value;
+        if (current->type == TOK_UNDERSCORE) {
+            ident->name = "_";
+        } else {
+            ident->name = current->value;
+        }
         advance();
         return ident;
     };
@@ -681,15 +691,8 @@ Ast_Statement *Parser::parseMultipleAssignment() {
     Ast_Comma_Separated_Args *lhs = AST_NEW(Ast_Comma_Separated_Args);
 
     do {
-        if (current->type == TOK_IDENTIFIER /* || current->type == TOK_UNDERSCORE */) {
-            Ast_Ident *ident = AST_NEW(Ast_Ident);
-            ident->name = current->value;
-            lhs->arguments.push_back(ident);
-            advance();
-        } else {
-            Ast_Expression *expr = parseExpression();
-            lhs->arguments.push_back(expr);
-        }
+        Ast_Expression *expr = parseExpression();
+        lhs->arguments.push_back(expr);
 
         if (current->type == TOK_COMMA) {
             advance();
@@ -793,7 +796,37 @@ Ast_Block *Parser::parseBlockStatement(bool scoped_block, bool if_block) {
         else
             report_parse_error("Unexpected '}' in a block statement");
     }
+
+    desugarDefersInBlock(block);
+
     return block;
+}
+
+void Parser::desugarDefersInBlock(Ast_Block *block) {
+    if (!block) return;
+    Array<Ast_Statement*> normal_stmts(interp->pool);
+    Array<Ast_Block*> deferred(interp->pool);
+    for (long i = 0; i < block->statements.count; ++i) {
+        Ast_Statement *s = block->statements.data[i];
+        if (s && s->type == AST_DEFER) {
+            Ast_Defer *d = static_cast<Ast_Defer *>(s);
+            if (d->block) {
+                deferred.push_back(d->block);
+            }
+        } else if (s) {
+            normal_stmts.push_back(s);
+        }
+    }
+    block->statements.count = 0;
+    for (long i = 0; i < normal_stmts.count; ++i) {
+        block->statements.push_back(normal_stmts.data[i]);
+    }
+    for (long i = deferred.count - 1; i >= 0; --i) {
+        Ast_Block *db = deferred.data[i];
+        for (long j = 0; j < db->statements.count; ++j) {
+            block->statements.push_back(db->statements.data[j]);
+        }
+    }
 }
 
 Ast_Comma_Separated_Args *Parser::parseCommaSeparatedExpressions() {
@@ -837,7 +870,7 @@ Ast_Procedure_Call_Expression *Parser::parseCall()
             named_arg->name = AST_NEW(Ast_Ident);
             named_arg->name->name = current->value;
 
-            advance(); // consume ident 
+            advance(); // consume ident
             advance();  // consume = sign
 
             named_arg->value = parseExpression();
@@ -877,7 +910,7 @@ Ast_Procedure_Call_Expression *Parser::parseCall()
                 report_parse_error("Expected argument after ',' in function call");
                 break;
             }
-        
+
         } else {
             break; // at this point is probably a ')'
         }
@@ -977,12 +1010,21 @@ Ast_Declaration *Parser::parseFunctionDeclaration(bool is_local) {
 
     if (current->type == TOK_ARROW) {
         advance();
-        func_decl->return_type = parseTypeSpecifier();
+        // multiple return types: foo :: () -> int, bool
+        // turned into struct on C side
+        func_decl->return_types.push_back(parseTypeSpecifier());
+        while (current->type == TOK_COMMA) {
+            advance();
+            func_decl->return_types.push_back(parseTypeSpecifier());
+        }
+        if (func_decl->return_types.count == 1) {
+            func_decl->return_type = func_decl->return_types.data[0];
+        } else if (func_decl->return_types.count > 1) {
+            func_decl->return_type = nullptr; // multi, use return_types
+        }
     } else {
         func_decl->return_type = AST_NEW(Ast_Type_Definition);
-
         func_decl->return_type = interp->type->type_def_void;
-
     }
 
 
@@ -1009,7 +1051,7 @@ Ast_Declaration *Parser::parseFunctionDeclaration(bool is_local) {
     return func_decl;
 }
 
-bool Parser::is_lhs_assignment() {
+Token *Parser::peek_after_lhs() {
     int offset = 1;
     Token *t = lexer->peekNextToken(offset);
 
@@ -1025,7 +1067,7 @@ bool Parser::is_lhs_assignment() {
             int depth = 1;
             while (depth > 0) {
                 Token *inner = lexer->peekNextToken(offset);
-                if (!inner) return false;
+                if (!inner) return nullptr;
                 if (inner->type == TOK_LBRACKET) depth++;
                 else if (inner->type == TOK_RBRACKET) depth--;
                 offset++;
@@ -1038,20 +1080,30 @@ bool Parser::is_lhs_assignment() {
         t = lexer->peekNextToken(offset);
     }
 
-    return t && t->type == TOK_ASSIGN;
+    return t;
 }
 
 Ast_Statement *Parser::parseStatement()
 {
 
     switch (current->type) {
-        case TOK_IDENTIFIER: {
+        case TOK_IDENTIFIER:
+        case TOK_UNDERSCORE: {
+            bool is_underscore = (current->type == TOK_UNDERSCORE);
             Token *next = lexer->peekNextToken();
 
+            if (is_underscore && next->type != TOK_COMMA) {
+                report_parse_error("Unexpected use of _");
+                return nullptr;
+            }
+
             if (next->type == TOK_DOUBLECOLON){
+                if (is_underscore) {
+                    report_parse_error("Unexpected use of _");
+                    return nullptr;
+                }
                 Token *lookahead = lexer->peekNextToken(2);
                 if(lookahead->type == TOK_STRUCT){
-
                     return parseStructDefinition();
                 }
                 else {
@@ -1060,10 +1112,18 @@ Ast_Statement *Parser::parseStatement()
                 }
             }
             else if (next->type == TOK_COLON){
+                if (is_underscore) {
+                    report_parse_error("Unexpected use of _ in declaration");
+                    return nullptr;
+                }
                 Ast_Declaration *decl = parseVarDeclaration();
                 return decl;
             }
             else if(next->type == TOK_LPAREN){
+                if (is_underscore) {
+                    report_parse_error("Unexpected use of _");
+                    return nullptr;
+                }
                 Ast_Procedure_Call_Expression *expr = parseCall();
 
                 Expect(TOK_SEMICOLON, "Expected ';' after procedure call.");
@@ -1092,7 +1152,18 @@ Ast_Statement *Parser::parseStatement()
                     return parseMultipleAssignment();
                 }
             }
-            else if (is_lhs_assignment()) {
+
+            // Check if after a full first lhs expr (e.g. a[0]) there is comma, then multi lhs assign
+            Token *t = peek_after_lhs();
+            if (t && t->type == TOK_COMMA) {
+                return parseMultipleAssignment();
+            }
+
+            if (t && t->type == TOK_ASSIGN) {
+                if (is_underscore) {
+                    report_parse_error("Unexpected use of _");
+                    return nullptr;
+                }
                 Ast_Expression *lhs = parseExpression();
                 Expect(TOK_ASSIGN, "Expected '=' in assignment");
                 Ast_Expression *rhs = parseExpression();
@@ -1108,12 +1179,20 @@ Ast_Statement *Parser::parseStatement()
                 stmt->expression = assignExpr;
                 return stmt;
             }
-            else {
-                report_parse_error("This a fucked up statement." );
-                return nullptr;
-            }
 
+            report_parse_error("This a fucked up statement." );
+            return nullptr;
         }
+
+        case TOK_DEFER: {
+            advance(); // consume 'defer'
+            // support both "defer { ... }" and "defer stmt;" (like if/while bodies)
+            Ast_Block *dblock = parseBlockStatement(false, true);
+            Ast_Defer *d = AST_NEW(Ast_Defer);
+            d->block = dblock;
+            return d;
+        }
+
         case TOK_RETURN: {
             advance(); // consume 'return'
 
@@ -1121,7 +1200,13 @@ Ast_Statement *Parser::parseStatement()
             stmt->is_return = true;
 
             if (current->type != TOK_SEMICOLON) {
-                stmt->expression = parseExpression();
+
+                // BAD HACK, WTF EVEN IS THIS DUDE
+                stmt->expression = parseCommaSeparatedExpressions();
+                auto *expr = static_cast<Ast_Comma_Separated_Args *>(stmt->expression);
+                if(expr->arguments.count == 1){
+                    stmt->expression = expr->arguments.data[0];
+                }
             }
 
             expect(TOK_SEMICOLON, "Expected ';' after return statement.");

@@ -209,6 +209,7 @@ bool CodeManager::declare_variable(Ast_Declaration *decl, bool force_decl) {
     } else {
         FOR(decl->identifiers){
             const char *name = it->name;
+            if (name && strcmp(name, "_") == 0) continue;
             auto *looked_up = lookup_symbol_current_scope(name);
             if (!force_decl && looked_up) {
                 report_error_with_previous(decl, looked_up, "Variable '%s' already declared", name);
@@ -328,7 +329,9 @@ ReturnCheckResult CodeManager::checkReturnPaths(Ast_Block *block)
 }
 
 void CodeManager::checkFunctionReturns(Ast_Declaration *decl) {
-    if (decl->return_type == _type->type_def_void) return;
+    bool is_void = (decl->return_type == _type->type_def_void);
+    if (decl->return_types.count > 1) is_void = false; // multi returns are not void
+    if (is_void) return;
 
     ReturnCheckResult result = checkReturnPaths(decl->my_scope);
 
@@ -370,9 +373,10 @@ void CodeManager::resolve_idents(Ast_Block *block) {
                 if (decl->is_function) {
                     declare_function(decl);
                     if (decl->is_function_body) {
-                        if (!decl->return_type) {
+                        bool has_return_spec = decl->return_type || decl->return_types.count > 0;
+                        if (!has_return_spec) {
                             report_error(decl, "Function '%s' must specify a return type", decl->identifier->name);
-                        } else if (decl->return_type != _type->type_def_void && decl->my_scope) {
+                        } else if ((decl->return_type != _type->type_def_void || decl->return_types.count > 1) && decl->my_scope) {
                             checkFunctionReturns(decl);
                         }
                     }
@@ -419,6 +423,7 @@ void CodeManager::resolve_idents(Ast_Block *block) {
                     else {
                         bool collision = false;
                         FOR(decl->identifiers) {
+                            if (it->name && strcmp(it->name, "_") == 0) continue;
                             Ast_Declaration *is_decl = lookup_symbol_current_scope(it->name);
 
                             if (is_decl && is_decl != decl) {
@@ -1257,6 +1262,9 @@ void CodeManager::resolve_idents_in_expr(Ast_Expression *expr, Ast_Block *my_sco
     switch (expr->type) {
     case AST_IDENT: {
         auto *id = static_cast<Ast_Ident*>(expr);
+        if (id->name && strcmp(id->name, "_") == 0) {
+            break;
+        }
         Ast_Declaration *decl = lookup_symbol(id->name, my_scope);
         if (!decl) {
             push_unresolved_var(id, scope_stack.get_back());
@@ -1293,6 +1301,8 @@ void CodeManager::resolve_idents_in_expr(Ast_Expression *expr, Ast_Block *my_sco
                         resolve_idents_in_expr(single_rhs, my_scope);
 
                         FOR(lhs_args->arguments){
+                            bool disc = (it->type == AST_IDENT && strcmp(static_cast<Ast_Ident*>(it)->name, "_") == 0);
+                            if (disc) continue;
                             resolve_idents_in_expr(it, my_scope);
 
                             if (it->type == AST_IDENT) {
@@ -1329,6 +1339,8 @@ void CodeManager::resolve_idents_in_expr(Ast_Expression *expr, Ast_Block *my_sco
                     resolve_idents_in_expr(b->rhs, my_scope);
 
                     FOR(lhs_args->arguments) {
+                        bool disc = (it->type == AST_IDENT && strcmp(static_cast<Ast_Ident*>(it)->name, "_") == 0);
+                        if (disc) continue;
                         resolve_idents_in_expr(it, my_scope);
 
                         if (it->type == AST_IDENT) {
@@ -1634,19 +1646,17 @@ char *CodeManager::type_to_string(Ast_Type_Definition *type) {
 void CodeManager::infer_types_return(Ast_Statement *ret, Ast_Declaration *func_decl) {
     if (!ret || !func_decl) return;
 
-    Ast_Type_Definition *func_return_type = func_decl->return_type ? func_decl->return_type : _type->type_def_void;
+    int num_rets = func_decl->return_types.count > 0 ? func_decl->return_types.count : (func_decl->return_type ? 1 : 0);
+    bool is_void = (func_decl->return_type == _type->type_def_void) && (func_decl->return_types.count == 0);
 
-    if (!ret->expression && func_return_type != _type->type_def_void) {
+    if (!ret->expression && !is_void) {
         report_error(ret,
-                     "Return statement in function '%s' must return a value of type %s",
-                     func_decl->identifier->name,
-                     func_return_type == _type->type_def_int ? "int" :
-                     func_return_type == _type->type_def_float ? "float" :
-                     func_return_type == _type->type_def_bool ? "bool" : "unknown");
+                     "Return statement in function '%s' must return a value(s)",
+                     func_decl->identifier->name);
         return;
     }
 
-    if (ret->expression && func_return_type == _type->type_def_void) {
+    if (ret->expression && is_void) {
         report_error(ret,
                      "Void function '%s' cannot return a value",
                      func_decl->identifier->name);
@@ -1654,25 +1664,48 @@ void CodeManager::infer_types_return(Ast_Statement *ret, Ast_Declaration *func_d
     }
 
     if (ret->expression) {
-        infer_types_expr(&ret->expression);
-        Ast_Type_Definition *return_expr_type = ret->expression->inferred_type;
-        if (!return_expr_type) {
-            report_error(ret,
-                         "Could not infer type of return expression in function '%s'",
-                         func_decl->identifier->name);
+        // for multi return, expression may be CommaSeparatedArgs
+        Ast_Comma_Separated_Args *multi = nullptr;
+        if (ret->expression->type == AST_COMMA_SEPARATED_ARGS) {
+            multi = static_cast<Ast_Comma_Separated_Args*>(ret->expression);
+        }
+
+        if (num_rets > 1 && (!multi || multi->arguments.count != num_rets)) {
+            report_error(ret, "Return count mismatch in function '%s': expected %d values",
+                         func_decl->identifier->name, num_rets);
             return;
         }
 
-        if (!check_that_types_match(func_return_type, return_expr_type)) {
-            report_error(ret,
-                         "Return type mismatch in function '%s': expected %s, got %s",
-                         func_decl->identifier->name,
-                         func_return_type == _type->type_def_int ? "int" :
-                         func_return_type == _type->type_def_float ? "float" :
-                         func_return_type == _type->type_def_bool ? "bool" : "void",
-                         return_expr_type == _type->type_def_int ? "int" :
-                         return_expr_type == _type->type_def_float ? "float" :
-                         return_expr_type == _type->type_def_bool ? "bool" : "unknown");
+        if (multi && multi->arguments.count > 1) {
+            for (int i = 0; i < multi->arguments.count; ++i) {
+                infer_types_expr(&multi->arguments.data[i]);
+                if (i < func_decl->return_types.count) {
+                    Ast_Type_Definition *expected = func_decl->return_types.data[i];
+                    Ast_Type_Definition *got = multi->arguments.data[i]->inferred_type;
+                    if (!check_that_types_match(expected, got)) {
+                        report_error(ret, "Return type mismatch at position %d in function '%s'",
+                                     i+1, func_decl->identifier->name);
+                    }
+                }
+            }
+        } else {
+            // single
+            infer_types_expr(&ret->expression);
+            Ast_Type_Definition *func_return_type = func_decl->return_type ? func_decl->return_type : _type->type_def_void;
+            Ast_Type_Definition *return_expr_type = ret->expression->inferred_type;
+            if (!return_expr_type) {
+                report_error(ret,
+                             "Could not infer type of return expression in function '%s'",
+                             func_decl->identifier->name);
+                return;
+            }
+            if (!check_that_types_match(func_return_type, return_expr_type)) {
+                report_error(ret,
+                             "Return type mismatch in function '%s': expected %s, got %s",
+                             func_decl->identifier->name,
+                             type_to_string(func_return_type),
+                             type_to_string(return_expr_type));
+            }
         }
     }
 }
@@ -1706,6 +1739,9 @@ void CodeManager::infer_types_expr(Ast_Expression **expr_ptr)
         }
         case AST_IDENT: {
             Ast_Ident *id = static_cast<Ast_Ident *>(expr);
+            if (id->name && strcmp(id->name, "_") == 0) {
+                break;
+            }
             Ast_Declaration *decl = lookup_symbol(id->name);
 
             if (!decl) {
@@ -2114,6 +2150,49 @@ void CodeManager::infer_types_expr(Ast_Expression **expr_ptr)
                             if (rhs_args->arguments.count == 1) {
                                 Ast_Expression *single_rhs = rhs_args->arguments.data[0];
                                 infer_types_expr(&single_rhs);
+
+                                if (single_rhs->type == AST_PROCEDURE_CALL_EXPRESSION) {
+                                    Ast_Procedure_Call_Expression *call = static_cast<Ast_Procedure_Call_Expression*>(single_rhs);
+                                    Ast_Ident *fn = static_cast<Ast_Ident*>(call->function);
+                                    Ast_Declaration *fdecl = lookup_symbol(fn->name);
+                                    if (fdecl && fdecl->is_function && fdecl->return_types.count > 1) {
+                                        if (lhs_args->arguments.count != fdecl->return_types.count) {
+                                            report_error(b, "Number of variables on left (%d) must match number of return values (%d)",
+                                                         lhs_args->arguments.count, fdecl->return_types.count);
+                                            expr->inferred_type = _type->type_def_dummy;
+                                            return;
+                                        }
+                                        // _ only allowed as leading discards
+                                        bool seen_real = false;
+                                        for (int i = 0; i < lhs_args->arguments.count; i++) {
+                                            Ast_Expression *l_expr = lhs_args->arguments.data[i];
+                                            bool is_discard = (l_expr->type == AST_IDENT && strcmp(static_cast<Ast_Ident*>(l_expr)->name, "_") == 0);
+                                            if (is_discard && seen_real) {
+                                                report_error(b, "_ can only be used to disregard return values from the beginning, not in the middle or end");
+                                                return;
+                                            }
+                                            if (!is_discard) seen_real = true;
+                                        }
+                                        // special handling for multi-return call in multi-assign
+                                        for (int i = 0; i < lhs_args->arguments.count; i++) {
+                                            Ast_Expression *l_expr = lhs_args->arguments.data[i];
+                                            infer_types_expr(&l_expr);
+                                            bool is_discard = (l_expr->type == AST_IDENT && strcmp(static_cast<Ast_Ident*>(l_expr)->name, "_") == 0);
+                                            if (is_discard) continue;
+                                            Ast_Type_Definition *expected = fdecl->return_types.data[i];
+                                            if (l_expr->inferred_type == _type->type_def_dummy || !expected) {
+                                                continue;
+                                            }
+                                            if (!check_that_types_match(l_expr->inferred_type, expected)) {
+                                                report_error(b, "Type mismatch in multiple assignment for variable at position %d. Expected '%s', got '%s'",
+                                                             i + 1, type_to_string(expected), type_to_string(l_expr->inferred_type));
+                                            }
+                                        }
+                                        expr->inferred_type = _type->type_def_dummy; // no single type
+                                        return;
+                                    }
+                                }
+
                                 Ast_Type_Definition *rhsType = single_rhs->inferred_type;
 
                                 if (rhsType == _type->type_def_dummy) {
@@ -2145,6 +2224,16 @@ void CodeManager::infer_types_expr(Ast_Expression **expr_ptr)
                                              lhs_args->arguments.count, rhs_args->arguments.count);
                                 expr->inferred_type = _type->type_def_dummy;
                                 return;
+                            }
+
+                            // disallow _ in normal pairwise
+                            for (int i = 0; i < lhs_args->arguments.count; i++) {
+                                Ast_Expression *l_expr = lhs_args->arguments.data[i];
+                                bool is_discard = (l_expr->type == AST_IDENT && strcmp(static_cast<Ast_Ident*>(l_expr)->name, "_") == 0);
+                                if (is_discard) {
+                                    report_error(b, "_ can only be used to disregard leading return values from multi-return function calls");
+                                    return;
+                                }
                             }
 
                             for (int i = 0; i < lhs_args->arguments.count; i++) {
@@ -2182,6 +2271,11 @@ void CodeManager::infer_types_expr(Ast_Expression **expr_ptr)
                             if (is_rhs_single_value) {
                                 for (int i = 0; i < lhs_args->arguments.count; i++) {
                                     Ast_Expression *l_expr = lhs_args->arguments.data[i];
+                                    bool is_discard = (l_expr->type == AST_IDENT && strcmp(static_cast<Ast_Ident*>(l_expr)->name, "_") == 0);
+                                    if (is_discard) {
+                                        report_error(b, "_ can only be used to disregard leading return values from multi-return function calls");
+                                        return;
+                                    }
                                     infer_types_expr(&l_expr);
 
                                     if (l_expr->inferred_type == _type->type_def_dummy) {
@@ -2425,9 +2519,13 @@ void CodeManager::infer_types_expr(Ast_Expression **expr_ptr)
                     Ast_Declaration *is_decl = lookup_symbol(fn->name);
 
                     if (is_decl && is_decl->is_function) {
-                        return_type = is_decl->return_type ? is_decl->return_type : _type->type_def_void;
+                        if (is_decl->return_types.count > 1) {
+                            return_type = nullptr; // multi-return calls don't have single type here
+                        } else {
+                            return_type = is_decl->return_type ? is_decl->return_type : _type->type_def_void;
+                        }
 
-                        if (is_decl->return_type && !check_that_types_match(return_type, is_decl->return_type)) {
+                        if (is_decl->return_type && is_decl->return_types.count <= 1 && !check_that_types_match(return_type, is_decl->return_type)) {
                             report_error(fn, "Function '%s' return type mismatch", fn->name);
                         }
 
@@ -2501,8 +2599,10 @@ void CodeManager::infer_types_expr(Ast_Expression **expr_ptr)
             }
             // If this call is part of an assignment, check the LHS type
             expr->inferred_type = return_type;
-            if (expr->inferred_type == _type->type_def_dummy) {
-                expr->inferred_type = return_type;
+            if (!return_type || return_type == _type->type_def_dummy || expr->inferred_type == _type->type_def_dummy) {
+                if (expr->inferred_type == _type->type_def_dummy) {
+                    expr->inferred_type = return_type ? return_type : _type->type_def_dummy;
+                }
             } else if (!check_that_types_match(expr->inferred_type, return_type)) {
                 report_error(expr, "Type mismatch: function call return type does not match expected type. Expected '%s' Got '%s'",
                                     type_to_string(expr->inferred_type), type_to_string(return_type));
@@ -2625,10 +2725,43 @@ void CodeManager::infer_types_decl(Ast_Declaration *decl) {
             }
         }
 
+        // for multi-return initializer with _, enforce leading only and count match
+        if (init_count == 1 && decl->initializers->arguments.count == 1) {
+            Ast_Expression *expr = decl->initializers->arguments.data[0];
+            if (expr->type == AST_PROCEDURE_CALL_EXPRESSION) {
+                Ast_Procedure_Call_Expression *call = static_cast<Ast_Procedure_Call_Expression*>(expr);
+                Ast_Ident *ident = static_cast<Ast_Ident*>(call->function);
+                Ast_Declaration *func_decl = lookup_symbol(ident->name);
+                if (func_decl && func_decl->is_function && func_decl->return_types.count > 1) {
+                    if (n != func_decl->return_types.count) {
+                        report_error(decl, "Number of identifiers (%d) must match number of return values (%d) for _ discards",
+                                     n, func_decl->return_types.count);
+                        return;
+                    }
+                    bool seen_real = false;
+                    for (int i = 0; i < n; ++i) {
+                        Ast_Ident *id = decl->identifiers.data[i];
+                        bool is_discard = (id->name && strcmp(id->name, "_") == 0);
+                        if (is_discard && seen_real) {
+                            report_error(decl, "_ can only be used to disregard return values from the beginning, not in the middle or end");
+                            return;
+                        }
+                        if (!is_discard) seen_real = true;
+                    }
+                }
+            }
+        }
+
         decl->identifier_types.count = 0;
 
         for (int i = 0; i < n; ++i) {
             Ast_Ident *id = decl->identifiers.data[i];
+            bool is_discard = (id->name && strcmp(id->name, "_") == 0);
+            if (is_discard) {
+                decl->identifier_types.push_back(_type->type_def_dummy);
+                continue;
+            }
+
             Ast_Expression *init_expr = nullptr;
 
             if (decl->initializers) {
@@ -2640,9 +2773,21 @@ void CodeManager::infer_types_decl(Ast_Declaration *decl) {
             Ast_Type_Definition *init_type = nullptr;
 
             if (init_expr) {
-                Ast_Expression *expr = init_expr;
-                infer_types_expr(&expr);
-                init_type = expr->inferred_type;
+                bool handled_multi = false;
+                if (init_count == 1 && init_expr->type == AST_PROCEDURE_CALL_EXPRESSION) {
+                    Ast_Procedure_Call_Expression *call = static_cast<Ast_Procedure_Call_Expression*>(init_expr);
+                    Ast_Ident *fnid = static_cast<Ast_Ident*>(call->function);
+                    Ast_Declaration *fdecl = lookup_symbol(fnid->name);
+                    if (fdecl && fdecl->is_function && fdecl->return_types.count > 1 && i < fdecl->return_types.count) {
+                        init_type = fdecl->return_types.data[i];
+                        handled_multi = true;
+                    }
+                }
+                if (!handled_multi) {
+                    Ast_Expression *expr = init_expr;
+                    infer_types_expr(&expr);
+                    init_type = expr->inferred_type;
+                }
 
                 if (!init_type) {
                     report_error(decl, "Could not infer type for variable '%s' from initializer.", id->name);

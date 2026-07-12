@@ -1,11 +1,12 @@
 main :: () {
 	{
 		a, b: [5]String;
-		a[0], b[0] = cast(^u8)"idk what should I write";
+		a[0], b[0] = "idk what should I write";
 
 	}
 }
-
+#import "General.pax";
+#import "String.pax";
 
 //---------------------------------------------------------
 // BREAKSS!!!!!!!!

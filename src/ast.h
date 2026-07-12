@@ -57,6 +57,7 @@ enum Ast_Type {
     AST_IMPORT,
     AST_ARRAY_TYPE,
     AST_BREAK,
+    AST_DEFER,
 
     AST_NAMED_ARGUMENT,
 
@@ -85,6 +86,7 @@ inline std::string astTypeToString(Ast_Type type) {
         case AST_CAST: return "Cast";
         case AST_IMPORT: return "Import";
         case AST_BREAK: return "breakStmt";
+        case AST_DEFER: return "Defer";
         case AST_NAMED_ARGUMENT: return "namedArg";
         default:                 return "Unknown";
     }
@@ -182,6 +184,11 @@ struct Ast_Comma_Separated_Args : public Ast_Expression {
 
 struct Ast_Break : public Ast_Statement {
     Ast_Break(Pool* = nullptr) { type = AST_BREAK; }
+};
+
+struct Ast_Defer : public Ast_Statement {
+    Ast_Defer(Pool* = nullptr) { type = AST_DEFER; }
+    Ast_Block *block = nullptr;
 };
 
 enum Value_Type {

@@ -159,6 +159,32 @@ void C_Converter::emitExpression(FILE *out, Ast_Expression *expr, int indent, bo
                     Ast_Comma_Separated_Args *rhs_args = static_cast<Ast_Comma_Separated_Args*>(bin->rhs);
 
                     if (rhs_args->arguments.count == 1) {
+                        Ast_Expression *single_rhs = rhs_args->arguments.data[0];
+                        if (single_rhs->type == AST_PROCEDURE_CALL_EXPRESSION) {
+                            Ast_Procedure_Call_Expression *call = static_cast<Ast_Procedure_Call_Expression *>(single_rhs);
+                            Ast_Declaration *fdecl = find_function_declaration(call);
+                            if (fdecl && fdecl->return_types.count > 1) {
+                                // unpack multi-return call: call once, assign fields to lhs
+                                const char *ret_name = get_multi_ret_struct_name(fdecl);
+                                fprintf(out, "{\n");
+                                indentLine(out, indent + 4);
+                                fprintf(out, "struct %s __pax_uret = ", ret_name);
+                                emitExpression(out, single_rhs, indent);
+                                fprintf(out, ";\n");
+                                for (int i = 0; i < lhs_args->arguments.count; i++) {
+                                    Ast_Expression *le = lhs_args->arguments.data[i];
+                                    bool disc = (le->type == AST_IDENT && strcmp(static_cast<Ast_Ident*>(le)->name, "_") == 0);
+                                    if (disc) continue;
+                                    indentLine(out, indent + 4);
+                                    emitExpression(out, le, indent);
+                                    fprintf(out, " = __pax_uret._%d;\n", i);
+                                }
+                                indentLine(out, indent + 4);
+                                fprintf(out, "}");
+                                return;
+                            }
+                        }
+                        // fallback for normal single-rhs multi-assign
                         fprintf(out, "(");
                         for (int i = 0; i < lhs_args->arguments.count; i++) {
                             emitExpression(out, lhs_args->arguments.data[i], indent);
@@ -358,7 +384,7 @@ void C_Converter::emitExpression(FILE *out, Ast_Expression *expr, int indent, bo
         }
         case AST_PROCEDURE_CALL_EXPRESSION: {
             PRINT_DEBUG_INFO(out, "\n#line %d \"%s\"\n", expr->line_number, expr->file_name);
-            
+
             auto *call = static_cast<Ast_Procedure_Call_Expression*>(expr);
 
             // Special cast for malloc return type
@@ -373,7 +399,7 @@ void C_Converter::emitExpression(FILE *out, Ast_Expression *expr, int indent, bo
             if (!function_decl || function_decl->is_foreign) {
                 if (call->arguments) {
                     bool first = true;
-                    FOR(call->arguments->arguments) 
+                    FOR(call->arguments->arguments)
                     {
                         Ast_Expression *value = get_call_argument_value(it);
 
@@ -388,13 +414,13 @@ void C_Converter::emitExpression(FILE *out, Ast_Expression *expr, int indent, bo
                 break;
             }
 
-            
+
             // For each param: use its matching named argument, otherwise consume the next positional argument, otherwise use its default initializer.
             int next_positional_argument = 0;
 
             FOR(function_decl->parameters)
             {
-                if (!it) continue; 
+                if (!it) continue;
 
                 Ast_Expression *argument = find_call_argument(call, it, &next_positional_argument);
 
@@ -406,7 +432,7 @@ void C_Converter::emitExpression(FILE *out, Ast_Expression *expr, int indent, bo
                     fprintf(out, ", ");
                 }
 
-                // this should be checked in previous phases but just in case 
+                // this should be checked in previous phases but just in case
                 if (!argument) {
                     fprintf(out, "/* missing argument %s */ 0",
                                  it->identifier && it->identifier->name ? it->identifier->name : "(unknown)");
@@ -505,7 +531,7 @@ Ast_Declaration *C_Converter::find_function_declaration(Ast_Procedure_Call_Expre
 }
 
 
-Ast_Expression *C_Converter::find_call_argument(Ast_Procedure_Call_Expression *call, 
+Ast_Expression *C_Converter::find_call_argument(Ast_Procedure_Call_Expression *call,
                                                 Ast_Declaration *parameter, int *next_positional_argument)
 {
     if (!call || !parameter || !parameter->identifier ||
@@ -543,9 +569,9 @@ Ast_Expression *C_Converter::find_call_argument(Ast_Procedure_Call_Expression *c
         }
     }
 
-    
+
     // Positional arguments are consumed in source order, but named arguments do not occupy a positional slot.
-    
+
     int seen_positional_arguments = 0;
 
     FOR(call->arguments->arguments) {
@@ -636,64 +662,94 @@ void C_Converter::type_to_c_string(FILE *out, Ast_Type_Definition *type, Ast_Dec
             }
         }
         else {
-            int current_idx = 0;
-
-            FOR(decl->identifiers) {
-                if(current_idx > 0)  // beacuse in emitStatement it adds indent ahead of time, but here for the first guy it will end up doing indent twice so just skip it for first identifier.
-                    indentLine(out, indent);
-
-                Ast_Type_Definition *this_type = nullptr;
-                if (current_idx < decl->identifier_types.count &&
-                    decl->identifier_types.data[current_idx]) {
-                    this_type = decl->identifier_types.data[current_idx];
-                } else {
-                    this_type = decl->declared_type;
+            // special for multi-return call as single initializer for compound decl
+            // (e.g. q, r := divide(20, 3);)
+            bool handled_multi_decl = false;
+            if (decl->initializers && decl->initializers->arguments.count == 1) {
+                auto *init0 = decl->initializers->arguments.data[0];
+                if (init0->type == AST_PROCEDURE_CALL_EXPRESSION) {
+                    auto *call = static_cast<Ast_Procedure_Call_Expression*>(init0);
+                    auto *fdecl = find_function_declaration(call);
+                    if (fdecl && fdecl->return_types.count > 1) {
+                        const char *rname = get_multi_ret_struct_name(fdecl);
+                        static int uc = 0;
+                        char u[32]; 
+                        snprintf(u, 32, "__pax_uret%d", ++uc);
+                        fprintf(out, "struct %s %s = ", rname, u);
+                        emitExpression(out, init0, indent);
+                        fprintf(out, ";\n");
+                        for (int i = 0; i < decl->identifiers.count; i++) {
+                            auto *id = decl->identifiers.data[i];
+                            if (id->name && strcmp(id->name, "_") == 0) continue;
+                            indentLine(out, indent);
+                            auto *t = (i < decl->identifier_types.count ? decl->identifier_types.data[i] : decl->declared_type);
+                            fprintf(out, "%s %s = %s._%d;\n", t ? t->to_string(*_type) : "int", id->name, u, i);
+                        }
+                        handled_multi_decl = true;
+                    }
                 }
+            }
 
-                std::string this_type_str;
-                Ast_Type_Definition *current = this_type;
-                int ptr_depth_local = 0;
-                while (current && current->pointed_to_type) {
-                    ptr_depth_local++;
-                    current = current->pointed_to_type;
-                }
+            if (!handled_multi_decl) {
+                int current_idx = 0;
 
-                if (current) {
-                    if (current->type == AST_ARRAY_TYPE && current->struct_def == nullptr) {
-                        this_type_str = "Static_Array";
+                FOR(decl->identifiers) {
+                    if(current_idx > 0)  // beacuse in emitStatement it adds indent ahead of time, but here for the first guy it will end up doing indent twice so just skip it for first identifier.
+                        indentLine(out, indent);
+
+                    Ast_Type_Definition *this_type = nullptr;
+                    if (current_idx < decl->identifier_types.count &&
+                        decl->identifier_types.data[current_idx]) {
+                        this_type = decl->identifier_types.data[current_idx];
                     } else {
-                        this_type_str = current->to_string(*_type);
+                        this_type = decl->declared_type;
                     }
-                } else {
-                    this_type_str = "/*unknown type*/";
+
+                    std::string this_type_str;
+                    Ast_Type_Definition *current = this_type;
+                    int ptr_depth_local = 0;
+                    while (current && current->pointed_to_type) {
+                        ptr_depth_local++;
+                        current = current->pointed_to_type;
+                    }
+
+                    if (current) {
+                        if (current->type == AST_ARRAY_TYPE && current->struct_def == nullptr) {
+                            this_type_str = "Static_Array";
+                        } else {
+                            this_type_str = current->to_string(*_type);
+                        }
+                    } else {
+                        this_type_str = "/*unknown type*/";
+                    }
+                    for (int p = 0; p < ptr_depth_local; ++p) {
+                        this_type_str += " *";
+                    }
+
+                    // indentLine(out, indent);
+                    fprintf(out, "%s %s", this_type_str.c_str(), it->name);
+
+
+                    if ((decl->initializer || decl->initializers) && !should_initializer) {
+                        fprintf(out, " = ");
+
+                        Ast_Expression* expr_to_print = nullptr;
+
+                        if (decl->initializers && decl->initializers->arguments.count > 1) {
+                            expr_to_print = decl->initializers->arguments.data[current_idx];
+                            current_idx++;
+                        }
+                        else {
+                            expr_to_print = decl->initializers->arguments.data[current_idx];
+                        }
+
+                        if (expr_to_print) {
+                            emitExpression(out, expr_to_print, indent);
+                        }
+                    }
+
+                    fprintf(out, ";\n");
                 }
-                for (int p = 0; p < ptr_depth_local; ++p) {
-                    this_type_str += " *";
-                }
-
-                // indentLine(out, indent);
-                fprintf(out, "%s %s", this_type_str.c_str(), it->name);
-
-
-                if ((decl->initializer || decl->initializers) && !should_initializer) {
-                    fprintf(out, " = ");
-
-                    Ast_Expression* expr_to_print = nullptr;
-
-                    if (decl->initializers && decl->initializers->arguments.count > 1) {
-                        expr_to_print = decl->initializers->arguments.data[current_idx];
-                        current_idx++;
-                    }
-                    else {
-                        expr_to_print = decl->initializers->arguments.data[current_idx];
-                    }
-
-                    if (expr_to_print) {
-                        emitExpression(out, expr_to_print, indent);
-                    }
-                }
-
-                fprintf(out, ";\n");
             }
         }
 
@@ -706,12 +762,41 @@ void C_Converter::type_to_c_string(FILE *out, Ast_Type_Definition *type, Ast_Dec
     }
 }
 
+const char *C_Converter::get_multi_ret_struct_name(Ast_Declaration *decl) {
+    if (!decl || decl->return_types.count <= 1) return nullptr;
+    const char *base = (decl->identifier && decl->identifier->name) ? decl->identifier->name : "anon";
+    char buf[128];
+    snprintf(buf, sizeof(buf), "%s_ret", base);
+    return pool_strdup(interp->pool, buf);
+}
+
+void C_Converter::emit_function_return_spec(FILE *out, Ast_Declaration *decl, int indent) {
+    if (decl->return_types.count > 1) {
+        const char *ret_name = get_multi_ret_struct_name(decl);
+        fprintf(out, "struct %s ", ret_name);
+    } else {
+        type_to_c_string(out, decl->return_type, decl, false, indent);
+    }
+}
+
 void C_Converter::emitFunctionPrototype(FILE *out, Ast_Declaration *decl, int indent){
     if(!decl || !decl->is_function || !decl->identifier) return;
 
-    indentLine(out, indent);
-    type_to_c_string(out, decl->return_type, decl, false, indent);
-    fprintf(out, "(");
+    if (decl->return_types.count > 1) {
+        const char *ret_name = get_multi_ret_struct_name(decl);
+        // emit the return struct type definition (in forward decl section)
+        fprintf(out, "struct %s {\n", ret_name);
+        for(int k=0; k<decl->return_types.count; k++){
+            fprintf(out, "    %s _%d;\n", decl->return_types.data[k]->to_string(*_type), k);
+        }
+        fprintf(out, "};\n");
+        indentLine(out, indent);
+        fprintf(out, "struct %s %s(", ret_name, decl->identifier->name);
+    } else {
+        indentLine(out, indent);
+        type_to_c_string(out, decl->return_type, decl, false, indent);
+        fprintf(out, "(");
+    }
     for(int i = 0; i < decl->parameters.count; ++i){
         auto *param = decl->parameters.data[i];
         if(i > 0) fprintf(out, ", ");
@@ -748,7 +833,7 @@ void C_Converter::emitStruct(FILE *out, Ast_Statement *stmt, int indent){
     fprintf(out, "};\n");
 }
 
-void C_Converter::emitStatement(FILE *out, Ast_Statement *stmt, int indent, bool is_else_if)
+void C_Converter::emitStatement(FILE *out, Ast_Statement *stmt, int indent, bool is_else_if, Ast_Declaration *current_func)
 {
     if(!stmt) return;
     switch (stmt->type){
@@ -762,12 +847,12 @@ void C_Converter::emitStatement(FILE *out, Ast_Statement *stmt, int indent, bool
 
                 // fprintf(out, "\n");
                 indentLine(out, indent);
-
-                // emit return type
-                type_to_c_string(out, decl->return_type, decl, false, indent);
-
-                fprintf(out, " (");
-
+                emit_function_return_spec(out, decl, indent);
+                if (decl->return_types.count > 1) {
+                    fprintf(out, "%s (", decl->identifier->name);
+                } else {
+                    fprintf(out, " (");
+                }
                 // emit params
                 for(int i = 0; i < decl->parameters.count; ++i){
                     auto *param = decl->parameters.data[i];
@@ -782,7 +867,12 @@ void C_Converter::emitStatement(FILE *out, Ast_Statement *stmt, int indent, bool
 
                 if(decl->is_function_body && decl->my_scope){
                     fprintf(out, " {\n");
-                    emitBlock(out, decl->my_scope, indent);
+                    if (decl->return_types.count > 1) {
+                        const char *ret_name = get_multi_ret_struct_name(decl);
+                        indentLine(out, indent + 4);
+                        fprintf(out, "struct %s __pax_fret_val;\n", ret_name);
+                    }
+                    emitBlock(out, decl->my_scope, indent, decl);
                     fprintf(out, "}\n\n");
                 } else {
                     fprintf(out, ";\n");
@@ -1018,12 +1108,25 @@ void C_Converter::emitStatement(FILE *out, Ast_Statement *stmt, int indent, bool
 
             if(stmt->expression){
                 indentLine(out, indent);
-                if(stmt->is_return == true){
-                    fprintf(out, "return ");
+                if (stmt->is_return && current_func && current_func->return_types.count > 1 &&
+                    stmt->expression->type == AST_COMMA_SEPARATED_ARGS) {
+                    // multi return: pack into predeclared __pax_fret_val then return it
+                    auto *comma = static_cast<Ast_Comma_Separated_Args*>(stmt->expression);
+                    for (int k = 0; k < comma->arguments.count; k++) {
+                        indentLine(out, indent + 4);
+                        fprintf(out, "__pax_fret_val._%d = ", k);
+                        emitExpression(out, comma->arguments.data[k], indent);
+                        fprintf(out, ";\n");
+                    }
+                    indentLine(out, indent + 4);
+                    fprintf(out, "return __pax_fret_val;\n");
+                } else {
+                    if (stmt->is_return) {
+                        fprintf(out, "return ");
+                    }
+                    emitExpression(out, stmt->expression, indent);
+                    fprintf(out, ";\n");
                 }
-                emitExpression(out, stmt->expression, indent);
-
-                fprintf(out, ";\n");
             }
             else if(stmt->is_return){ // if its not an expression but its return statement then its a return to void
                 indentLine(out, indent);
@@ -1107,7 +1210,7 @@ void C_Converter::emitStatement(FILE *out, Ast_Statement *stmt, int indent, bool
     }
 }
 
-void C_Converter::emitBlock(FILE *out, Ast_Block *block, int indent)
+void C_Converter::emitBlock(FILE *out, Ast_Block *block, int indent, Ast_Declaration *current_func)
 {
     if(!block) return;
 
@@ -1116,7 +1219,7 @@ void C_Converter::emitBlock(FILE *out, Ast_Block *block, int indent)
     for(int i = 0; i < block->statements.count; i++){
         Ast_Statement *stmt = block->statements.data[i];
 
-        emitStatement(out, stmt, indent+4);
+        emitStatement(out, stmt, indent+4, false, current_func);
     }
 
 

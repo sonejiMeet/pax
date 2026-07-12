@@ -53,8 +53,9 @@ struct Parser
     Ast_Statement *parseStructDefinition();
 
     Ast_Declaration *parseFunctionDeclaration(bool is_local = false);
-
-    bool is_lhs_assignment();
+    
+    Token *peek_after_lhs();
+    void desugarDefersInBlock(Ast_Block *block);
     Ast_Statement *parseStatement();
 
 };
