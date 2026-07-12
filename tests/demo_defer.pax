@@ -1,0 +1,18 @@
+main :: () {
+
+    {
+	    printf("1\n");
+	    defer printf("5\n");
+	    printf("2\n");
+	    defer printf("4\n");
+	    printf("3\n");
+	}
+
+
+	a := 2424;
+	defer { // block of code
+		printf("a = %d\n\n", a);
+    }
+	printf("\n--------block of code------\n");
+
+}
