@@ -1197,6 +1197,98 @@ void C_Converter::emitStatement(FILE *out, Ast_Statement *stmt, int indent, bool
 
             break;
         }
+        case AST_FOR: {
+            PRINT_DEBUG_INFO(out, "#line %d \"%s\"\n", stmt->line_number, stmt->file_name);
+
+            auto *for_stmt = static_cast<Ast_For*>(stmt);
+            const char *ctype = "int";
+            if (for_stmt->block) {
+                for (int jj = 0; jj < for_stmt->block->statements.count; jj++) {
+                    Ast_Statement *ss = for_stmt->block->statements.data[jj];
+                    if (ss && ss->type == AST_DECLARATION) {
+                        Ast_Declaration *dd = static_cast<Ast_Declaration*>(ss);
+                        if (dd->identifier && for_stmt->variable &&
+                            strcmp(dd->identifier->name, for_stmt->variable->name) == 0 &&
+                            dd->declared_type) {
+                            ctype = dd->declared_type->to_string(*_type);
+                            if (!ctype) ctype = "int";
+                            break;
+                        }
+                    }
+                }
+            }
+
+            if (for_stmt->array) {
+                // array element iteration: for x : arr
+                indentLine(out, indent);
+                fprintf(out, "{\n");
+                indentLine(out, indent + 4);
+                fprintf(out, "%s %s;\n", ctype, for_stmt->variable->name);
+                indentLine(out, indent + 4);
+                fprintf(out, "s64 __i = 0;\n");
+                indentLine(out, indent + 4);
+                fprintf(out, "s64 __n = ");
+                emitExpression(out, for_stmt->array, indent + 4);
+                fprintf(out, ".count;\n");
+                indentLine(out, indent + 4);
+                fprintf(out, "while (__i < __n) {\n");
+                indentLine(out, indent + 8);
+                fprintf(out, "%s = ((%s*)", for_stmt->variable->name, ctype);
+                emitExpression(out, for_stmt->array, indent + 8);
+                fprintf(out, ".data)[__i];\n");
+                // body, skip the loop var decl
+                if (for_stmt->block) {
+                    for (int i = 0; i < for_stmt->block->statements.count; i++) {
+                        Ast_Statement *s = for_stmt->block->statements.data[i];
+                        bool skip = false;
+                        if (s && s->type == AST_DECLARATION) {
+                            Ast_Declaration *d = static_cast<Ast_Declaration*>(s);
+                            if (d->identifier && for_stmt->variable &&
+                                strcmp(d->identifier->name, for_stmt->variable->name) == 0) {
+                                skip = true;
+                            }
+                        }
+                        if (!skip) {
+                            emitStatement(out, s, indent + 8, false, current_func);
+                        }
+                    }
+                }
+                indentLine(out, indent + 8);
+                fprintf(out, "__i = __i + 1;\n");
+                indentLine(out, indent + 4);
+                fprintf(out, "}\n");
+                indentLine(out, indent + 4);
+                fprintf(out, "}\n");
+            } else {
+                // range for
+                indentLine(out, indent);
+                fprintf(out, "for (%s %s = ", ctype, for_stmt->variable->name);
+                emitExpression(out, for_stmt->start, indent);
+                fprintf(out, "; %s <= ", for_stmt->variable->name);
+                emitExpression(out, for_stmt->end, indent);
+                fprintf(out, "; %s = %s + 1) {\n", for_stmt->variable->name, for_stmt->variable->name);
+                // emit body, skipping the synthesized loop var decl
+                if (for_stmt->block) {
+                    for (int i = 0; i < for_stmt->block->statements.count; i++) {
+                        Ast_Statement *s = for_stmt->block->statements.data[i];
+                        bool skip = false;
+                        if (s && s->type == AST_DECLARATION) {
+                            Ast_Declaration *d = static_cast<Ast_Declaration*>(s);
+                            if (d->identifier && for_stmt->variable &&
+                                strcmp(d->identifier->name, for_stmt->variable->name) == 0) {
+                                skip = true;
+                            }
+                        }
+                        if (!skip) {
+                            emitStatement(out, s, indent + 4, false, current_func);
+                        }
+                    }
+                }
+                indentLine(out, indent);
+                fprintf(out, "}\n");
+            }
+            break;
+        }
         case AST_BREAK: {
             indentLine(out, indent);
             fprintf(out, "break;");

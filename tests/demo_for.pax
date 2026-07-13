@@ -1,0 +1,52 @@
+#import "General.pax";
+
+SS :: struct {
+    val: int;
+}
+
+main :: () {
+
+    for i:0..4
+    	printf("i=%d\n", i);
+
+    printf("\n----struct----\n");
+
+    len := 5;
+    s: SS;
+    for k:1..len {
+        s.val = s.val + k;
+        printf("k=%d, s.val=%d\n", k, s.val);
+    }
+
+    if s.val != len*(len+1)/2  // bro Gauss your a genius
+    	printf("HUHBHHHHHHHHH\b");
+
+    printf("\n----nested----\n");
+    p: SS;
+    for outer:0..2 {
+    	outer_multiplier := 10;
+        for inner:0..1 {
+        	inner_multiplier := 4;
+            p.val = (outer * outer_multiplier) + (inner * inner_multiplier);
+            printf("p=%d\n", p.val);
+        }
+    }
+
+    printf("\n----array iter----\n");
+    arr: [5]int;
+    for ii: 0..arr.count {
+        arr[ii] = ii * 2;
+    }
+    for x : arr printf("x=%d\n", x);
+
+	// defer in for loop
+	printf("\n");
+	for x : arr {
+		defer printf("%d,", x);
+		printf("x=");
+	}
+    printf("\nDONEEE\n");
+}
+
+
+

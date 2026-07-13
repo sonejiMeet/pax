@@ -44,6 +44,9 @@ pass_tests=(
 
   demo_named_defaults_parameter.pax
 
+  demo_multi_return.pax
+  demo_defer.pax
+  demo_for.pax
 )
 
 fail_tests=(

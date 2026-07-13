@@ -1270,6 +1270,50 @@ Ast_Statement *Parser::parseStatement()
             _while->block = block;
             return _while;
         }
+        case TOK_FOR: {
+            Ast_For *forNode = AST_NEW(Ast_For);
+            advance(); // consume 'for'
+
+            if (current->type != TOK_IDENTIFIER) {
+                report_parse_error("Expected identifier after 'for'");
+                return nullptr;
+            }
+            Ast_Ident *var = AST_NEW(Ast_Ident);
+            var->name = current->value;
+            forNode->variable = var;
+            advance();
+
+            expect(TOK_COLON, "Expected ':' after for loop variable");
+
+            Ast_Expression *it = parseExpression();
+            if (current->type == TOK_DOUBLE_DOT) {
+                advance();
+                forNode->start = it;
+                forNode->end = parseExpression();
+            } else {
+                forNode->array = it;
+            }
+
+            Ast_Block *block = parseBlockStatement(false, true);
+            forNode->block = block;
+            // append a synthetic declaration for the loop variable so normal
+            // resolution/declaration processing sees it (type inferred later).
+            // C_Converter will skip re-emitting it inside the for.
+            if (forNode->block && forNode->variable) {
+                Ast_Declaration *loopd = AST_NEW(Ast_Declaration);
+                loopd->identifier = forNode->variable;
+                // prepend so that lookup during block walk finds it before uses
+                Array<Ast_Statement*> newstmts(forNode->block->statements.pool ? forNode->block->statements.pool : interp->pool);
+                newstmts.push_back(static_cast<Ast_Statement*>(loopd));
+                for (long k = 0; k < forNode->block->statements.count; k++) {
+                    newstmts.push_back(forNode->block->statements.data[k]);
+                }
+                forNode->block->statements.data = newstmts.data;
+                forNode->block->statements.count = newstmts.count;
+                forNode->block->statements.capacity = newstmts.capacity;
+            }
+            return forNode;
+        }
         case TOK_LCURLY_PAREN: {
             bool is_scoped_block = true;
             Ast_Block *scopedBlock = parseBlockStatement(is_scoped_block);

@@ -320,8 +320,9 @@ ReturnCheckResult CodeManager::checkReturnPaths(Ast_Block *block)
                 fallthrough = false;
                 break;
             }
+        } else if (it->type == AST_WHILE || it->type == AST_FOR) {
+            // loops do not affect fallthrough for return path analysis (simple impl)
         }
-        // add AST_WHILE
     }
 
     result.all_paths_return = !fallthrough;
@@ -515,6 +516,16 @@ void CodeManager::resolve_idents(Ast_Block *block) {
             if (_while->block) {
                 push_scope();
                 resolve_idents(_while->block);
+                pop_scope();
+            }
+        } else if (stmt->type == AST_FOR){
+            Ast_For *for_loop = static_cast<Ast_For*>(stmt);
+            if (for_loop->start) resolve_idents_in_expr(for_loop->start);
+            if (for_loop->end) resolve_idents_in_expr(for_loop->end);
+            if (for_loop->array) resolve_idents_in_expr(for_loop->array);
+            if (for_loop->block) {
+                push_scope();
+                resolve_idents(for_loop->block);
                 pop_scope();
             }
         }
@@ -2939,10 +2950,10 @@ void CodeManager::infer_types_decl(Ast_Declaration *decl) {
     } else {
         auto inf = decl->declared_type;
         if(inf == _type->type_def_int) {
-            decl->initializer = make_integer_literal(-24);
+            decl->initializer = make_integer_literal(0);
         }
         else if(inf == _type->type_def_s8) {
-            decl->initializer = make_integer_literal(-6);
+            decl->initializer = make_integer_literal(0);
         }
 
     }
@@ -3044,6 +3055,44 @@ void CodeManager::infer_types_block(Ast_Block *block, Ast_Declaration *my_func)
             if (_while->block) {
                 push_scope();
                 infer_types_block(_while->block, my_func);
+                pop_scope();
+            }
+        } else if (stmt->type == AST_FOR){
+            Ast_For *for_loop = static_cast<Ast_For*>(stmt);
+            if (for_loop->start) infer_types_expr(&for_loop->start);
+            if (for_loop->end) infer_types_expr(&for_loop->end);
+            if (for_loop->array) infer_types_expr(&for_loop->array);
+            if (for_loop->block) {
+                push_scope();
+                Ast_Type_Definition *var_type = nullptr;
+                if (for_loop->array) {
+                    if (for_loop->array && for_loop->array->inferred_type) {
+                        Ast_Type_Definition *at = for_loop->array->inferred_type;
+                        if (at->type == AST_ARRAY_TYPE) {
+                            auto *arr = static_cast<Ast_Array_Type*>(at);
+                            var_type = arr->element_type;
+                        } else if (at->pointed_to_type && at->pointed_to_type->type == AST_ARRAY_TYPE) {
+                            auto *arr = static_cast<Ast_Array_Type*>(at->pointed_to_type);
+                            var_type = arr->element_type;
+                        }
+                    }
+                } else if (for_loop->variable && (for_loop->start || for_loop->end)) {
+                    if (for_loop->start && for_loop->start->inferred_type) var_type = for_loop->start->inferred_type;
+                    else if (for_loop->end && for_loop->end->inferred_type) var_type = for_loop->end->inferred_type;
+                }
+                if (var_type) {
+                    for (long ii = 0; ii < for_loop->block->statements.count; ii++) {
+                        Ast_Statement *ss = for_loop->block->statements.data[ii];
+                        if (ss && ss->type == AST_DECLARATION) {
+                            Ast_Declaration *dd = static_cast<Ast_Declaration*>(ss);
+                            if (dd->identifier && strcmp(dd->identifier->name, for_loop->variable->name) == 0) {
+                                dd->declared_type = var_type;
+                                break;
+                            }
+                        }
+                    }
+                }
+                infer_types_block(for_loop->block, my_func);
                 pop_scope();
             }
         }

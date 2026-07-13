@@ -41,6 +41,7 @@ enum Ast_Type {
     AST_BINARY,
     AST_IF,
     AST_WHILE,
+    AST_FOR,
     AST_LITERAL,
     AST_UNARY,
     AST_DECLARATION,
@@ -75,6 +76,7 @@ inline std::string astTypeToString(Ast_Type type) {
         case AST_UNARY:         return "UnaryExpr";
         case AST_IF:             return "IfStmt";
         case AST_WHILE:             return "WhileStmt";
+        case AST_FOR:                return "ForStmt";
         case AST_LITERAL:        return "Literal";
         case AST_DECLARATION:    return "Declaration";
         case AST_NEW_OR_DELETE: return "NewOrDelete";
@@ -294,6 +296,15 @@ struct Ast_If : public Ast_Statement {
 struct Ast_While : public Ast_Statement {
     Ast_While(Pool* = nullptr) { type = AST_WHILE; };
     Ast_Expression *condition = nullptr;
+    Ast_Block *block = nullptr;
+};
+
+struct Ast_For : public Ast_Statement {
+    Ast_For(Pool* = nullptr) { type = AST_FOR; };
+    Ast_Ident *variable = nullptr;      // the loop variable, e.g. "number"
+    Ast_Expression *start = nullptr;    // lower bound, e.g. 1
+    Ast_Expression *end = nullptr;      // upper bound, e.g. 10
+    Ast_Expression *array = nullptr;    // for for x : arr  (element iteration)
     Ast_Block *block = nullptr;
 };
 

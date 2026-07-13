@@ -116,31 +116,36 @@ Token *Lexer::numberToken(char first)
 
     bool is_float = false;
     // check for a decimal point (for float type)
+    // but do NOT treat "1.." as float (it's a range 1..10)
     if (Pos < size && Source[Pos] == '.') {
-        is_float = true;
-        if (buffer_idx < MAX_NUM_STR_LEN - 1) {
-            num_str_buffer[buffer_idx++] = get_and_advance(); // Consume the '.'
+        if (Pos + 1 < size && Source[Pos+1] == '.') {
+            // double dot range, leave it for the for-range parser
         } else {
-            lexerError("Number literal too long (decimal part)");
-            return makeToken(TOK_ERROR, "");
-        }
-
-        // since its a float type parse  fractional part
-        bool has_fractional_digits = false;
-        while (Pos < size && isNumeric(Source[Pos])) {
+            is_float = true;
             if (buffer_idx < MAX_NUM_STR_LEN - 1) {
-                num_str_buffer[buffer_idx++] = get_and_advance();
-                has_fractional_digits = true;
+                num_str_buffer[buffer_idx++] = get_and_advance(); // Consume the '.'
             } else {
-                lexerError("Number literal too long (fractional part)");
-                while (Pos < size && isNumeric(Source[Pos])) get_and_advance();
+                lexerError("Number literal too long (decimal part)");
                 return makeToken(TOK_ERROR, "");
             }
-        }
 
-        if (!has_fractional_digits /* && num_str_buffer[buffer_idx - 1] == '.'*/) {
-            lexerError("Malformed float literal (missing fractional digits)");
-            return makeToken(TOK_ERROR, "");
+            // since its a float type parse  fractional part
+            bool has_fractional_digits = false;
+            while (Pos < size && isNumeric(Source[Pos])) {
+                if (buffer_idx < MAX_NUM_STR_LEN - 1) {
+                    num_str_buffer[buffer_idx++] = get_and_advance();
+                    has_fractional_digits = true;
+                } else {
+                    lexerError("Number literal too long (fractional part)");
+                    while (Pos < size && isNumeric(Source[Pos])) get_and_advance();
+                    return makeToken(TOK_ERROR, "");
+                }
+            }
+
+            if (!has_fractional_digits /* && num_str_buffer[buffer_idx - 1] == '.'*/) {
+                lexerError("Malformed float literal (missing fractional digits)");
+                return makeToken(TOK_ERROR, "");
+            }
         }
     }
     num_str_buffer[buffer_idx] = '\0';
@@ -214,6 +219,7 @@ Token *Lexer::identifierToken(char first)
     else if (strcmp(ident, "null") == 0) type = TOK_NULL;
 
     else if (strcmp(ident, "while") == 0) type = TOK_WHILE;
+    else if (strcmp(ident, "for") == 0) type = TOK_FOR;
     else if (strcmp(ident, "break") == 0) type = TOK_BREAK;
     else if (strcmp(ident, "defer") == 0) type = TOK_DEFER;
 

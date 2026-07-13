@@ -18,6 +18,7 @@ enum TokenType {
     TOK_FOREIGN,     // foreign
     TOK_NULL,  // null
     TOK_WHILE, // while
+    TOK_FOR,   // for
     TOK_BREAK,
     TOK_DEFER,
     TOK_CAST,
@@ -91,6 +92,7 @@ inline const char *tokenTypeToString(TokenType type) {
         case TOK_FOREIGN: return "TOK_FOREIGN";
         case TOK_NULL: return "TOK_NULL";
         case TOK_WHILE: return "TOK_WHILE";
+        case TOK_FOR: return "TOK_FOR";
         case TOK_BREAK: return "TOK_BREAK";
         case TOK_DEFER: return "TOK_DEFER";
 
