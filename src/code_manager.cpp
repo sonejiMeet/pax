@@ -28,6 +28,7 @@ CodeManager::CodeManager(Pax_Interp *_interp)
     unresolved_vars = interp->pool;
     unresolved_types = interp->pool;
     unresolved_member_accesses = interp->pool;
+    unresolved_array_decls = interp->pool;
 }
 
 Ast_Literal *CodeManager::make_integer_literal(long long value){
@@ -480,10 +481,6 @@ void CodeManager::resolve_idents(Ast_Block *block) {
                             }
                         }
                     }
-                    else if (decl->declared_type && decl->declared_type->type == AST_ARRAY_TYPE) {
-                        auto *arr = static_cast<Ast_Array_Type*>(decl->declared_type);
-                        resolve_array_types(arr, decl);
-                    }
                 }
             }
             continue;
@@ -728,28 +725,16 @@ void CodeManager::resolve_idents_in_declaration(Ast_Declaration *decl)
     }
 
     if (decl->declared_type) {
-        if (decl->declared_type->type == AST_ARRAY_TYPE) {
-            auto *arr_type = static_cast<Ast_Array_Type*>(decl->declared_type);
-            resolve_array_types(arr_type, decl);
-        }
-        else if (decl->declared_type->pointed_to_type) {
-            // pointer-to-array case
-            Ast_Array_Type *arr_type = ast_static_cast<Ast_Array_Type>(decl->declared_type, AST_ARRAY_TYPE);
-
-            if (!arr_type) {
-                Ast_Type_Definition *walker = decl->declared_type;
-                while (walker) {
-                    if (walker->type == AST_ARRAY_TYPE) {
-                        arr_type = static_cast<Ast_Array_Type*>(walker);
-                        break;
-                    }
-                    walker = walker->pointed_to_type;
+        // direct arrays and arrays under pointers
+        Ast_Type_Definition *ty = decl->declared_type;
+        while (ty) {
+            if (ty->type == AST_ARRAY_TYPE) {
+                auto *arr_type = static_cast<Ast_Array_Type*>(ty);
+                if (!arr_type->struct_def) {
+                    resolve_array_types(arr_type, decl);
                 }
             }
-
-            if (arr_type && !arr_type->struct_def) {
-                resolve_array_types(arr_type, decl);
-            }
+            ty = ty->pointed_to_type;
         }
 
         try_resolve_type_on_decl(decl, decl->declared_type);
@@ -890,6 +875,71 @@ void CodeManager::resolve_unresolved_types()
     unresolved_types = still_unresolved;
 }
 
+void CodeManager::resolve_unresolved_arrays() {
+    Array<Ast_Declaration*> still_unresolved;
+    still_unresolved = interp->pool;
+
+    FOR(unresolved_array_decls) {
+        Ast_Declaration *decl = it;
+        if (!decl || !decl->declared_type) continue;
+
+        bool any_still_unresolved = false;
+
+        // Walk the type chain (handles direct array, ^[]T, ^^[] etc.)
+        Ast_Type_Definition *ty = decl->declared_type;
+        while (ty) {
+            if (ty->type == AST_ARRAY_TYPE) {
+                auto *arr_type = static_cast<Ast_Array_Type*>(ty);
+                if (!arr_type->struct_def) {
+                    resolve_array_types(arr_type, decl);
+                }
+                if (!arr_type->struct_def) {
+                    any_still_unresolved = true;
+                }
+            }
+            if (ty->pointed_to_type) {
+                ty = ty->pointed_to_type;
+                continue;
+            }
+            // Also walk element types in case of nested arrays
+            if (ty->type == AST_ARRAY_TYPE) {
+                Ast_Array_Type *arr = static_cast<Ast_Array_Type*>(ty);
+                if (arr->element_type) {
+                    ty = arr->element_type;
+                    continue;
+                }
+            }
+            break;
+        }
+
+        if (any_still_unresolved || !decl->declared_type) {
+            still_unresolved.push_back(decl);
+        }
+    }
+
+    unresolved_array_decls = still_unresolved;
+
+    // Report only after second pass
+    FOR(still_unresolved) {
+        Ast_Declaration *d = it;
+        const char *missing = "Static_Array";
+        Ast_Type_Definition *ty = d ? d->declared_type : nullptr;
+        while (ty) {
+            if (ty->type == AST_ARRAY_TYPE) {
+                auto *at = static_cast<Ast_Array_Type*>(ty);
+                if (at->is_resizable) missing = "Dynamic_Array";
+                break;
+            }
+            ty = ty->pointed_to_type;
+        }
+        report_error(d, "%s is not defined.", missing);
+    }
+
+    if (still_unresolved.count > 0) {
+        unresolved_array_decls = Array<Ast_Declaration*>(interp->pool);
+    }
+}
+
 Ast_Ident *CodeManager::get_member_ident(Ast_Binary *dot_expr)
 {
     if (!dot_expr || !dot_expr->rhs) return nullptr;
@@ -936,9 +986,16 @@ void CodeManager::resolve_unresolved_member_accesses() {
 }
 
 
-void CodeManager::resolve_array_types(Ast_Array_Type *array_type, Ast_Declaration *decl) {
+void CodeManager::resolve_array_types(Ast_Array_Type *array_type, Ast_Declaration *decl_hint) {
+    if (!array_type) return;
 
-    Ast_Type_Definition *type = decl->declared_type;
+    // If already resolved, nothing to do
+    if (array_type->struct_def) {
+        array_type->is_unresolved = false;
+        return;
+    }
+
+    Ast_Type_Definition *type = decl_hint ? decl_hint->declared_type : nullptr;
 
     // Static array ([N]int) or abstract array (^[]int, []int)
     if (!array_type->is_resizable) {
@@ -949,7 +1006,8 @@ void CodeManager::resolve_array_types(Ast_Array_Type *array_type, Ast_Declaratio
             Ast_Declaration *size_decl = lookup_symbol(ident->name);
 
             if (!size_decl) {
-                report_error(array_type->size_expr, "Undefined identifier '%s' in array size", ident->name);
+                // report_error(array_type->size_expr, "Undefined identifier '%s' in array size", ident->name);
+                push_unresolved_array_decl(decl_hint);
                 return;
             }
 
@@ -971,33 +1029,43 @@ void CodeManager::resolve_array_types(Ast_Array_Type *array_type, Ast_Declaratio
                 report_error(array_type->size_expr, "Cannot determine constant value of '%s'", ident->name);
                 return;
             }
-        } else if (array_type->size_expr && array_type->size_expr->type == AST_LITERAL){ // if its just pure expression instead
-            auto *ident = static_cast<Ast_Ident*>(decl->identifier);
+        } else if (array_type->size_expr && array_type->size_expr->type == AST_LITERAL) {
             auto *lit = static_cast<Ast_Literal*>(array_type->size_expr);
-
-            if(lit->integer_value <= 0){
-                report_error(array_type, "Array size evaluates to non-positive constant in '%s'", ident->name);
+            if (lit->integer_value <= 0) {
+                Ast_Ident *ident = (decl_hint && decl_hint->identifier) ? decl_hint->identifier : nullptr;
+                report_error(array_type, "Array size evaluates to non-positive constant%s%s",
+                             ident && ident->name ? " in '" : "",
+                             ident && ident->name ? ident->name : "");
             }
-
-
         }
 
         Ast_Type_Definition *static_array_def = find_struct_type_in_scopes("Static_Array");
 
-        if(!static_array_def) {
-            report_error(decl, "Static_Array is not defined.");
+        if (!static_array_def || !static_array_def->struct_def) {
+            array_type->is_unresolved = true;
+            if (decl_hint) push_unresolved_array_decl(decl_hint);
             return;
         }
         array_type->struct_def = static_array_def->struct_def;
-        type->is_unresolved = false;
-        create_type_instantiation(type);
+        array_type->is_unresolved = false;
+        create_type_instantiation(array_type);
+        if (type) type->is_unresolved = false;
     }
     else if (array_type->is_resizable) {
         Ast_Type_Definition *array_def = find_struct_type_in_scopes("Dynamic_Array");
 
-        type->struct_def = array_def->struct_def;
-        type->is_unresolved = false;
-        create_type_instantiation(type);
+        if (!array_def || !array_def->struct_def) {
+            array_type->is_unresolved = true;
+            if (decl_hint) push_unresolved_array_decl(decl_hint);
+            return;
+        }
+        array_type->struct_def = array_def->struct_def;
+        array_type->is_unresolved = false;
+        create_type_instantiation(array_type);
+        if (type) {
+            type->struct_def = array_def->struct_def;
+            type->is_unresolved = false;
+        }
     }
 }
 
@@ -1026,6 +1094,14 @@ inline void CodeManager::push_unresolved_type(Ast_Declaration *decl, Ast_Type_De
     u->decl = decl;
     u->base_type = base_type;
     unresolved_types.push_back(u);
+}
+
+inline void CodeManager::push_unresolved_array_decl(Ast_Declaration *decl){
+    if (!decl) return;
+    FOR(unresolved_array_decls){
+        if (it == decl) return;  // already queued
+    }
+    unresolved_array_decls.push_back(decl);
 }
 
 inline void CodeManager::push_unresolved_member_access(Ast_Binary *dot_expr, Ast_Binary *assignment_expr){
@@ -1287,6 +1363,14 @@ void CodeManager::resolve_idents_in_expr(Ast_Expression *expr, Ast_Block *my_sco
     case AST_LITERAL:
         break;
 
+    case AST_ARRAY_LITERAL: {
+        auto *lit = static_cast<Ast_Array_Literal*>(expr);
+        FOR(lit->elements) {
+            resolve_idents_in_expr(it, my_scope);
+        }
+        break;
+    }
+
     case AST_UNARY: {
         auto *u = static_cast<Ast_Unary*>(expr);
         if (!u->operand) break;
@@ -1459,7 +1543,7 @@ void CodeManager::resolve_idents_in_expr(Ast_Expression *expr, Ast_Block *my_sco
             }
         }
         else if (b->op == BINOP_DOT) {
-            Ast_Declaration *field = resolve_member_access(b, scope_stack.get_back(), false, true);
+            Ast_Declaration *field = resolve_member_access(b, scope_stack.get_back(), true, true);
             if (field) {
                 b->inferred_type = field->declared_type;
             }
@@ -1745,6 +1829,42 @@ void CodeManager::infer_types_expr(Ast_Expression **expr_ptr)
                 expr->inferred_type = _type->type_def_null;
             } else {
                 report_error(expr, "Internal: unhandled type of literal.");
+            }
+            return;
+        }
+        case AST_ARRAY_LITERAL: {
+            auto *lit = static_cast<Ast_Array_Literal *>(expr);
+            if (lit->element_type) {
+                // element type already provided in syntax
+            }
+            FOR(lit->elements) {
+                infer_types_expr(&it);
+            }
+            // create array type for inferred
+            Ast_Array_Type *arr_type = AST_NEW(Ast_Array_Type);
+            arr_type->element_type = lit->element_type;
+            arr_type->is_resizable = false; // static inferred size
+            // size_expr not set, or could count elements but for now
+            expr->inferred_type = arr_type;  // note: may need to wrap or use type def
+            // actually, for now, since arrays use special, but to make work, set element?
+            // better to leave as is, or use the element? Wait, the expr type should be the array type.
+            // For simplicity, we'll set it to point to element or handle in cconv.
+            // To make correct, we may need to create proper type.
+            // For now:
+            expr->inferred_type = lit->element_type; // temp? No.
+            // Actually, the literal's type is the array type, but since not full Ast_Array_Type in type system?
+            // We will handle specially in cconv and set a dummy or use array type.
+            // Let's create proper.
+            // Wait, set to a special.
+            // For now, to progress, we'll infer elements and set inferred to first or something.
+            if (lit->elements.count > 0) {
+                Ast_Array_Type *arrt = AST_NEW(Ast_Array_Type);
+                arrt->element_type = lit->element_type ? lit->element_type : (lit->elements.data[0] ? lit->elements.data[0]->inferred_type : _type->type_def_dummy);
+                arrt->is_resizable = false;
+                // size inferred from init list length in later phases or cconv
+                expr->inferred_type = arrt;
+            } else {
+                expr->inferred_type = _type->type_def_dummy;
             }
             return;
         }

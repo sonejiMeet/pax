@@ -358,6 +358,57 @@ void C_Converter::emitExpression(FILE *out, Ast_Expression *expr, int indent, bo
                         fprintf(out, "]");
                     }
                 }
+            } else if (bin->op == BINOP_ASSIGN) {
+                // Value copy for static arrays (do not just copy the header pointer)
+                Ast_Type_Definition *lhs_type = bin->lhs->inferred_type;
+                Ast_Type_Definition *rhs_type = bin->rhs->inferred_type;
+
+                Ast_Type_Definition *lhs_base_type = lhs_type;
+                while (lhs_base_type && lhs_base_type->pointed_to_type) lhs_base_type = lhs_base_type->pointed_to_type;
+
+                Ast_Type_Definition *rhs_base_type = rhs_type;
+                while (rhs_base_type && rhs_base_type->pointed_to_type) rhs_base_type = rhs_base_type->pointed_to_type;
+
+                if (lhs_base_type && lhs_base_type->type == AST_ARRAY_TYPE &&
+                    rhs_base_type && rhs_base_type->type == AST_ARRAY_TYPE &&
+                    !static_cast<Ast_Array_Type*>(lhs_base_type)->is_resizable) {
+
+                    auto *arr = static_cast<Ast_Array_Type*>(lhs_base_type);
+                    long long copy_size = 0;
+                    if (arr->size_expr && arr->size_expr->type == AST_LITERAL) {
+                        auto *lit = static_cast<Ast_Literal*>(arr->size_expr);
+                        if (lit->value_type == LITERAL_NUMBER) copy_size = lit->integer_value;
+                    }
+                    if (copy_size <= 0 && rhs_base_type) {
+                        auto *rarr = static_cast<Ast_Array_Type*>(rhs_base_type);
+                        if (rarr->size_expr && rarr->size_expr->type == AST_LITERAL) {
+                            auto *lit = static_cast<Ast_Literal*>(rarr->size_expr);
+                            if (lit->value_type == LITERAL_NUMBER) copy_size = lit->integer_value;
+                        }
+                    }
+
+                    const char *elem_cpy = "int";
+                    if (arr->element_type) {
+                        Ast_Type_Definition *e = arr->element_type;
+                        while (e && e->pointed_to_type) e = e->pointed_to_type;
+                        if (e) elem_cpy = e->to_string(*_type);
+                    }
+
+                    // memcpy contents, then get lhs as the assign expr value
+                    fprintf(out, "((void)memcpy((void*)(");
+                    emitExpression(out, bin->lhs, indent);
+                    fprintf(out, ".data), (void*)(");
+                    emitExpression(out, bin->rhs, indent);
+                    fprintf(out, ".data), sizeof(%s)*((" , elem_cpy);
+                    emitExpression(out, bin->lhs, indent);
+                    fprintf(out, ").count)), ");
+                    emitExpression(out, bin->lhs, indent);
+                    fprintf(out, ")");
+                } else {
+                    emitExpression(out, bin->lhs, indent);
+                    fprintf(out, " = ");
+                    emitExpression(out, bin->rhs, indent);
+                }
             } else {
                 emitExpression(out, bin->lhs, indent);
                 switch (bin->op){
@@ -627,8 +678,43 @@ void C_Converter::type_to_c_string(FILE *out, Ast_Type_Definition *type, Ast_Dec
         type_str += " *";
     }
 
-    if(decl){
-        if(decl->identifier){
+    bool did_array = false;
+    if(!decl)
+        fprintf(out, "(%s)", type_str.c_str());
+     
+    else if(decl && decl->identifier)
+    {
+        // Value static array decl (including := arr): own backing storage + value copy
+        // Skip for struct members (should_initializer=true); those get backing at variable site.
+        if (!should_initializer && pointer_depth == 0 && current && current->type == AST_ARRAY_TYPE) {
+            auto *arr = static_cast<Ast_Array_Type*>(current);
+            if (!arr->is_resizable && arr->size_expr && arr->size_expr->type == AST_LITERAL) {
+                long long arr_size = static_cast<Ast_Literal*>(arr->size_expr)->integer_value;
+                Ast_Type_Definition *element = arr->element_type;
+                while (element && element->pointed_to_type) element = element->pointed_to_type;
+                const char *aelem = element ? element->to_string(*_type) : "int";
+
+                fprintf(out, "%s __data__%s[%lld];\n", aelem, decl->identifier->name, arr_size);
+                indentLine(out, indent);
+                fprintf(out, "Static_Array %s;\n", decl->identifier->name);
+                indentLine(out, indent);
+                fprintf(out, "%s.data = (void *)__data__%s;\n", decl->identifier->name, decl->identifier->name);
+                indentLine(out, indent);
+                fprintf(out, "%s.count = %lld;\n", decl->identifier->name, arr_size);
+
+                if (decl->initializer && decl->initializer->inferred_type &&
+                    decl->initializer->inferred_type->type == AST_ARRAY_TYPE) {
+                    indentLine(out, indent);
+                    fprintf(out, "{ s64 __i; for(__i=0; __i < %s.count; __i = __i + 1) ((%s*)%s.data)[__i] = ((%s*)",
+                            decl->identifier->name, aelem, decl->identifier->name, aelem);
+                    emitExpression(out, decl->initializer, indent);
+                    fprintf(out, ".data)[__i]; }\n");
+                }
+                did_array = true;
+            }
+        }
+
+        if (!did_array) {
             fprintf(out, "%s %s", type_str.c_str(), decl->identifier->name);
 
             if(decl->initializer && !should_initializer){
@@ -661,74 +747,111 @@ void C_Converter::type_to_c_string(FILE *out, Ast_Type_Definition *type, Ast_Dec
                 emitExpression(out, decl->initializer, indent);
             }
         }
-        else {
-            // special for multi-return call as single initializer for compound decl
-            // (e.g. q, r := divide(20, 3);)
-            bool handled_multi_decl = false;
-            if (decl->initializers && decl->initializers->arguments.count == 1) {
-                auto *init0 = decl->initializers->arguments.data[0];
-                if (init0->type == AST_PROCEDURE_CALL_EXPRESSION) {
-                    auto *call = static_cast<Ast_Procedure_Call_Expression*>(init0);
-                    auto *fdecl = find_function_declaration(call);
-                    if (fdecl && fdecl->return_types.count > 1) {
-                        const char *rname = get_multi_ret_struct_name(fdecl);
-                        static int uc = 0;
-                        char u[32]; 
-                        snprintf(u, 32, "__pax_uret%d", ++uc);
-                        fprintf(out, "struct %s %s = ", rname, u);
-                        emitExpression(out, init0, indent);
-                        fprintf(out, ";\n");
-                        for (int i = 0; i < decl->identifiers.count; i++) {
-                            auto *id = decl->identifiers.data[i];
-                            if (id->name && strcmp(id->name, "_") == 0) continue;
-                            indentLine(out, indent);
-                            auto *t = (i < decl->identifier_types.count ? decl->identifier_types.data[i] : decl->declared_type);
-                            fprintf(out, "%s %s = %s._%d;\n", t ? t->to_string(*_type) : "int", id->name, u, i);
-                        }
-                        handled_multi_decl = true;
+    }
+    else {
+        // special for multi-return call as single initializer for compound decl
+        // (e.g. q, r := divide(20, 3);)
+        bool handled_multi_decl = false;
+        if (decl->initializers && decl->initializers->arguments.count == 1) {
+            auto *init0 = decl->initializers->arguments.data[0];
+            if (init0->type == AST_PROCEDURE_CALL_EXPRESSION) {
+                auto *call = static_cast<Ast_Procedure_Call_Expression*>(init0);
+                auto *fdecl = find_function_declaration(call);
+                if (fdecl && fdecl->return_types.count > 1) {
+                    const char *rname = get_multi_ret_struct_name(fdecl);
+                    static int uc = 0;
+                    char u[32]; 
+                    snprintf(u, 32, "__pax_uret%d", ++uc);
+                    fprintf(out, "struct %s %s = ", rname, u);
+                    emitExpression(out, init0, indent);
+                    fprintf(out, ";\n");
+                    for (int i = 0; i < decl->identifiers.count; i++) {
+                        auto *id = decl->identifiers.data[i];
+                        if (id->name && strcmp(id->name, "_") == 0) continue;
+                        indentLine(out, indent);
+                        auto *t = (i < decl->identifier_types.count ? decl->identifier_types.data[i] : decl->declared_type);
+                        fprintf(out, "%s %s = %s._%d;\n", t ? t->to_string(*_type) : "int", id->name, u, i);
                     }
+                    handled_multi_decl = true;
                 }
             }
+        }
 
-            if (!handled_multi_decl) {
-                int current_idx = 0;
+        if (!handled_multi_decl) {
+            int current_idx = 0;
 
-                FOR(decl->identifiers) {
-                    if(current_idx > 0)  // beacuse in emitStatement it adds indent ahead of time, but here for the first guy it will end up doing indent twice so just skip it for first identifier.
+            FOR(decl->identifiers) {
+                if(current_idx > 0)  // beacuse in emitStatement it adds indent ahead of time, but here for the first guy it will end up doing indent twice so just skip it for first identifier.
+                    indentLine(out, indent);
+
+                Ast_Type_Definition *this_type = nullptr;
+                if (current_idx < decl->identifier_types.count &&
+                    decl->identifier_types.data[current_idx]) {
+                    this_type = decl->identifier_types.data[current_idx];
+                } else {
+                    this_type = decl->declared_type;
+                }
+
+                std::string this_type_str;
+                Ast_Type_Definition *current = this_type;
+                int ptr_depth_local = 0;
+                while (current && current->pointed_to_type) {
+                    ptr_depth_local++;
+                    current = current->pointed_to_type;
+                }
+
+                if (current) {
+                    if (current->type == AST_ARRAY_TYPE && current->struct_def == nullptr) {
+                        this_type_str = "Static_Array";
+                    } else {
+                        this_type_str = current->to_string(*_type);
+                    }
+                } else {
+                    this_type_str = "/*unknown type*/";
+                }
+                for (int p = 0; p < ptr_depth_local; ++p) {
+                    this_type_str += " *";
+                }
+
+                // Special for static array in compound decl / := : own backing + value copy
+                bool emitted_array_special = false;
+                if (!should_initializer && ptr_depth_local == 0 && current && current->type == AST_ARRAY_TYPE) {
+                    auto *arr = static_cast<Ast_Array_Type*>(current);
+                    if (!arr->is_resizable && arr->size_expr && arr->size_expr->type == AST_LITERAL) {
+                        long long arr_size = static_cast<Ast_Literal*>(arr->size_expr)->integer_value;
+                        Ast_Type_Definition *element = arr->element_type;
+                        while (element && element->pointed_to_type) element = element->pointed_to_type;
+                        const char *aelem = element ? element->to_string(*_type) : "int";
+
+                        fprintf(out, "%s __data__%s[%lld];\n", aelem, it->name, arr_size);
                         indentLine(out, indent);
+                        fprintf(out, "Static_Array %s;\n", it->name);
+                        indentLine(out, indent);
+                        fprintf(out, "%s.data = (void *)__data__%s;\n", it->name, it->name);
+                        indentLine(out, indent);
+                        fprintf(out, "%s.count = %lld;\n", it->name, arr_size);
 
-                    Ast_Type_Definition *this_type = nullptr;
-                    if (current_idx < decl->identifier_types.count &&
-                        decl->identifier_types.data[current_idx]) {
-                        this_type = decl->identifier_types.data[current_idx];
-                    } else {
-                        this_type = decl->declared_type;
-                    }
-
-                    std::string this_type_str;
-                    Ast_Type_Definition *current = this_type;
-                    int ptr_depth_local = 0;
-                    while (current && current->pointed_to_type) {
-                        ptr_depth_local++;
-                        current = current->pointed_to_type;
-                    }
-
-                    if (current) {
-                        if (current->type == AST_ARRAY_TYPE && current->struct_def == nullptr) {
-                            this_type_str = "Static_Array";
-                        } else {
-                            this_type_str = current->to_string(*_type);
+                        Ast_Expression *arr_expr = nullptr;
+                        if (decl->initializers && decl->initializers->arguments.count > 0) {
+                            arr_expr = (decl->initializers->arguments.count == 1)
+                                ? decl->initializers->arguments.data[0]
+                                : decl->initializers->arguments.data[current_idx];
+                        } else if (decl->initializer) {
+                            arr_expr = decl->initializer;
                         }
-                    } else {
-                        this_type_str = "/*unknown type*/";
+                        if (arr_expr && arr_expr->inferred_type && arr_expr->inferred_type->type == AST_ARRAY_TYPE) {
+                            indentLine(out, indent);
+                            fprintf(out, "{ s64 __i; for(__i=0; __i < %s.count; __i = __i + 1) ((%s*)%s.data)[__i] = ((%s*)",
+                                    it->name, aelem, it->name, aelem);
+                            emitExpression(out, arr_expr, indent);
+                            fprintf(out, ".data)[__i]; }\n");
+                        }
+                        emitted_array_special = true;
                     }
-                    for (int p = 0; p < ptr_depth_local; ++p) {
-                        this_type_str += " *";
-                    }
+                }
 
-                    // indentLine(out, indent);
+                if (!emitted_array_special) {
                     fprintf(out, "%s %s", this_type_str.c_str(), it->name);
-
 
                     if ((decl->initializer || decl->initializers) && !should_initializer) {
                         fprintf(out, " = ");
@@ -739,7 +862,7 @@ void C_Converter::type_to_c_string(FILE *out, Ast_Type_Definition *type, Ast_Dec
                             expr_to_print = decl->initializers->arguments.data[current_idx];
                             current_idx++;
                         }
-                        else {
+                        else if (decl->initializers) {
                             expr_to_print = decl->initializers->arguments.data[current_idx];
                         }
 
@@ -749,15 +872,14 @@ void C_Converter::type_to_c_string(FILE *out, Ast_Type_Definition *type, Ast_Dec
                     }
 
                     fprintf(out, ";\n");
+                } else {
+                    if (decl->initializers && decl->initializers->arguments.count > 1) current_idx++;
                 }
             }
         }
-
-    } else {
-        fprintf(out, "(%s)", type_str.c_str());
     }
 
-    if(need_semicolon){
+    if(need_semicolon && !did_array){
         fprintf(out, ";\n");
     }
 }
@@ -1008,6 +1130,16 @@ void C_Converter::emitStatement(FILE *out, Ast_Statement *stmt, int indent, bool
                             // Loop through the BACKING array directly
                             fprintf(out, "for(int _i=0; _i < %lld; ++_i) _init_%s(&((%s*)__data__%s)[_i]);\n",
                                     size, st->name, st->name, decl->identifier->name);
+                        }
+
+                        // implicit entire array copy by value when another array 
+                        if (decl->initializer && decl->initializer->inferred_type &&
+                            decl->initializer->inferred_type->type == AST_ARRAY_TYPE) {
+                            indentLine(out, indent);
+                            fprintf(out, "{ s64 __i; for(__i=0; __i < %s.count; __i = __i + 1) ((%s*)%s.data)[__i] = ((%s*)",
+                                    decl->identifier->name, elem_type_str, decl->identifier->name, elem_type_str);
+                            emitExpression(out, decl->initializer, indent);
+                            fprintf(out, ".data)[__i]; }\n");
                         }
                     }
 

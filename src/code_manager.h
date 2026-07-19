@@ -37,6 +37,7 @@ struct CodeManager {
     Array<Unresolved_Variable*> unresolved_vars;
     Array<Unresolved_Type*> unresolved_types;
     Array<Unresolved_Member_Access*> unresolved_member_accesses;
+    Array<Ast_Declaration*> unresolved_array_decls;
 
     Def_Type *_type;
 
@@ -51,19 +52,23 @@ struct CodeManager {
     void is_everything_resolved(){
         bool should_exit = false;
         if(unresolved_calls.count != 0) {
-            printf("\nINTERNAL: unresolved_calls is not empty broo\n");
+            printf("\nINTERNAL: unresolved_calls were not resolved.\n");
             should_exit = true;
         }
         if(unresolved_vars.count != 0) {
-            printf("\nINTERNAL: unresolved_vars is not empty broo\n");
+            printf("\nINTERNAL: unresolved_vars were not resolved.\n");
             should_exit = true;
         }
         if(unresolved_types.count != 0) {
-            printf("\nINTERNAL: unresolved_types is not empty broo\n");
+            printf("\nINTERNAL: unresolved_types were not resolved.\n");
             should_exit = true;
         }
         if(unresolved_member_accesses.count != 0) {
-            printf("\nINTERNAL: unresolved_member_accesses is not empty broo\n");
+            printf("\nINTERNAL: unresolved_member_accesses were not resolved.\n");
+            should_exit = true;
+        }
+        if(unresolved_array_decls.count != 0) {
+            printf("\nINTERNAL: unresolved_array_decls were not resolved.\n");
             should_exit = true;
         }
         if(should_exit == true) exit(1);
@@ -123,6 +128,7 @@ struct CodeManager {
     inline void push_unresolved_type(Ast_Declaration *decl, Ast_Type_Definition *base_type);
     inline void push_unresolved_member_access(Ast_Binary *dot_expr, Ast_Binary *assignment_expr = nullptr);
     inline void push_unresolved_call(Ast_Procedure_Call_Expression *call);
+    inline void push_unresolved_array_decl(Ast_Declaration *decl);
 
     void resolve_idents_in_expr(Ast_Expression *expr, Ast_Block *my_scope = nullptr);
 
@@ -130,8 +136,9 @@ struct CodeManager {
     void resolve_unresolved_calls();
     void resolve_unresolved_types();
     void resolve_unresolved_member_accesses();
+    void resolve_unresolved_arrays();
 
-    void resolve_array_types(Ast_Array_Type *array_type, Ast_Declaration *decl);
+    void resolve_array_types(Ast_Array_Type *array_type, Ast_Declaration *decl_hint = nullptr);
 
     char *type_to_string(Ast_Type_Definition *type);
 
