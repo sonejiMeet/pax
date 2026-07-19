@@ -48,6 +48,8 @@ for %%f in (
     demo_multi_return.pax
     demo_defer.pax
     demo_for.pax
+    
+    demo_sort.pax
 ) do (
     set /a TOTAL_TEST+=1
     set LOG=tmp_%%~nf.log

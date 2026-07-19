@@ -47,6 +47,8 @@ pass_tests=(
   demo_multi_return.pax
   demo_defer.pax
   demo_for.pax
+
+  demo_sort.pax
 )
 
 fail_tests=(
