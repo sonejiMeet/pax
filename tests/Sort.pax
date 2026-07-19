@@ -1,0 +1,98 @@
+#import "General.pax"
+
+swap :: (arr: ^[]int, i: s64, j: s64) {
+    if (i == j) { return; }
+    temp := arr[i];
+    arr[i] = arr[j];
+    arr[j] = temp;
+}
+
+partition :: (arr: ^[]int, low: s64, high: s64) -> s64 {
+    pivot := arr[high];
+    i := low - 1;
+    j := low;
+    while (j < high) {
+        if (arr[j] <= pivot) {
+            i = i + 1;
+            swap(arr, i, j);
+        }
+
+        // for k:0..arr.count-1 {
+        //     printf("%d ", arr[k]);
+        // }
+        // printf("\n");
+
+        j = j + 1;
+    }
+    swap(arr, i + 1, high);
+    return i + 1;
+}
+
+quicksort :: (arr: ^[]int, low: s64, high: s64) {
+    if (low < high) {
+        pi := partition(arr, low, high);
+        quicksort(arr, low, pi - 1);
+        quicksort(arr, pi + 1, high);
+    }
+}
+
+quick_sort :: (arr: ^[]int) {
+    if (arr.count < 2) {
+        return;
+    }
+    quicksort(arr, 0, arr.count - 1);
+}
+
+merge :: (arr: ^[]int, left: s64, mid: s64, right: s64, temp: ^int) {
+    i := left;
+    j := mid;
+    k := 0;
+    while (i < mid && j < right) {
+        if (arr[i] <= arr[j]) {
+            *(temp + k) = arr[i];
+            i = i + 1;
+        } else {
+            *(temp + k) = arr[j];
+            j = j + 1;
+        }
+        k = k + 1;
+    }
+    while (i < mid) {
+        *(temp + k) = arr[i];
+        i = i + 1;
+        k = k + 1;
+    }
+    while (j < right) {
+        *(temp + k) = arr[j];
+        j = j + 1;
+        k = k + 1;
+    }
+    k = 0;
+    i = left;
+    while (i < right) {
+        arr[i] = *(temp + k);
+        i = i + 1;
+        k = k + 1;
+    }
+}
+
+mergesort_rec :: (arr: ^[]int, left: s64, right: s64, temp: ^int) {
+    if (right - left < 2) {
+        return;
+    }
+    mid := (left + right) / 2;
+    mergesort_rec(arr, left, mid, temp);
+    mergesort_rec(arr, mid, right, temp);
+    merge(arr, left, mid, right, temp);
+}
+
+merge_sort :: (arr: ^[]int) {
+    if (arr.count < 2) {
+        return;
+    }
+    temp_size := sizeof(int) * arr.count;
+    temp_ptr := malloc(temp_size);
+    temp : ^int = cast(^int) temp_ptr;
+    mergesort_rec(arr, 0, arr.count, temp);
+    free(temp_ptr);
+}
