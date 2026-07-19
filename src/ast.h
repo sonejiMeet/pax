@@ -43,6 +43,7 @@ enum Ast_Type {
     AST_WHILE,
     AST_FOR,
     AST_LITERAL,
+    AST_ARRAY_LITERAL,
     AST_UNARY,
     AST_DECLARATION,
     AST_NEW_OR_DELETE,
@@ -78,6 +79,7 @@ inline std::string astTypeToString(Ast_Type type) {
         case AST_WHILE:             return "WhileStmt";
         case AST_FOR:                return "ForStmt";
         case AST_LITERAL:        return "Literal";
+        case AST_ARRAY_LITERAL:  return "ArrayLiteral";
         case AST_DECLARATION:    return "Declaration";
         case AST_NEW_OR_DELETE: return "NewOrDelete";
         case AST_PROCEDURE_CALL_EXPRESSION:    return "ProcCallExpr";
@@ -213,6 +215,13 @@ struct Ast_Literal : public Ast_Expression {
     // size_t string_count = 0;
     double float_value = 0;
     int64_t integer_value = 0;
+};
+
+struct Ast_Array_Literal : public Ast_Expression {
+    Ast_Array_Literal(Pool *p) : elements(p) { type = AST_ARRAY_LITERAL; }
+
+    Ast_Type_Definition *element_type = nullptr;
+    Array<Ast_Expression *> elements;
 };
 
 struct Ast_Ident : public Ast_Expression {

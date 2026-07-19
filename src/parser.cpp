@@ -47,7 +47,7 @@ void Parser::report_parse_error(const char *fmt, ...)
     vsnprintf(buffer, BUFFER_SIZE, fmt, args);
     va_end(args);
 
-    fprintf(stderr, "%s: Parsing Error[%d:%d] %s\n", interp->current_file, current->row, current->col, buffer);
+    fprintf(stderr, "%s[%d:%d]: %s\n", interp->current_file, current->row, current->col, buffer);
 
     exitSuccess = false;
     synchronize();
@@ -68,7 +68,7 @@ void Parser::expect(TokenType expectedType, const char *errorMessage)
 void Parser::Expect(TokenType expectedType, const char *errorMessage)
 {
     if (current->type != expectedType) {
-        printf("\n%s: Parsing Error[%d:%d] %s", interp->current_file, previous->row, previous->col, errorMessage);
+        printf("\n%s[%d:%d]: %s", interp->current_file, previous->row, previous->col, errorMessage);
 
         exitSuccess = false;
         synchronize();
@@ -1274,6 +1274,12 @@ Ast_Statement *Parser::parseStatement()
             Ast_For *forNode = AST_NEW(Ast_For);
             advance(); // consume 'for'
 
+            bool should_consume_paren = false;
+            if(current->type == TOK_LPAREN) {
+                advance();
+                should_consume_paren = true;
+            }
+
             if (current->type != TOK_IDENTIFIER) {
                 report_parse_error("Expected identifier after 'for'");
                 return nullptr;
@@ -1293,6 +1299,8 @@ Ast_Statement *Parser::parseStatement()
             } else {
                 forNode->array = it;
             }
+            if(should_consume_paren)
+                expect(TOK_RPAREN, "Expected ')' after for expression.");
 
             Ast_Block *block = parseBlockStatement(false, true);
             forNode->block = block;

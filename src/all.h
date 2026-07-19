@@ -9,6 +9,7 @@
 #include <string>
 #include <stdint.h>
 
+#include "cli.h"
 #include "pool.h"
 #include "tools.h"
 #include "token.h"

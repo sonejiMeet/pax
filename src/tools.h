@@ -84,11 +84,14 @@ char *c_concat3(const char *a, const char *b, const char *c) {
     return out;
 }
 
-
 #ifndef TINY_TIMER
 #define TINY_TIMER
 
-#ifdef ENABLE_TIME_PROFILER
+bool time_enabled = false;
+
+inline void tools_set_cli_time_outputter(bool b) {
+    time_enabled = b;
+}
 
 #ifdef _WIN32
 extern "C" {
@@ -99,12 +102,14 @@ extern "C" {
 struct ScopedTimer {
     const char* name;
     long long start;
+    bool enabled;
 
-    ScopedTimer(const char* n) : name(n) {
-        QueryPerformanceCounter(&start);
+    ScopedTimer(const char* n) : enabled(time_enabled), name(n) {
+        if(enabled) QueryPerformanceCounter(&start);
     }
 
     ~ScopedTimer() {
+        if(!enabled) return;
         long long end, freq;
         QueryPerformanceCounter(&end);
         QueryPerformanceFrequency(&freq);
@@ -122,12 +127,14 @@ class ScopedTimer {
 private:
     struct timespec start;
     const char* name;
+    bool enabled;
 public:
-    ScopedTimer(const char* timer_name) : name(timer_name) {
-        clock_gettime(CLOCK_MONOTONIC, &start);
+    ScopedTimer(const char* timer_name) : enabled(time_enabled), name(timer_name) {
+        if(enabled) clock_gettime(CLOCK_MONOTONIC, &start);
     }
 
     ~ScopedTimer() {
+        if(!enabled) return;
         struct timespec end;
         clock_gettime(CLOCK_MONOTONIC, &end);
         double elapsed = (end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec) / 1e9;
@@ -138,10 +145,7 @@ public:
 #endif
 
 
-#define TIME_SCOPE(name) ScopedTimer timer_##__LINE__(name)
 
-#else // ENABLE_TIME_PROFILER
-#define TIME_SCOPE(name)
-#endif // ENABLE_TIME_PROFILER
+#define TIME_SCOPE(name) ScopedTimer timer_##__LINE__(name)
 
 #endif // TINY_TIMER

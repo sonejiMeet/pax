@@ -79,8 +79,8 @@ void Pax_Interp::parse_filename(const char *filename){
 
     char *dot = strrchr(base_name, '.');
     if(strcmp(dot+1,"pax") && strcmp(dot+5, "\0")==0){
-        printf("----------wrong extenstion\n");
-        exit(1);
+        printf("Incorrect extenstion.\n");
+        // exit(1);
     }
     if (dot) *dot = 0;
 
@@ -128,13 +128,29 @@ char *Pax_Interp::get_directory(const char *filepath) {
     return pool_strdup(pool, ".");
 }
 
+inline bool is_absolute_path(const char *path) {
+    if (!path || !*path) return false;
+
+    if(isAlpha(path[0]) && path[1] == ':' && (path[2] == '\\' || path[2] == '/')) {
+        return true;
+    }
+
+    return false;
+}
+
 char *Pax_Interp::resolve_import_path(const char *import_path, const char *current_file) {
     char *current_dir = get_directory(current_file);
 
     char *temp = c_concat3(current_dir, "/", import_path);
 
-    char *abs = get_absolute_path(temp);
-
+    // char *abs = get_absolute_path(temp);
+    char *abs = nullptr;
+    if (is_absolute_path(import_path)) {
+        abs = get_absolute_path(import_path);
+        return abs;
+    } else {
+        abs = get_absolute_path(temp);
+    }
     free(current_dir);
     free(temp);
 
@@ -146,8 +162,8 @@ Ast_Block *Pax_Interp::parse_file(const char *filename, bool skip_main_check) {
 
     FileBuffer buf = read_entire_file(filename);
     if (!buf.data) {
-        printf("\nError, empty file: %s\n", filename);
-        return nullptr;
+        printf("\nCould not open file: %s\n", filename);
+        exit(1);
     }
 
     current_file = (const char *) abs_path;
@@ -251,19 +267,22 @@ bool Pax_Interp::run_frontend() {
     code_manager->resolve_unresolved_vars();
     code_manager->resolve_unresolved_calls();
     code_manager->resolve_unresolved_types();
+    code_manager->resolve_unresolved_arrays();
     code_manager->resolve_unresolved_member_accesses();
 
     code_manager->is_everything_resolved();
 
     if (code_manager->count_errors != 0) {
         printf("\nErrors in code manager. Exiting.\n");
-        return false;
+        // return false
+        exit(1);
     }
     code_manager->infer_types_block(ast);
 
     if (code_manager->count_errors != 0) {
         printf("\nErrors in code manager. Exiting.\n");
-        return false;
+        exit(1);
+        // return false;
     }
 
     return true;

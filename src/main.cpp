@@ -1,6 +1,3 @@
-// #define ENABLE_TIME_PROFILER
-// #define ENABLE_MEMORY_TRACER
-// #define PRINT_LEX
 #include "all.h"
 
 #ifdef _DEBUG
@@ -63,7 +60,7 @@ static void *default_allocator(int mode, size_t size, size_t old_size,
 static Pool* global_pool = nullptr;
 void cleanup_pool() {
     if (global_pool) {
-        printf("Cleaning up memory pool on exit...\n");
+        // printf("Cleaning up memory pool on exit...\n");
         pool_release(global_pool);
         global_pool = nullptr;
     }
@@ -83,10 +80,11 @@ int main(int argc, char **argv) {
 
     // printf(" %s RUNNING %s \n", "\x1B[0;33m", "\x1B[0m");
 
-    if (argc < 2) {
-        printf("Usage: %s <file>.pax\n", argv[0]);
-        return 1;
-    }
+    CLI cli;
+    if(!cli_parse(&cli, argc, argv))
+        return cli.help ? 0 : 1;
+
+    tools_set_cli_time_outputter(cli.time);
 
     TIME_SCOPE("Total time");
 
@@ -99,13 +97,9 @@ int main(int argc, char **argv) {
     // register the cleanup func
     std::atexit(cleanup_pool);
 
-#ifdef ENABLE_MEMORY_TRACER
-    pool_trace_init(&pool, "pool_trace.txt");
-    defer {
-        printf("\nOutputted trace file: pool_trace.txt\n\n");
-        pool_trace_close(&pool);
-    };
-#endif
+    if(cli.memory_profiler == true) {
+        pool_trace_init(&pool, "pool_trace.txt");
+    }
 
     Def_Type type;
     init_Def_Type(&type, &pool);
@@ -116,26 +110,29 @@ int main(int argc, char **argv) {
 
     ttype = &type; // TEMPORARY
 
-#ifdef PRINT_LEX
-    interp.printLexer(argv[1]);
+    if(cli.print_lex) {
+        interp.printLexer(argv[1]);
+    } else {
+        CodeManager cm(&interp);
+        C_Converter cconv(&interp);
 
-#else
-    CodeManager cm(&interp);
-    C_Converter cconv(&interp);
+        interp.code_manager = &cm;
+        interp.c_converter = &cconv;
 
-    interp.code_manager = &cm;
-    interp.c_converter = &cconv;
+        if (!interp.init(argv[1])) return 1;
+        defer {interp.release();};
 
-    if (!interp.init(argv[1])) return 1;
-    defer {interp.release();};
-
-    if(!interp.run_frontend()) return 1;
-    interp.generate_cpp();
-    interp.compile_cpp();
-#endif
-
+        interp.run_frontend();
+        interp.generate_cpp();
+        interp.compile_cpp();
+    }
     // printf(" %s SUCCESS %s \n", "\x1B[0;32m", "\x1B[0m");
     printf("Total lines processed %zu\n", LINE_COUNT);
+
+    if(cli.memory_profiler == true) {
+        printf("\nOutputted trace file: pool_trace.txt\n\n");
+        pool_trace_close(&pool);
+    }
 
 #ifdef _DEBUG
     printf("Total global malloc %d\n", total_global_malloc);

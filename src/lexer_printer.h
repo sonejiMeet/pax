@@ -24,7 +24,9 @@ inline void printLex(FileBuffer buf, Pool *pool){
             case TOK_IMPORT:
                 printf("Value: \"import\" \n");
                 break;
-
+            case TOK_MAIN_ENTRY_POINT:
+                printf("Value: \"main\"\n");
+                break;
             case TOK_IDENTIFIER:
             default:
                 // For simple tokens (operators, etc.)
