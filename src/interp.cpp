@@ -157,6 +157,95 @@ char *Pax_Interp::resolve_import_path(const char *import_path, const char *curre
     return abs;
 }
 
+void Pax_Interp::cache_source(const char *path, const char *text) {
+    SourceFile *sf = (SourceFile*)pool_alloc(pool, sizeof(SourceFile));
+    sf->path = path;
+    sf->text = text;
+    source_files.push_back(sf);
+}
+
+void Pax_Interp::print_error_source(const char *path, int row, int col) const {
+    if (row <= 0 || col <= 0) return;
+
+    // find source text
+    const char *text = nullptr;
+    FOR(source_files) {
+        if (strcmp(it->path, path) == 0) {
+            text = it->text;
+            break;
+        }
+    }
+    if (!text) return;
+
+    // find error line
+    int cur = 1;
+    const char *p = text;
+    const char *line = nullptr;
+
+    while (*p && cur <= row) {
+        if (cur == row)
+            line = p;
+        while (*p && *p != '\n' && *p != '\r') p++;
+        if (*p == '\r') p++;
+        if (*p == '\n') p++;
+        cur++;
+    }
+
+    if (!line) return;
+
+    const char *le = line;
+    while (*le && *le != '\n' && *le != '\r') le++;
+
+    // skip leading whitespace/tabs and the offset of the error char
+    const char *ls = line;
+    while (ls < le && (*ls == ' ' || *ls == '\t')) ls++;
+    int col_from_trim = (int)(line + col - 1 - ls);  // may be < 0 if error is in the leading whitespace
+
+    fputs("\n    ", stderr);
+
+    for (const char *cp = ls; cp < le; cp++) {
+        if (cp == line + (col - 1))
+            fprintf(stderr, "\x1B[91m%c\x1B[0m", *cp);
+        else
+            fputc(*cp, stderr);
+    }
+    fputs("\n\n\n", stderr);
+}
+
+void Pax_Interp::buffer_error(const char *file, int row, int col, const char *message) {
+    BufferedError *e = (BufferedError*)pool_alloc(pool, sizeof(BufferedError));
+    e->file    = file;
+    e->row     = row;
+    e->col     = col;
+    e->message = message;
+    errors.push_back(e);
+}
+
+static void sort_errors(Array<BufferedError*> &errs) {
+    for (long i = 1; i < errs.count; i++) {
+        BufferedError *key = errs.data[i];
+        int j = i - 1;
+        while (j >= 0) {
+            if (errs.data[j]->row < key->row || (errs.data[j]->row == key->row && errs.data[j]->col <= key->col))
+                break;
+            errs.data[j + 1] = errs.data[j];
+            j--;
+        }
+        errs.data[j + 1] = key;
+    }
+}
+
+void Pax_Interp::flush_errors() const {
+    if (errors.count == 0) return;
+
+
+    for (int i = 0; i < errors.count; ++i) {
+        BufferedError *e = errors.data[i];
+        fprintf(stderr, "%s[%d:%d]: %s\n", e->file, e->row, e->col, e->message);
+        print_error_source(e->file, e->row, e->col);
+    }
+}
+
 Ast_Block *Pax_Interp::parse_file(const char *filename, bool skip_main_check) {
     char *abs_path = get_absolute_path(filename);
 
@@ -173,6 +262,7 @@ Ast_Block *Pax_Interp::parse_file(const char *filename, bool skip_main_check) {
     Ast_Block *parsed_ast = temp_parser.parseProgram(ast, skip_main_check);
     parsed_ast->file_name = (const char *) abs_path;
 
+    cache_source(abs_path, pool_strdup(pool, (const char*)buf.data));
     free(buf.data);
 
     return parsed_ast;
@@ -189,6 +279,8 @@ void Pax_Interp::load_imports(Ast_Block *module_ast, const char *module_path) {
 bool Pax_Interp::init(const char *entry_file) {
 
     all_unique_import_paths = pool;
+    source_files = pool;
+    errors = pool;
     ast = AST_NEW(pool, Ast_Block);
 
     parse_filename(entry_file);
@@ -270,19 +362,35 @@ bool Pax_Interp::run_frontend() {
     code_manager->resolve_unresolved_arrays();
     code_manager->resolve_unresolved_member_accesses();
 
-    code_manager->is_everything_resolved();
+    had_errors = (code_manager->count_errors != 0);
 
-    if (code_manager->count_errors != 0) {
-        printf("\nErrors in code manager. Exiting.\n");
-        // return false
+    if (had_errors) {
+    
+        sort_errors(errors);
+
+        if (!verbose) { // if no verbose then print the first error and exit
+            if (errors.count > 0) {
+                BufferedError *first = errors.data[0];
+                fprintf(stderr, "%s[%d:%d]: %s\n", first->file, first->row, first->col, first->message);
+                print_error_source(first->file, first->row, first->col);
+            }
+            printf("Errors in code manager. Exiting.\n");
+            exit(1);
+        }
+
+        // if verbose then flush all sorted errors
+        flush_errors();
+        printf("%d errors in code manager. Exiting.\n", code_manager->count_errors);
         exit(1);
     }
+
+    code_manager->is_everything_resolved();
     code_manager->infer_types_block(ast);
 
     if (code_manager->count_errors != 0) {
-        printf("\nErrors in code manager. Exiting.\n");
+        flush_errors();
+        printf("\n%d errors during type inference. Exiting.\n", code_manager->count_errors);
         exit(1);
-        // return false;
     }
 
     return true;

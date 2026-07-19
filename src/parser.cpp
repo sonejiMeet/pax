@@ -47,7 +47,7 @@ void Parser::report_parse_error(const char *fmt, ...)
     vsnprintf(buffer, BUFFER_SIZE, fmt, args);
     va_end(args);
 
-    fprintf(stderr, "%s[%d:%d]: %s\n", interp->current_file, current->row, current->col, buffer);
+    interp->buffer_error(interp->current_file, current->row, current->col, pool_strdup(interp->pool, buffer));
 
     exitSuccess = false;
     synchronize();
@@ -1474,6 +1474,8 @@ Ast_Block *Parser::parseProgram(Ast_Block *program, bool skip_main)
     }
 
     if(!exitSuccess){
+        interp->had_errors = true;
+        interp->flush_errors();
         printf("\n\nErrors in parser. Exiting.\n");
         exit(1);
     }

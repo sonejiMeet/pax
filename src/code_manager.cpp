@@ -59,9 +59,11 @@ void CodeManager::report_error_impl(Ast *ast, const char *fmt, ...)
     }
 
     if (ast->line_number >= 0 && ast->character_number >= 0) {
-        fprintf(stderr, "%s[%d:%d]: %s\n", filename, ast->line_number, ast->character_number, buffer);
+        interp->buffer_error(filename, ast->line_number, ast->character_number,
+                             pool_strdup(interp->pool, buffer));
     } else {
-        fprintf(stderr, "%s: %s\n", filename, buffer);
+        interp->buffer_error(filename, 0, 0,
+                             pool_strdup(interp->pool, buffer));
     }
 }
 
@@ -82,31 +84,22 @@ void CodeManager::report_error_with_previous_impl(Ast *ast_node, Ast *ast_prev, 
 
     count_errors += 1;
 
-    // Ast *ast_node = static_cast<Ast*>(node);
-    // Ast *ast_prev = static_cast<Ast*>(previous);
-
     const char *filename = ast_node->file_name;
     if (!filename || !filename[0]) {
         filename = interp->current_file ? interp->current_file : "<unknown>";
     }
 
+    char combined[1024];
     if (ast_node->line_number >= 0 && ast_node->character_number >= 0) {
-        fprintf(stderr, "%s\n%s:[%d:%d]: %s.",
-                        "\x1B[0;36m", filename, ast_node->line_number, ast_node->character_number, buffer);
-    } else {
-        fprintf(stderr, "%s\n%s: %s.", "\x1B[0;36m", filename, buffer);
-    }
+        const char *prev_filename = ast_prev->file_name;
+        if (!prev_filename || !prev_filename[0])
+            prev_filename = interp->current_file ? interp->current_file : "<unknown>";
+        snprintf(combined, sizeof(combined), "%s. Previously declared at %s:[%d:%d]", 
+                 buffer, prev_filename, ast_prev->line_number, ast_prev->character_number);
 
-    const char *prev_filename = ast_prev->file_name;
-    if (!prev_filename || !prev_filename[0]) {
-        prev_filename = interp->current_file ? interp->current_file : "<unknown>";
-    }
-
-    if (ast_prev->line_number >= 0 && ast_prev->character_number >= 0) {
-        fprintf(stderr, " Previously declared at %s:[%d:%d]\n\n%s",
-                prev_filename, ast_prev->line_number, ast_prev->character_number, "\x1B[0m");
+        interp->buffer_error(filename, ast_node->line_number, ast_node->character_number, pool_strdup(interp->pool, combined));
     } else {
-        fprintf(stderr, " Previously declared at %s: %s\n\n", prev_filename, "\x1B[0m");
+        interp->buffer_error(filename, 0, 0, pool_strdup(interp->pool, buffer));
     }
 }
 
@@ -867,7 +860,7 @@ void CodeManager::resolve_unresolved_types()
                 continue;
             }
         } else {
-            report_error(it->decl, "Undeclared type '%s'", it->base_type->name);
+            report_error(it->base_type, "Undeclared type '%s'", it->base_type->name);
         }
         // still_unresolved.push_back(u);
     }
@@ -1190,7 +1183,7 @@ Ast_Declaration *CodeManager::resolve_member_access(Ast_Binary *dot_expr, Ast_Bl
 
             if (!skip_init_check && base_type && base_type->pointed_to_type) {
                 if (!nested_field->initialized) {
-                    report_error(dot_expr, "Cannot access member through uninitialized pointer member '%s'",
+                    report_error(dot_expr, "Cannot access member '%s' through uninitialized pointer member '%s'", static_cast<Ast_Ident*>(dot_expr->rhs)->name,
                                  nested_field->identifier ? nested_field->identifier->name : "(unknown)");
                     return nullptr;
                 }
@@ -1468,7 +1461,7 @@ void CodeManager::resolve_idents_in_expr(Ast_Expression *expr, Ast_Block *my_sco
                     return;
                 }
                 else if (lhs_binary->op == BINOP_DOT) {
-                    Ast_Declaration *lhs_field = resolve_member_access(lhs_binary, scope_stack.get_back(), false, false, false);
+                    Ast_Declaration *lhs_field = resolve_member_access(lhs_binary, scope_stack.get_back(), true, false, false);
 
                     if (!lhs_field) {
                         // TEMPORARY, we only pass the assignment_expr for this Unresolved_Member_Access queue

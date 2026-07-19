@@ -107,6 +107,8 @@ int main(int argc, char **argv) {
     Pax_Interp interp;
     interp.pool = &pool;
     interp.type = &type;
+    interp.verbose = cli.verbose;
+    interp.had_errors = false;
 
     ttype = &type; // TEMPORARY
 

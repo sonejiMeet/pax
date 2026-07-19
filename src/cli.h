@@ -4,23 +4,26 @@ struct CLI {
     bool        print_lex;
     bool        time;
     bool        memory_profiler;
+    bool        verbose;
     bool        help;
 };
 
-static void cli_usage(const char *prog) {
+void cli_usage(const char *prog) {
     printf("\nUsage :  pax file.pax [option] \n"
     	   "Option: \n"
            "        -time,     show how long each step takes\n"
            "        -profile,  enable memory tracer (outputs a text file)\n"
            "        -lex,      print lexer tokens\n"
+           "        -verbose,  continue past errors, report all at once\n"
            "        -h,        print help\n\n");
 }
 
-static bool cli_parse(CLI *cli, int argc, char **argv) {
+bool cli_parse(CLI *cli, int argc, char **argv) {
     cli->input_file      = nullptr;
     cli->print_lex       = false;
     cli->time            = false;
     cli->memory_profiler = false;
+    cli->verbose         = false;
     cli->help            = false;
 
     for (int i = 1; i < argc; i++) {
@@ -32,6 +35,8 @@ static bool cli_parse(CLI *cli, int argc, char **argv) {
             cli->time = true;
         } else if (strcmp(a, "-profile") == 0) {
             cli->memory_profiler = true;
+        } else if (strcmp(a, "-verbose") == 0) {
+            cli->verbose = true;
         } else if (strcmp(a, "-h") == 0 || strcmp(a, "--help") == 0) {
             cli->help = true;
         } else if (a[0] == '-') {

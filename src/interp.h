@@ -8,6 +8,18 @@ struct CodeManager;
 struct C_Converter;
 struct Ast_Block;
 
+struct SourceFile {
+    const char *path;
+    const char *text;   // raw source file text, pool allocated
+};
+
+struct BufferedError {
+    const char *file;
+    const char *message;
+    int         row;
+    int         col;
+};
+
 struct Pax_Interp {
     Pax_Interp();
     ~Pax_Interp();
@@ -22,6 +34,11 @@ struct Pax_Interp {
     Ast_Block *ast;
 
     Array<char *> all_unique_import_paths;
+
+    Array<SourceFile *> source_files;
+    Array<BufferedError *> errors;       
+    bool verbose;
+    bool had_errors;
 
     const char *current_file;
 
@@ -45,6 +62,13 @@ struct Pax_Interp {
     char *resolve_import_path(const char *import_path, const char *current_file);
 
     void printLexer(const char *filename);
+
+    
+    void cache_source(const char *path, const char *text);
+    void print_error_source(const char *path, int row, int col) const;
+
+    void buffer_error(const char *file, int row, int col, const char *message);
+    void flush_errors() const;
 
     bool run_frontend();
     void generate_cpp();
