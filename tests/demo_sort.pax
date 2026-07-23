@@ -1,3 +1,6 @@
+// quick sort
+// merge sort
+
 #import "General.pax"
 #import "Sort.pax"
 

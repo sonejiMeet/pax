@@ -48,13 +48,13 @@ for %%f in (
     demo_multi_return.pax
     demo_defer.pax
     demo_for.pax
-    
     demo_sort.pax
+    demo_binary_search.pax
 ) do (
     set /a TOTAL_TEST+=1
     set LOG=tmp_%%~nf.log
 
-    .\src\pax.exe .\tests\%%f > "!LOG!" 2>&1
+    .\src\pax.exe -verbose -debug -mem .\tests\%%f > "!LOG!" 2>&1
     echo Testing %%f... !errorlevel!
 
     if !errorlevel! NEQ 0 (

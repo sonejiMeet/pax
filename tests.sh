@@ -49,6 +49,7 @@ pass_tests=(
   demo_for.pax
 
   demo_sort.pax
+  demo_binary_search.pax
 )
 
 fail_tests=(

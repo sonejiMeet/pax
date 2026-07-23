@@ -7,21 +7,24 @@ main :: () {
 	{
 		printf("\n----------string on heap as a builtin struct-------------\n");
 		a := New_String(cast(^u8)"Hello");
+		defer destroy_str(&a);
+
 		printstr(a);
 		b := New_String(cast(^u8)" World");
+		defer destroy_str(&b);
 		printstr(b);
 
 		printf("\n----------concatenate two string together-------------\n");
 		c := concat(a, b);
+		defer destroy_str(&c);
 		printstr(c);
 
 		printf("\n------------slice string-----------------\n");
 		sub := slice(c, 0, 5);
+		defer destroy_str(&sub);
 		printf("sliced string = ");
 		printstr(sub);
 
-		destroy_str(&c);
-		destroy_str(&sub);
 	}
 
 	{
@@ -84,7 +87,7 @@ main :: () {
 		test_upper_to_lower_string();
 	}
 
-	printf("\n-------------------------------\n");
+	printf("\n-----------DONE--------------------\n");
 
 }
 
@@ -102,6 +105,8 @@ test_array_of_String :: (){
 	printf("b = %d\n", *b);
 
 	p_str[1] = New_String(cast(^u8)"this string is on the heap");
+	defer destroy_str(&p_str[1]);
+
 	printstr(p_str[1]);
 
 	idk := p_str[1];

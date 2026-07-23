@@ -107,13 +107,13 @@ int main(int argc, char **argv) {
     Pax_Interp interp;
     interp.pool = &pool;
     interp.type = &type;
-    interp.verbose = cli.verbose;
+    interp.cli = &cli;
     interp.had_errors = false;
 
     ttype = &type; // TEMPORARY
 
     if(cli.print_lex) {
-        interp.printLexer(argv[1]);
+        interp.printLexer(cli.input_file);
     } else {
         CodeManager cm(&interp);
         C_Converter cconv(&interp);
@@ -121,7 +121,7 @@ int main(int argc, char **argv) {
         interp.code_manager = &cm;
         interp.c_converter = &cconv;
 
-        if (!interp.init(argv[1])) return 1;
+        if (!interp.init(cli.input_file)) return 1;
         defer {interp.release();};
 
         interp.run_frontend();

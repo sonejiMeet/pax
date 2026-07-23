@@ -1,0 +1,58 @@
+
+#import "General.pax"
+
+Node :: struct {
+	left: ^Node = null;
+	right: ^Node = null;
+	num: int = 0;
+}
+
+main :: (){
+	root: ^Node = null;
+
+	build_tree(&root, 1, 50);
+	print_tree(root, 0);
+
+	// destruct(root);
+	printf("\nDONE\n");
+}
+
+print_tree :: (root: ^Node, depth :int){
+	if !root return;
+
+	print_tree(root.left, depth + 1);
+
+	for i: 0..depth-1 printf("    ");
+	printf("%d\n", root.num);
+
+	print_tree(root.right, depth + 1);
+
+}
+
+build_tree :: (root: ^^Node, start: int, end: int){
+
+	if start > end return;
+
+	mid := (start+end) /2;
+
+	*root = malloc(sizeof(Node));
+	init(*root);
+	root.num = mid;
+
+	build_tree(&root.left, start, mid-1);
+	build_tree(&root.right, mid+1, end);
+}
+
+init :: (node: ^Node){
+	node.left = null;
+	node.right = null;
+	node.num = 0;
+}
+
+destruct :: (root: ^Node){
+	if root {
+		destruct(root.left);
+		destruct(root.right);
+		free(root);
+	}
+}

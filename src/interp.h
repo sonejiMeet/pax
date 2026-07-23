@@ -35,9 +35,10 @@ struct Pax_Interp {
 
     Array<char *> all_unique_import_paths;
 
+    CLI *cli;
     Array<SourceFile *> source_files;
-    Array<BufferedError *> errors;       
-    bool verbose;
+    Array<BufferedError *> errors;
+
     bool had_errors;
 
     const char *current_file;

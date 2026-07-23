@@ -43,6 +43,9 @@ testing_malloc_and_sizeof :: () {
 
     aa := sizeof(some);
     printf("aa= %d\n", aa);
+
+    free(ptr);
+    free(s);
 }
 
 random_modules_testing :: () {

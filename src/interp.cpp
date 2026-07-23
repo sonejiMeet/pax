@@ -254,6 +254,7 @@ Ast_Block *Pax_Interp::parse_file(const char *filename, bool skip_main_check) {
         printf("\nCould not open file: %s\n", filename);
         exit(1);
     }
+    cache_source(abs_path, pool_strdup(pool, (const char*)buf.data));
 
     current_file = (const char *) abs_path;
 
@@ -262,7 +263,6 @@ Ast_Block *Pax_Interp::parse_file(const char *filename, bool skip_main_check) {
     Ast_Block *parsed_ast = temp_parser.parseProgram(ast, skip_main_check);
     parsed_ast->file_name = (const char *) abs_path;
 
-    cache_source(abs_path, pool_strdup(pool, (const char*)buf.data));
     free(buf.data);
 
     return parsed_ast;
@@ -365,10 +365,10 @@ bool Pax_Interp::run_frontend() {
     had_errors = (code_manager->count_errors != 0);
 
     if (had_errors) {
-    
+
         sort_errors(errors);
 
-        if (!verbose) { // if no verbose then print the first error and exit
+        if (!cli->verbose) { // if no verbose then print the first error and exit
             if (errors.count > 0) {
                 BufferedError *first = errors.data[0];
                 fprintf(stderr, "%s[%d:%d]: %s\n", first->file, first->row, first->col, first->message);
@@ -429,7 +429,7 @@ void Pax_Interp::compile_cpp() {
 
     char command[256];
 #ifdef _WIN32                               /* vvvvvvvvvvvvvv @Temporary */
-    snprintf(command, sizeof(command), "cl.exe /Z7 /w /Od /EHsc /nologo %s.cpp /link /INCREMENTAL:NO", base_name);
+    snprintf(command, sizeof(command), "cl.exe /Zi /w /Od /EHsc /nologo /MDd %s.cpp /link /INCREMENTAL:NO", base_name);
     // printf("Running C compiler: %s\n", command);
     runCompiler(command);
 #else

@@ -19,6 +19,8 @@ main :: (){
 	print_whole_list(list);
 	printf("------------------------------\n");
 
+	destruct(ll);
+	destruct(list);
 	printf("---DONE---\n");
 }
 
@@ -69,5 +71,12 @@ print_whole_list :: (_list: ^Node) {
 	while _list {
 		printf("%d\n", _list.value);
 		_list = _list.next;
+	}
+}
+
+destruct :: (l: ^Node){
+	if l {
+		destruct(l.next);
+		free(l);
 	}
 }

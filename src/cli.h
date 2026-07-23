@@ -5,6 +5,8 @@ struct CLI {
     bool        time;
     bool        memory_profiler;
     bool        verbose;
+    bool        memory_leaks;
+    bool        debug;
     bool        help;
 };
 
@@ -15,6 +17,8 @@ void cli_usage(const char *prog) {
            "        -profile,  enable memory tracer (outputs a text file)\n"
            "        -lex,      print lexer tokens\n"
            "        -verbose,  continue past errors, report all at once\n"
+           "        -mem,      windows memory leak check\n"
+           "        -debug,    debug\n"
            "        -h,        print help\n\n");
 }
 
@@ -24,6 +28,8 @@ bool cli_parse(CLI *cli, int argc, char **argv) {
     cli->time            = false;
     cli->memory_profiler = false;
     cli->verbose         = false;
+    cli->memory_leaks    = false;
+    cli->debug           = false;
     cli->help            = false;
 
     for (int i = 1; i < argc; i++) {
@@ -37,6 +43,10 @@ bool cli_parse(CLI *cli, int argc, char **argv) {
             cli->memory_profiler = true;
         } else if (strcmp(a, "-verbose") == 0) {
             cli->verbose = true;
+        } else if (strcmp(a, "-mem") == 0) {
+            cli->memory_leaks = true;
+        } else if (strcmp(a, "-debug") == 0) {
+            cli->debug = true;
         } else if (strcmp(a, "-h") == 0 || strcmp(a, "--help") == 0) {
             cli->help = true;
         } else if (a[0] == '-') {

@@ -58,8 +58,8 @@ void Parser::expect(TokenType expectedType, const char *errorMessage)
 {
     if (current->type != expectedType) {
         report_parse_error(errorMessage);
-        exitSuccess = false;
-        synchronize();
+        // exitSuccess = false;
+        // synchronize();
         return;
     }
     advance();
@@ -68,31 +68,33 @@ void Parser::expect(TokenType expectedType, const char *errorMessage)
 void Parser::Expect(TokenType expectedType, const char *errorMessage)
 {
     if (current->type != expectedType) {
-        printf("\n%s[%d:%d]: %s", interp->current_file, previous->row, previous->col, errorMessage);
-
-        exitSuccess = false;
-        synchronize();
-        return;
+        interp->buffer_error(interp->current_file, previous->row, previous->col, errorMessage);
+        // exitSuccess = false;
+        // synchronize();
+        // return;
     }
     advance();
 }
 
 
 void Parser::synchronize() {
-
+    advance();
     while (current->type != TOK_END_OF_FILE) {
         if (previous && previous->type == TOK_SEMICOLON) return;
-        switch (current->type) {
+        if (current->type == TOK_IDENTIFIER) {
+            current = previous;
+            return;
+        }
+        switch (lexer->peekNextToken()->type) {
             case TOK_IF:
             case TOK_WHILE:
             case TOK_RETURN:
             case TOK_PRINT:
             case TOK_MAIN_ENTRY_POINT:
-            case TOK_LCURLY_PAREN:
-            case TOK_SEMICOLON:
+            case TOK_RCURLY_PAREN:
                 return;
-            default:
-                break;
+            // default:
+            //     break;
         }
         advance();
     }
@@ -548,7 +550,7 @@ Ast_Type_Definition *Parser::parseTypeSpecifier() {
         baseType = user_defined_type;
     }
     else {
-        report_parse_error("Expected a base type (e.g 'int', 'float', 'string', 'bool', or user-defined type)");
+        report_parse_error("Expected a base type");
         return nullptr;
     }
     advance();
@@ -1046,6 +1048,10 @@ Ast_Declaration *Parser::parseFunctionDeclaration(bool is_local) {
         else if (current->type == TOK_SEMICOLON){
             report_parse_error("Function header only allowed for foreign function calls.");
         }
+        else {
+            Expect(TOK_LCURLY_PAREN, "Expected '{' after return value");
+
+        }
     }
 
     return func_decl;
@@ -1436,7 +1442,8 @@ Ast_Block *Parser::parseProgram(Ast_Block *program, bool skip_main)
                 }
             }
             else {
-                report_parse_error("Top-level executable statements not allowed. Only declarations and main.");
+                // report_parse_error("Top-level executable statements not allowed. Only declarations and main.");
+                exitSuccess = false;
                 break;
             }
         } else if (current->type == TOK_HASHTAG){
@@ -1475,8 +1482,21 @@ Ast_Block *Parser::parseProgram(Ast_Block *program, bool skip_main)
 
     if(!exitSuccess){
         interp->had_errors = true;
+
+        sort_errors(interp->errors);
+
+        if (!interp->cli->verbose) { // if no verbose then print the first error and exit
+            if (interp->errors.count > 0) {
+                BufferedError *first = interp->errors.data[0];
+                fprintf(stderr, "%s[%d:%d]: %s\n", first->file, first->row, first->col, first->message);
+                interp->print_error_source(first->file, first->row, first->col);
+            }
+            printf("Errors in parser. Exiting.\n");
+            exit(1);
+        }
+
         interp->flush_errors();
-        printf("\n\nErrors in parser. Exiting.\n");
+        printf("Errors in parser. Exiting.\n");
         exit(1);
     }
     return program;

@@ -9,6 +9,13 @@ struct C_Converter {
     Def_Type *_type;
 
     C_Converter(Pax_Interp *_interp);
+
+    int expression_emit_depth = 0;
+    int statement_emit_depth = 0;
+
+    void emit_debug_info(FILE *out, Ast_Statement *stmt);
+    void emit_debug_info(FILE *out, Ast_Expression *expr);
+
     void emitStatement(FILE *out, Ast_Statement *stmt, int indent = 0, bool is_else_if = false, Ast_Declaration *current_func = nullptr);
     void emitExpression(FILE *out, Ast_Expression *expr, int indent = 0, bool _struct = false);
     void emitBlock(FILE *out, Ast_Block *block, int indent = 0, Ast_Declaration *current_func = nullptr);

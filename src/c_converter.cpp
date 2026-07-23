@@ -1,12 +1,23 @@
 
-// DO NOT REMOVE THAT EXTRA LINE UNDER fprintf below
-#ifdef _DEBUG
+// // DO NOT REMOVE THAT EXTRA LINE UNDER fprintf below
+// #ifdef _DEBUG
 #define PRINT_DEBUG_INFO(out, ...) \
-        fprintf(out, __VA_ARGS__) \
+        fprintf(out, __VA_ARGS__); \
+        fprintf(out, "//%d\n", __LINE__); \
+// #else
+// #define PRINT_DEBUG_INFO(out, ...)
+// #endif
 
-#else
-#define PRINT_DEBUG_INFO(out, ...)
-#endif
+const char* ENABLE_CRT_LEAKS=
+    "#define _CRTDBG_MAP_ALLOC\n"
+    "#include <crtdbg.h>\n"
+    "void enable_crt_leaks()\n"
+    "{\n"
+    "    _CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);\n"
+    "    _CrtSetReportMode(_CRT_WARN, _CRTDBG_MODE_FILE);\n"
+    "    _CrtSetReportFile(_CRT_WARN, _CRTDBG_FILE_STDOUT);\n"
+    "}\n"
+;
 
 const char *BOILTERPLATE_TOP =
     "/* GENERATED FILE */\n\n"
@@ -83,9 +94,54 @@ const char *WINDOWS_RUNTIME_CRASH_HANDLER_HELPER =
 C_Converter::C_Converter(Pax_Interp *_interp) : interp(_interp) , _type(interp->type){
 }
 
+void C_Converter::emit_debug_info(FILE *out, Ast_Statement *stmt)
+{
+    if (!interp || !interp->cli || !interp->cli->debug || !stmt) {
+        return;
+    }
+
+    fprintf(out, "#line %d \"%s\"\n",
+            stmt->line_number,
+            stmt->file_name ? stmt->file_name : "<unknown>");
+}
+
+void C_Converter::emit_debug_info(FILE *out, Ast_Expression *expr)
+{
+    if (!interp || !interp->cli || !interp->cli->debug || !expr) {
+        return;
+    }
+
+    fprintf(out, "#line %d \"%s\"\n",
+            expr->line_number,
+            expr->file_name ? expr->file_name : "<unknown>");
+}
+struct Scoped_Expression_Emit_Depth {
+    int &depth;
+
+    Scoped_Expression_Emit_Depth(int &depth) : depth(depth) {
+        ++depth;
+    }
+
+    ~Scoped_Expression_Emit_Depth() {
+        --depth;
+    }
+};
+struct Scoped_Depth {
+    int &depth;
+
+    Scoped_Depth(int &depth) : depth(depth) {
+        ++depth;
+    }
+
+    ~Scoped_Depth() {
+        --depth;
+    }
+};
 void C_Converter::emitExpression(FILE *out, Ast_Expression *expr, int indent, bool _struct)
 {
     if(!expr) return;
+    const bool is_outer_expression = (expression_emit_depth == 0);
+    Scoped_Expression_Emit_Depth depth_guard(expression_emit_depth);
 
     switch (expr->type){
         case AST_LITERAL: {
@@ -150,7 +206,7 @@ void C_Converter::emitExpression(FILE *out, Ast_Expression *expr, int indent, bo
         case AST_BINARY: {
             auto *bin = static_cast<Ast_Binary *>(expr);
             // indentLine(out, indent);
-            PRINT_DEBUG_INFO(out, "\n#line %d \"%s\"\n", expr->line_number, expr->file_name);
+            // PRINT_DEBUG_INFO(out, "\n#line %d \"%s\"\n", expr->line_number, expr->file_name);
 
             if (bin->lhs->type == AST_COMMA_SEPARATED_ARGS) {
                 Ast_Comma_Separated_Args *lhs_args = static_cast<Ast_Comma_Separated_Args*>(bin->lhs);
@@ -434,7 +490,10 @@ void C_Converter::emitExpression(FILE *out, Ast_Expression *expr, int indent, bo
             break;
         }
         case AST_PROCEDURE_CALL_EXPRESSION: {
-            PRINT_DEBUG_INFO(out, "\n#line %d \"%s\"\n", expr->line_number, expr->file_name);
+            // PRINT_DEBUG_INFO(out, "\n#line %d \"%s\"\n", expr->line_number, expr->file_name);
+            if (is_outer_expression && statement_emit_depth == 0 && interp->cli->debug) {
+                emit_debug_info(out, expr);
+            }
 
             auto *call = static_cast<Ast_Procedure_Call_Expression*>(expr);
 
@@ -498,7 +557,7 @@ void C_Converter::emitExpression(FILE *out, Ast_Expression *expr, int indent, bo
         }
 
         case AST_CAST: {
-            PRINT_DEBUG_INFO(out, "\n#line %d \"%s\"\n", expr->line_number, expr->file_name);
+            // PRINT_DEBUG_INFO(out, "\n#line %d \"%s\"\n", expr->line_number, expr->file_name);
 
             auto *cast = static_cast<Ast_Cast*>(expr);
 
@@ -681,7 +740,7 @@ void C_Converter::type_to_c_string(FILE *out, Ast_Type_Definition *type, Ast_Dec
     bool did_array = false;
     if(!decl)
         fprintf(out, "(%s)", type_str.c_str());
-     
+
     else if(decl && decl->identifier)
     {
         // Value static array decl (including := arr): own backing storage + value copy
@@ -760,7 +819,7 @@ void C_Converter::type_to_c_string(FILE *out, Ast_Type_Definition *type, Ast_Dec
                 if (fdecl && fdecl->return_types.count > 1) {
                     const char *rname = get_multi_ret_struct_name(fdecl);
                     static int uc = 0;
-                    char u[32]; 
+                    char u[32];
                     snprintf(u, 32, "__pax_uret%d", ++uc);
                     fprintf(out, "struct %s %s = ", rname, u);
                     emitExpression(out, init0, indent);
@@ -958,13 +1017,19 @@ void C_Converter::emitStruct(FILE *out, Ast_Statement *stmt, int indent){
 void C_Converter::emitStatement(FILE *out, Ast_Statement *stmt, int indent, bool is_else_if, Ast_Declaration *current_func)
 {
     if(!stmt) return;
+    Scoped_Depth statement_depth_guard(statement_emit_depth);
+
     switch (stmt->type){
 
         case AST_DECLARATION: {
 
             auto *decl = static_cast<Ast_Declaration*>(stmt);
 
-            PRINT_DEBUG_INFO(out, "#line %d \"%s\"\n", stmt->line_number, stmt->file_name);
+            // PRINT_DEBUG_INFO(out, "#line %d \"%s\"\n", stmt->line_number, stmt->file_name);
+            if (interp->cli->debug) {
+                emit_debug_info(out, stmt);
+            }
+
             if(decl->is_function){
 
                 // fprintf(out, "\n");
@@ -1132,7 +1197,7 @@ void C_Converter::emitStatement(FILE *out, Ast_Statement *stmt, int indent, bool
                                     size, st->name, st->name, decl->identifier->name);
                         }
 
-                        // implicit entire array copy by value when another array 
+                        // implicit entire array copy by value when another array
                         if (decl->initializer && decl->initializer->inferred_type &&
                             decl->initializer->inferred_type->type == AST_ARRAY_TYPE) {
                             indentLine(out, indent);
@@ -1238,6 +1303,10 @@ void C_Converter::emitStatement(FILE *out, Ast_Statement *stmt, int indent, bool
 
             // PRINT_DEBUG_INFO(out, "#line %d \"%s\"\n", stmt->line_number, stmt->file_name);
 
+            // if (stmt->expression || stmt->is_return || stmt->block) {
+            //     emit_debug_info(out, stmt);
+            // }
+
             if(stmt->expression){
                 indentLine(out, indent);
                 if (stmt->is_return && current_func && current_func->return_types.count > 1 &&
@@ -1266,7 +1335,7 @@ void C_Converter::emitStatement(FILE *out, Ast_Statement *stmt, int indent, bool
             }
             else if(stmt->block){
 
-                PRINT_DEBUG_INFO(out, "#line %d \"%s\"\n", stmt->line_number, stmt->file_name);
+                // PRINT_DEBUG_INFO(out, "#line %d \"%s\"\n", stmt->line_number, stmt->file_name);
 
                 indentLine(out, indent);
                 fprintf(out, "{\n");
@@ -1286,7 +1355,12 @@ void C_Converter::emitStatement(FILE *out, Ast_Statement *stmt, int indent, bool
         case AST_IF: {
 
             if(!is_else_if){
-                PRINT_DEBUG_INFO(out, "#line %d \"%s\"\n", stmt->line_number, stmt->file_name);
+                // PRINT_DEBUG_INFO(out, "#line %d \"%s\"\n", stmt->line_number, stmt->file_name);
+                // emit_debug_info(out, stmt);
+                if (interp->cli->debug) {
+                    emit_debug_info(out, stmt);
+                }
+
             }
             auto *ifstmt = static_cast<Ast_If*>(stmt);
 
@@ -1317,7 +1391,11 @@ void C_Converter::emitStatement(FILE *out, Ast_Statement *stmt, int indent, bool
 
         case AST_WHILE: {
 
-            PRINT_DEBUG_INFO(out, "#line %d \"%s\"\n", stmt->line_number, stmt->file_name);
+            // PRINT_DEBUG_INFO(out, "#line %d \"%s\"\n", stmt->line_number, stmt->file_name);
+            // emit_debug_info(out, stmt);
+            if (interp->cli->debug) {
+                emit_debug_info(out, stmt);
+            }
 
             auto *while_stmt = static_cast<Ast_While*>(stmt);
             indentLine(out, indent);
@@ -1330,7 +1408,11 @@ void C_Converter::emitStatement(FILE *out, Ast_Statement *stmt, int indent, bool
             break;
         }
         case AST_FOR: {
-            PRINT_DEBUG_INFO(out, "#line %d \"%s\"\n", stmt->line_number, stmt->file_name);
+            // PRINT_DEBUG_INFO(out, "#line %d \"%s\"\n", stmt->line_number, stmt->file_name);
+            // emit_debug_info(out, stmt);
+            if (interp->cli->debug) {
+                emit_debug_info(out, stmt);
+            }
 
             auto *for_stmt = static_cast<Ast_For*>(stmt);
             const char *ctype = "int";
@@ -1695,7 +1777,10 @@ void C_Converter::generate_cpp_code(const char *filename, Ast_Block *program)
     fprintf(out, "%s", BOILTERPLATE_TOP);
 
 #ifdef _WIN32
-    fprintf(out, "%s", WINDOWS_RUNTIME_CRASH_HANDLER_HELPER);
+    if(interp->cli->debug)
+        fprintf(out, "%s", WINDOWS_RUNTIME_CRASH_HANDLER_HELPER);
+    if(interp->cli->memory_leaks)
+        fprintf(out, "%s", ENABLE_CRT_LEAKS);
 #endif
 
     Array<Ast_Statement*> structs;
@@ -1782,20 +1867,38 @@ void C_Converter::generate_cpp_code(const char *filename, Ast_Block *program)
         fclose(out);
         return;
     }
-    // -2 in the parameter below because of these two line void GENERATED_MAIN and init_global_
-    PRINT_DEBUG_INFO(out, "#line %d \"%s\"", mainBlock->line_number-2, mainBlock->file_name);
-
-    fprintf(out, "\nvoid GENERATED_MAIN()");
-    fprintf(out, "{\n");
-    fprintf(out, "    __init_global_static_arrays();\n");
-    emitBlock(out, mainBlock, 0);
-    fprintf(out, "}\n");
+    // -1 in the parameter below because of these two line void GENERATED_MAIN and init_global_
+    // if(interp->cli->debug){
+    //     // PRINT_DEBUG_INFO(out, "#line %d \"%s\"", mainBlock->line_number-2, mainBlock->file_name);
+    //     fprintf(out, "#line %d \"%s\"",
+    //         mainBlock->line_number - 1,
+    //         mainBlock->file_name ? mainBlock->file_name : "<unknown>");
+    // }
+    // fprintf(out, "\nvoid GENERATED_MAIN()");
+    // fprintf(out, "{\n");
+    // fprintf(out, "    __init_global_static_arrays();\n");
+    // emitBlock(out, mainBlock, 0);
+    // fprintf(out, "}\n");
 
     fprintf(out, "\nint main(int argc, char **argv){\n");
 #ifdef _WIN32
-    fprintf(out, "    InstallHandler();\n");
+    if(interp->cli->memory_leaks){
+        fprintf(out, "    enable_crt_leaks();\n");
+    }
+    if(interp->cli->debug)
+        fprintf(out, "    InstallHandler();\n");
 #endif
-    fprintf(out, "    GENERATED_MAIN();\n");
+
+    // fprintf(out, "    GENERATED_MAIN();\n");
+    fprintf(out, "    __init_global_static_arrays();\n");
+    emitBlock(out, mainBlock, 0);
+
+#ifdef _WIN32
+    if(interp->cli->memory_leaks){
+        fprintf(out, "    printf(\"\\n\");\n");
+        fprintf(out, "    _CrtDumpMemoryLeaks();\n");
+    }
+#endif
     fprintf(out, "    return 0;\n");
     fprintf(out, "}\n");
 
