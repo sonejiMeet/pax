@@ -1303,9 +1303,9 @@ void C_Converter::emitStatement(FILE *out, Ast_Statement *stmt, int indent, bool
 
             // PRINT_DEBUG_INFO(out, "#line %d \"%s\"\n", stmt->line_number, stmt->file_name);
 
-            // if (stmt->expression || stmt->is_return || stmt->block) {
-            //     emit_debug_info(out, stmt);
-            // }
+            if (stmt->expression || stmt->is_return || stmt->block) {
+                emit_debug_info(out, stmt);
+            }
 
             if(stmt->expression){
                 indentLine(out, indent);
@@ -1867,19 +1867,6 @@ void C_Converter::generate_cpp_code(const char *filename, Ast_Block *program)
         fclose(out);
         return;
     }
-    // -1 in the parameter below because of these two line void GENERATED_MAIN and init_global_
-    // if(interp->cli->debug){
-    //     // PRINT_DEBUG_INFO(out, "#line %d \"%s\"", mainBlock->line_number-2, mainBlock->file_name);
-    //     fprintf(out, "#line %d \"%s\"",
-    //         mainBlock->line_number - 1,
-    //         mainBlock->file_name ? mainBlock->file_name : "<unknown>");
-    // }
-    // fprintf(out, "\nvoid GENERATED_MAIN()");
-    // fprintf(out, "{\n");
-    // fprintf(out, "    __init_global_static_arrays();\n");
-    // emitBlock(out, mainBlock, 0);
-    // fprintf(out, "}\n");
-
     fprintf(out, "\nint main(int argc, char **argv){\n");
 #ifdef _WIN32
     if(interp->cli->memory_leaks){
@@ -1893,12 +1880,6 @@ void C_Converter::generate_cpp_code(const char *filename, Ast_Block *program)
     fprintf(out, "    __init_global_static_arrays();\n");
     emitBlock(out, mainBlock, 0);
 
-#ifdef _WIN32
-    if(interp->cli->memory_leaks){
-        fprintf(out, "    printf(\"\\n\");\n");
-        fprintf(out, "    _CrtDumpMemoryLeaks();\n");
-    }
-#endif
     fprintf(out, "    return 0;\n");
     fprintf(out, "}\n");
 

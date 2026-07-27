@@ -13,7 +13,7 @@ main :: (){
 	build_tree(&root, 1, 50);
 	print_tree(root, 0);
 
-	// destruct(root);
+	destruct(root);
 	printf("\nDONE\n");
 }
 

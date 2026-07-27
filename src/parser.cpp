@@ -1126,6 +1126,7 @@ Ast_Statement *Parser::parseStatement()
                 return decl;
             }
             else if(next->type == TOK_LPAREN){
+                Ast_Statement *stmt = AST_NEW(Ast_Statement);
                 if (is_underscore) {
                     report_parse_error("Unexpected use of _");
                     return nullptr;
@@ -1134,7 +1135,6 @@ Ast_Statement *Parser::parseStatement()
 
                 Expect(TOK_SEMICOLON, "Expected ';' after procedure call.");
 
-                Ast_Statement *stmt = AST_NEW(Ast_Statement);
                 stmt->expression = expr;
                 return stmt;
             }
@@ -1240,11 +1240,11 @@ Ast_Statement *Parser::parseStatement()
             return stmt;
         }
         case TOK_PRINT: {
+            Ast_Statement *stmt = AST_NEW(Ast_Statement);
             Ast_Procedure_Call_Expression *expr = parseCall();
 
             Expect(TOK_SEMICOLON, "Expected ';' after printf call.");
 
-            Ast_Statement *stmt = AST_NEW(Ast_Statement);
             stmt->expression = expr;
             return stmt;
         }
