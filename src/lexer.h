@@ -57,7 +57,7 @@ struct Lexer
 
     inline bool check_prev_char(char expected)
     {
-        if (Pos >= size || Source[Pos--] != expected) return false;
+        if (Pos >= size || Source[Pos - 1] != expected) return false;
         Source[Pos++];
 
         return true;
