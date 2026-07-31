@@ -1,114 +1,118 @@
-#!/usr/bin/env bash
+# !/usr/bin/env bash
 
-FAIL=0
-FAIL_LIST=()
-TOTAL_TEST=0
+rm run_tests.exe
+g++ -o run_tests.exe run_tests.c
+./run_tests.exe
 
-RED='\033[91m'
-RESET='\033[0m'
+# FAIL=0
+# FAIL_LIST=()
+# TOTAL_TEST=0
 
-pass_tests=(
-  demo.pax
-  demo_struct.pax
-  demo_nested_structs.pax
-  demo_recursion.pax
-  demo_struct_order.pax
+# RED='\033[91m'
+# RESET='\033[0m'
 
-  demo_memory.pax
-  demo_static_array.pax
-  demo_if_and_while.pax
-  demo_lists.pax
-  demo_struct_init_from_global.pax
-  demo_array_subscript_dot.pax
+# pass_tests=(
+#   demo.pax
+#   demo_struct.pax
+#   demo_nested_structs.pax
+#   demo_recursion.pax
+#   demo_struct_order.pax
 
-  demo_dereference_assigned_value.pax
+#   demo_memory.pax
+#   demo_static_array.pax
+#   demo_if_and_while.pax
+#   demo_lists.pax
+#   demo_struct_init_from_global.pax
+#   demo_array_subscript_dot.pax
 
-  demo_pass_initialized_ptr_member_passed_by_value.pax
+#   demo_dereference_assigned_value.pax
 
-  demo_pass_is_declaration_passed_through_function.pax
+#   demo_pass_initialized_ptr_member_passed_by_value.pax
 
-  demo_struct_members_should_get_inferred.pax
-  demo_pointer_get_same_instance.pax
-  demo_pointer_get_new_instance.pax
-  demo_copy_pointer.pax
-  demo_nested_init.pax
+#   demo_pass_is_declaration_passed_through_function.pax
 
-  demo_pass_nested_structs_with_members_as_pointers.pax
+#   demo_struct_members_should_get_inferred.pax
+#   demo_pointer_get_same_instance.pax
+#   demo_pointer_get_new_instance.pax
+#   demo_copy_pointer.pax
+#   demo_nested_init.pax
 
-  demo_simple_nested_structs.pax
+#   demo_pass_nested_structs_with_members_as_pointers.pax
 
-  demo_string.pax
-  demo_pointer_cast_byte.pax
+#   demo_simple_nested_structs.pax
 
-  demo_runtime_crash_handler.pax
+#   demo_string.pax
+#   demo_pointer_cast_byte.pax
 
-  demo_named_defaults_parameter.pax
+#   demo_runtime_crash_handler.pax
 
-  demo_multi_return.pax
-  demo_defer.pax
-  demo_for.pax
+#   demo_named_defaults_parameter.pax
 
-  demo_sort.pax
-  demo_binary_search.pax
-)
+#   demo_multi_return.pax
+#   demo_defer.pax
+#   demo_for.pax
 
-fail_tests=(
-  demo_fail_uninitialized_ptr_member_passed_by_value.pax
+#   demo_sort.pax
+#   demo_binary_search.pax
+# )
 
-  demo_fail_is_declaration_passed_through_function.pax
+# fail_tests=(
+#   demo_fail_uninitialized_ptr_member_passed_by_value.pax
 
-  demo_fail_nested_init.pax
-  demo_fail_nested_structs_with_members_as_pointers.pax
+#   demo_fail_is_declaration_passed_through_function.pax
 
-  demo_fail_named_defaults_parameter.pax
-  demo_fail_named_defaults_parameter_2.pax
-)
+#   demo_fail_nested_init.pax
+#   demo_fail_nested_structs_with_members_as_pointers.pax
 
-for f in "${pass_tests[@]}"; do
-  TOTAL_TEST=$((TOTAL_TEST + 1))
-  log="tmp_${f%.pax}.log"
+#   demo_fail_named_defaults_parameter.pax
+#   demo_fail_named_defaults_parameter_2.pax
+# )
 
-  ./src/pax.exe ./tests/"$f" >"$log" 2>&1
-  status=$?
+# for f in "${pass_tests[@]}"; do
+#   TOTAL_TEST=$((TOTAL_TEST + 1))
+#   log="tmp_${f%.pax}.log"
 
-  echo "Testing $f... $status"
+#   ./src/pax.exe ./tests/"$f" >"$log" 2>&1
+#   status=$?
 
-  if [ "$status" -ne 0 ]; then
-    printf "${RED}    Failed${RESET}\n"
-    FAIL=1
-    FAIL_LIST+=("$f")
-  else
-    rm -f "$log"
-  fi
-done
+#   echo "Testing $f... $status"
 
-echo
+#   if [ "$status" -ne 0 ]; then
+#     printf "${RED}    Failed${RESET}\n"
+#     FAIL=1
+#     FAIL_LIST+=("$f")
+#   else
+#     rm -f "$log"
+#   fi
+# done
 
-for f in "${fail_tests[@]}"; do
-  TOTAL_TEST=$((TOTAL_TEST + 1))
-  log="tmp_${f%.pax}.log"
+# echo
 
-  ./src/pax.exe ./tests/"$f" >"$log" 2>&1
-  status=$?
+# for f in "${fail_tests[@]}"; do
+#   TOTAL_TEST=$((TOTAL_TEST + 1))
+#   log="tmp_${f%.pax}.log"
 
-  echo "Testing $f... $status"
+#   ./src/pax.exe ./tests/"$f" >"$log" 2>&1
+#   status=$?
 
-  if [ "$status" -eq 0 ]; then
-    printf "${RED}   FAILED (demo_fail passed but should have failed) ${RESET}\n"
-    FAIL=1
-    FAIL_LIST+=("$f")
-  fi
-done
+#   echo "Testing $f... $status"
 
-echo
-if [ "$FAIL" -eq 0 ]; then
-  echo "ALL TESTS PASSED"
-  echo "Total test count $TOTAL_TEST"
-else
-  printf "${RED}FAILED TESTS${RESET}\n"
-  for f in "${FAIL_LIST[@]}"; do
-    cat "tmp_${f%.pax}.log"
-  done
-fi
+#   if [ "$status" -eq 0 ]; then
+#     printf "${RED}   FAILED (demo_fail passed but should have failed) ${RESET}\n"
+#     FAIL=1
+#     FAIL_LIST+=("$f")
+#   fi
+# done
 
-exit "$FAIL"
+# echo
+# if [ "$FAIL" -eq 0 ]; then
+#   echo "ALL TESTS PASSED"
+#   echo "Total test count $TOTAL_TEST"
+# else
+#   printf "${RED}FAILED TESTS${RESET}\n"
+#   for f in "${FAIL_LIST[@]}"; do
+#     cat "tmp_${f%.pax}.log"
+#   done
+# fi
+
+# exit "$FAIL"

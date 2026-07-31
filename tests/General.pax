@@ -9,6 +9,8 @@ cos :: (x: float) -> float #foreign;
 sin :: (x: float) -> float #foreign;
 
 sizeof :: (T: Any) -> s64 #foreign;
+sqrt :: (x: float) -> float #foreign;
+exp :: (x: float) -> float #foreign;
 
 Static_Array :: struct {
     count: s64;
@@ -34,8 +36,8 @@ __NewArray_impl :: (count: s64, element_size: s64) -> Dynamic_Array {
     return arr;
 }
 
-
-
+__rdtsc :: () -> u64 #foreign;
+exit :: (status: int) #foreign;
 
 
 

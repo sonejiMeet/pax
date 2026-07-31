@@ -25,6 +25,9 @@ const char *BOILTERPLATE_TOP =
     "#include <stdio.h>\n"
     "#include <string.h>\n"
     "#include <math.h>\n"
+#ifdef _WIN32
+    "#include <intrin.h>\n"
+#endif
     "typedef unsigned long long u64;\n"
     "typedef unsigned int       u32;\n"
     "typedef unsigned short     u16;\n"
@@ -149,7 +152,7 @@ void C_Converter::emitExpression(FILE *out, Ast_Expression *expr, int indent, bo
             switch (lit->value_type){
                 case LITERAL_NUMBER: fprintf(out, "%lld", lit->integer_value); break;
                 case LITERAL_FLOAT:  fprintf(out, "%.17f", lit->float_value); break;
-                case LITERAL_STRING: fprintf(out, "\"%s\"", lit->string_value); break;
+                case LITERAL_STRING: fprintf(out, "string{ (size_t)%zu, (u8*)\"%s\" }", lit->string_count, lit->string_value); break;
                 case LITERAL_TRUE: {
                     char *s = (char *)"true";
                     fprintf(out, "%s",s);
@@ -328,15 +331,6 @@ void C_Converter::emitExpression(FILE *out, Ast_Expression *expr, int indent, bo
                         emitExpression(out, bin->rhs, indent);
                         fprintf(out, "]");
 
-                        if(arr->element_type->name && strcmp(arr->element_type->name, "String") == 0) {  // for arrays of String type
-                            if(bin->lhs->inferred_type->name && bin->rhs->inferred_type->name){
-                                if(strcmp(bin->lhs->inferred_type->name, "String") != 0 && strcmp(bin->rhs->inferred_type->name, "String") != 0){
-                                    fprintf(out, ".data");
-                                }
-                            }
-                            else fprintf(out, ".data");
-                        }
-
                     }
                     else {
                         emitExpression(out, bin->lhs, indent);
@@ -397,7 +391,7 @@ void C_Converter::emitExpression(FILE *out, Ast_Expression *expr, int indent, bo
                         emitExpression(out, bin->rhs, indent);
                         fprintf(out, "]");
 
-                    } else if(arr_type->name &&  strcmp(arr_type->name, "String") == 0){
+                    } else if(arr_type && arr_type == _type->type_def_string){
 
                         // a[i] becomes ((a.data)[i])
                         fprintf(out, "(");
@@ -516,7 +510,7 @@ void C_Converter::emitExpression(FILE *out, Ast_Expression *expr, int indent, bo
                         if(!value) continue;
 
                         if(!first) fprintf(out, ",");
-                        emitExpression(out, value, indent);
+                        emit_string_or_pointer(out, value, nullptr, indent);
                         first = false;
                     }
                 }
@@ -549,7 +543,7 @@ void C_Converter::emitExpression(FILE *out, Ast_Expression *expr, int indent, bo
                     continue;
                 }
 
-                emitExpression(out, argument, indent);
+                emit_string_or_pointer(out, argument, it->declared_type, indent);
             }
 
             fprintf(out, ")");
@@ -575,6 +569,42 @@ void C_Converter::emitExpression(FILE *out, Ast_Expression *expr, int indent, bo
         default:
             fprintf(out, "/* unhandled expression */");
             break;
+    }
+}
+
+void C_Converter::emit_string_or_pointer(FILE *out, Ast_Expression *expr, Ast_Type_Definition *expected_ptr_type, int indent)
+{
+    bool coerce = false;
+    if (expr && expr->inferred_type == _type->type_def_string) {
+        if (!expected_ptr_type) {
+            coerce = true;
+        } else {
+            Ast_Type_Definition *base = expected_ptr_type;
+            int ptr_depth = 0;
+            while (base && base->pointed_to_type) { base = base->pointed_to_type; ptr_depth++; }
+            if (ptr_depth > 0 && base) {
+                const char *bn = base->to_string(*_type);
+                if (strcmp(bn, "u8") == 0 || strcmp(bn, "void") == 0 ||
+                    strcmp(bn, "char") == 0 || strcmp(bn, "s8") == 0) {
+                    coerce = true;
+                }
+            }
+        }
+    }
+    if (coerce) {
+        // a string literal data is just the C string literal, emit it directly so printf gets plain char*
+        if (expr->type == AST_LITERAL) {
+            Ast_Literal *lit = static_cast<Ast_Literal *>(expr);
+            if (lit->value_type == LITERAL_STRING) {
+                fprintf(out, "\"%s\"", lit->string_value);
+                return;
+            }
+        }
+        fprintf(out, "(char*)(");
+        emitExpression(out, expr, indent);
+        fprintf(out, ").data");
+    } else {
+        emitExpression(out, expr, indent);
     }
 }
 

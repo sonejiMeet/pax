@@ -1,4 +1,4 @@
-
+#import "General.pax"
 // TEST: compile pass
 // demo_copy_pointer.pax
 main :: () {
@@ -17,6 +17,7 @@ function_4 :: () {
     p2 = p1;  // Copy pointer
 
     p2.value = 100;  // Should work
+    if p2.value != 100 exit(1);
 
     printf("p2.value = %d\n", p2.value);
     printf("DONE\n");

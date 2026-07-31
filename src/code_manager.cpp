@@ -94,7 +94,7 @@ void CodeManager::report_error_with_previous_impl(Ast *ast_node, Ast *ast_prev, 
         const char *prev_filename = ast_prev->file_name;
         if (!prev_filename || !prev_filename[0])
             prev_filename = interp->current_file ? interp->current_file : "<unknown>";
-        snprintf(combined, sizeof(combined), "%s. Previously declared at %s:[%d:%d]", 
+        snprintf(combined, sizeof(combined), "%s. Previously declared at %s:[%d:%d]",
                  buffer, prev_filename, ast_prev->line_number, ast_prev->character_number);
 
         interp->buffer_error(filename, ast_node->line_number, ast_node->character_number, pool_strdup(interp->pool, combined));
@@ -248,6 +248,10 @@ bool CodeManager::declare_struct(Ast_Statement *struct_stmt) {
     if (!struct_stmt->expression || struct_stmt->expression->type != AST_STRUCT) return false;
 
     auto *struct_name = struct_stmt->type_definition->struct_def->name;
+
+    if (struct_name && strcmp(struct_name, "string") == 0) {
+        _type->type_def_string->struct_def = struct_stmt->type_definition->struct_def;
+    }
 
     auto *looked_up = find_struct_type_in_scopes(struct_name);
     if (looked_up) {
@@ -568,6 +572,8 @@ Ast_Type_Definition *CodeManager::get_base_type(Ast_Type_Definition *type)
 
 Ast_Type_Definition *CodeManager::clone_type_definition(Ast_Type_Definition *original) {
     if (!original) return nullptr;
+
+    if (original == _type->type_def_string) return original;
 
     // If it's a plain builtin/user type with no pointer/array, just reuse
     if (!original->pointed_to_type && original->type != AST_ARRAY_TYPE) {
@@ -1955,6 +1961,10 @@ void CodeManager::infer_types_expr(Ast_Expression **expr_ptr)
                             if (base_var && base_var->is_declaration_passed_through_function) {
                                 should_skip = true;
                             }
+                            // a struct member is initialized whenever the enclosing struct variable is initialized (a string literal)
+                            else if (base_var && base_var->initialized) {
+                                should_skip = true;
+                            }
                         }
 
                         if (member && !member->initialized && !should_skip) {
@@ -2112,8 +2122,7 @@ void CodeManager::infer_types_expr(Ast_Expression **expr_ptr)
                         return;
                     }
 
-                    // Kind of a hack, must clean this up at some point
-                    if(array_type && array_type->name && strcmp(array_type->name, "String") == 0){
+                    if(array_type && array_type == _type->type_def_string){
                         expr->inferred_type = array_type;
                         return;
                     }
@@ -2159,7 +2168,10 @@ void CodeManager::infer_types_expr(Ast_Expression **expr_ptr)
                             expr->inferred_type = _type->type_def_s64;
                         } else if (lt == _type->type_def_s64 && rt == _type->type_def_int) {
                             expr->inferred_type = _type->type_def_s64;
+                        } else if (lt == _type->type_def_u64 && rt == _type->type_def_u64) {
+                            expr->inferred_type = _type->type_def_u64;
                         }
+
                         // pointer arithmetic
                         else if (lt && lt->pointed_to_type && (rt == _type->type_def_int || rt == _type->type_def_s64)) {
                             expr->inferred_type = lt;
@@ -2943,6 +2955,11 @@ void CodeManager::infer_types_decl(Ast_Declaration *decl) {
                     decl->identifier_types.push_back(init_type);
                 }
             }
+        }
+
+        // for a single ident decl (p := &a)
+        if (n == 1 && decl->identifier_types.count == 1) {
+            decl->declared_type = decl->identifier_types.data[0];
         }
 
         return;

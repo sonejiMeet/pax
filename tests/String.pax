@@ -1,33 +1,29 @@
 #import "General.pax"
 
-String :: struct {
+string :: struct {
     count: s64;
     data: ^u8;
 }
 
-strlen :: (str: ^u8) -> s64 {
-    len: s64 = 0;
-    while *(str + len) != 0 {
-        len = len + 1;
-    }
-    return len;
+strlen :: (str: string) -> s64 {
+    return str.count;
 }
 
-// Create from null-terminated C string (copies data)
-New_String :: (cstr: ^u8) -> String {
-    s: String;
-    s.count = strlen(cstr);
+// Create from a string literal / readonly string (copies data into a fresh heap buffer)
+New_String :: (src: string) -> string {
+    s: string;
+    s.count = src.count;
     s.data = cast(^u8)malloc(s.count + 1);
 
     if s.data != null {
-        memcpy(s.data, cstr, s.count + 1);
+        memcpy(s.data, src.data, s.count + 1);
     }
     return s;
 }
 
 // Concatenate two strings (allocates new memory)
-concat :: (a: String, b: String) -> String {
-    result: String;
+concat :: (a: string, b: string) -> string {
+    result: string;
     result.count = a.count + b.count;
     result.data = cast(^u8)malloc(result.count + 1);
 
@@ -40,8 +36,8 @@ concat :: (a: String, b: String) -> String {
 }
 
 // Extract substring [start, start+count)
-slice :: (s: String, start: s64, count: s64) -> String {
-    result: String;
+slice :: (s: string, start: s64, count: s64) -> string {
+    result: string;
 
     if start < 0 { start = 0; }
     if start >= s.count {
@@ -62,7 +58,7 @@ slice :: (s: String, start: s64, count: s64) -> String {
 }
 
 // Compare two strings lexicographically
-string_compare :: (a: String, b: String) -> s64 {
+string_compare :: (a: string, b: string) -> s64 {
     min: s64 = a.count;
     if b.count < min { min = b.count; }
 
@@ -76,29 +72,29 @@ string_compare :: (a: String, b: String) -> s64 {
     return a.count - b.count;
 }
 
-equals :: (a: String, b: String) -> bool {
+equals :: (a: string, b: string) -> bool {
     return a.count == b.count && string_compare(a, b) == 0;
 }
 
 
-get :: (s: String, index: s64) -> u8 {
+get :: (s: string, index: s64) -> u8 {
     if index < 0 || index >= s.count {
         return cast(u8)0;
     }
     return *(s.data + index);
 }
 
-empty :: () -> String {
-    s: String;
+empty :: () -> string {
+    s: string;
     s.data = null;
     s.count = 0;
     return s;
 }
 
-len :: (s: String) -> s64 { return s.count; }
-is_empty :: (s: String) -> bool { return s.count == 0; }
+len :: (s: string) -> s64 { return s.count; }
+is_empty :: (s: string) -> bool { return s.count == 0; }
 
-destroy_str :: (s: ^String) {
+destroy_str :: (s: ^string) {
     if s.data != null {
         free(s.data);
         s.data = null;
@@ -107,8 +103,8 @@ destroy_str :: (s: ^String) {
 }
 
 
-string_clone :: (s: String) -> String {
-    result: String;
+string_clone :: (s: string) -> string {
+    result: string;
     result.count = s.count;
     result.data = cast(^u8)malloc(s.count + 1);
 
@@ -119,6 +115,6 @@ string_clone :: (s: String) -> String {
 }
 
 
-printstr :: (s: String) {
-	printf("{{\"%.*s\"}, {%d}}\n", s.count, s.data, s.count);
+printstr :: (s: string) {
+	printf("{{%.*s}, {%d}}\n", s.count, s.data, s.count);
 }

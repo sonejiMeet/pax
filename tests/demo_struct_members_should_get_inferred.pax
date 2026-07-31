@@ -1,3 +1,4 @@
+#import "String.pax"
 
 // TEST: compile pass
 // demo_struct_members_should_get_inferred.pax
@@ -8,7 +9,7 @@ main :: () {
     x := *c.data;
 }
 Config :: struct { // should be inferred
-    name:= cast(^u8)"default";
+    name:= "default";
     count := 10;
     data: ^int;
 };

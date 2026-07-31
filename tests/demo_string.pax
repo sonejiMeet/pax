@@ -6,11 +6,11 @@ main :: () {
 
 	{
 		printf("\n----------string on heap as a builtin struct-------------\n");
-		a := New_String(cast(^u8)"Hello");
+		a := New_String("Hello");
 		defer destroy_str(&a);
 
 		printstr(a);
-		b := New_String(cast(^u8)" World");
+		b := New_String(" World");
 		defer destroy_str(&b);
 		printstr(b);
 
@@ -29,10 +29,7 @@ main :: () {
 
 	{
 		printf("\n----------string on stack (read only)-------------\n");
-		aa : String;
-		bb := cast(^u8)"Bruh";
-		aa.data = bb;
-		aa.count = strlen(bb);
+		aa: string = "Bruh";
 		printf("%s, %d\n", aa.data, aa.count);
 		printstr(aa);
 	}
@@ -40,8 +37,8 @@ main :: () {
 	{
 		printf("-----------string_compare-------------\n");
 
-		str_1 := New_String(cast(^u8)"This is a test");
-		str_2 := New_String(cast(^u8)"This is a test");
+		str_1 := New_String("This is a test");
+		str_2 := New_String("This is a test");
 
 		if string_compare(str_1, str_2) == 0
 			printf("\nBoth strings are the same\n");
@@ -54,7 +51,7 @@ main :: () {
 	}
 
 	{
-		to_clone := New_String(cast(^u8)"clone this string");
+		to_clone := New_String("clone this string");
 
 		cloned := string_clone(to_clone);
 		if string_compare(to_clone, cloned) == 0
@@ -67,9 +64,9 @@ main :: () {
 	}
 
 	{
-		printf("--------array subscript String---------\n");
+		printf("--------array subscript string---------\n");
 
-		str := New_String(cast(^u8)"Hello");
+		str := New_String("Hello");
 		printstr(str);
 		i := 0;
 		while(i != str.count){
@@ -80,11 +77,14 @@ main :: () {
 	}
 
 	{
-		printf("\n----------test_array_of_String()-------\n");
-		test_array_of_String();
+		printf("\n----------test_array_of_string()-------\n");
+		test_array_of_string();
 
-		printf("\n-------test_upper_to_lower_string()----\n");
+		printf("\n-------test_upper_to_lower_string()----\n\n");
 		test_upper_to_lower_string();
+
+		printf("\n\n-------test_array_string_char_indexing()----\n\n");
+		test_array_string_char_indexing();
 	}
 
 	printf("\n-----------DONE--------------------\n");
@@ -92,11 +92,10 @@ main :: () {
 }
 
 
-
-test_array_of_String :: (){
-	p_str: [5]String;
-	arr : ^[]String = &p_str;
-	arr[0] = cast(^u8)"idk what should I write";
+test_array_of_string :: (){
+	p_str: [5]string;
+	arr : ^[]string = &p_str;
+	arr[0] = "idk what should I write";
 	printf("arr[0] = %s\n", arr[0]);
 
 	a: int = 256;
@@ -104,7 +103,7 @@ test_array_of_String :: (){
 
 	printf("b = %d\n", *b);
 
-	p_str[1] = New_String(cast(^u8)"this string is on the heap");
+	p_str[1] = New_String("this string is on the heap");
 	defer destroy_str(&p_str[1]);
 
 	printstr(p_str[1]);
@@ -112,15 +111,17 @@ test_array_of_String :: (){
 	idk := p_str[1];
 	printstr(idk);
 
+	bbbb := cast(u8)p_str[1][0];
+	printf("bbbb = %c\n", bbbb);
 
 }
 
 test_upper_to_lower_string :: () {
-	str:= cast(^u8)"THIS STRING WAS IN UPPER CASE BUT NOW ITS IN LOWER CASE :)";
-	while *str {
-		printf("%c", to_lower(cast(int)*str));
-		str = str + 1;
-	}
+	str := "THIS STRING WAS IN UPPER CASE BUT NOW ITS IN LOWER CASE :)";
+
+	for i: 0..str.count-1
+		printf("%c", to_lower(cast(int)str[i]));
+
 }
 
 A := 65;
@@ -134,3 +135,20 @@ to_lower :: (ch: int) -> int {
 		return ch;
 }
 
+
+test_array_string_char_indexing :: (){
+
+	arr_str: [2]string;
+
+	arr_str[0] = New_String("BRUH");  defer free(arr_str[0].data);
+
+	arr_str[1] = "skibidi";
+
+	ch := cast(u8)arr_str[0][1];
+	printf("ch = %c\n", ch);
+
+	ch2 := cast(u8) arr_str[1][3];
+	printf("ch2 = %c\n", ch2);
+
+
+}

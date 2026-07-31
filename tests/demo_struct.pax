@@ -1,10 +1,10 @@
-
+#import "String.pax"
 
 func1 :: (stud: ^Student){
     // we copy to base type and make a change
     local := *stud;
     local.grade = 000;
-    print_struct(&local, cast(^u8)"local");
+    print_struct(&local, "local");
 
     // copy the pointer
     local2:= &local;
@@ -16,32 +16,32 @@ func1 :: (stud: ^Student){
 func2 :: (stud: ^Student){
     // implicit dereference member accessing
     stud.grade = 10;
-    stud.name = cast(^u8)"Skibidi";
-    stud.sub.name = cast(^u8)"Architecture";
+    stud.name = "Skibidi";
+    stud.sub.name = "Architecture";
 }
 
 func3 :: (stud: Student) {
 
     sstud: ^Student = &stud;
     sstud.grade = 10;
-    sstud.name = cast(^u8)"Ligma";
-    sstud.sub.name = cast(^u8)"Operating sytem";
-    print_struct(&stud, cast(^u8)"func3 stud");
+    sstud.name = "Ligma";
+    sstud.sub.name = "Operating sytem";
+    print_struct(&stud, "func3 stud");
 }
 
 
 Student :: struct {
     grade: int;
     gpa: ^float;
-    name: ^u8 = cast(^u8)"Default";
+    name :string = "Default";
     sub: Subject;
 };
 
 Subject :: struct {
-    name: ^u8 = cast(^u8)"Math";
+    name :string = "Math";
 };
 
-print_struct :: (stud: ^Student, str: ^u8){
+print_struct :: (stud: ^Student, str: string){
     newline();
     printf("%s.grade = %d\n", str, stud.grade);
     printf("%s.name = %s\n", str, stud.name);
@@ -57,22 +57,22 @@ main :: () {
     {
         stud: Student;
         stud.grade = 5902;
-        stud.name = cast(^u8)"idkkkk";
-        print_struct(&stud, cast(^u8)"stud");
+        stud.name = "idkkkk";
+        print_struct(&stud, "stud");
 
         func1(&stud);
-        print_struct(&stud, cast(^u8)"stud");
+        print_struct(&stud, "stud");
 
     }
     printf("------------------------------------");
     {
         stud: Student;
         stud.grade = 5902;
-        stud.name = cast(^u8)"idkkkk";
-        print_struct(&stud, cast(^u8)"stud");
+        stud.name = "idkkkk";
+        print_struct(&stud, "stud");
 
         func2(&stud);
-        print_struct(&stud, cast(^u8)"stud");
+        print_struct(&stud, "stud");
 
     }
     printf("------------------------------------");
@@ -80,8 +80,8 @@ main :: () {
     {
         stud: Student;
         stud.grade = 5902;
-        stud.name = cast(^u8)"idkkkk";
-        print_struct(&stud, cast(^u8)"stud");
+        stud.name = "idkkkk";
+        print_struct(&stud, "stud");
         func3(stud);
     }
 

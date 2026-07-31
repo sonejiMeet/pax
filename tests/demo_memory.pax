@@ -1,5 +1,4 @@
-#import "General.pax";
-
+#import "String.pax";
 #import "fake.pax";
 
 main :: () {
@@ -19,7 +18,7 @@ main :: () {
 Data :: struct {
     x: int;
     y: int;
-    name: ^u8;
+    name: string;
 };
 
 // anyfunc :: (t: Any){
@@ -67,7 +66,7 @@ random_modules_testing :: () {
     d: Data;
     d.x = 42;
     d.y = 84;
-    d.name = cast(^u8)"Main Data";
+    d.name = "Main Data";
 
     printf("\nLocal struct: x=%d, y=%d, name=%s\n", d.x, d.y, d.name);
 

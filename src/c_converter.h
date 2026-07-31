@@ -48,6 +48,8 @@ struct C_Converter {
     Array<Ast_Statement*> topologically_sort_structs(Array<Ast_Statement*>& structs, Pool* pool);
     void emit_static_init_function(FILE *out,Array<Ast_Statement*> const &vars);
     void emit_struct_init_helper(FILE *out,  Ast_Statement *stmt);
+
+    void emit_string_or_pointer(FILE *out, Ast_Expression *expr, Ast_Type_Definition *expected_ptr_type, int indent);
     
     void generate_cpp_code(const char *filename, Ast_Block *program);
 

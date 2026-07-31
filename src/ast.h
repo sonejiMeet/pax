@@ -212,7 +212,7 @@ struct Ast_Literal : public Ast_Expression {
     Value_Type value_type = LITERAL_UNINITIALIZED;
 
     const char *string_value = nullptr;
-    // size_t string_count = 0;
+    size_t string_count = 0;
     double float_value = 0;
     int64_t integer_value = 0;
 };
@@ -418,7 +418,7 @@ struct Ast_Type_Definition : public Ast {
 
         else if (base == types.type_def_void) base_name = "void";
         else if (base == types.type_def_bool) base_name = "bool";
-        else if (base == types.type_def_string) base_name = "String";
+        else if (base == types.type_def_string) base_name = "string";
         else if (base == types.type_def_any) base_name = "/*its an Any type*/";
         else if (base == types.type_def_null) base_name = "nullptr";
 

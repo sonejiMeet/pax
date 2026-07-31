@@ -69,9 +69,9 @@ void Parser::Expect(TokenType expectedType, const char *errorMessage)
 {
     if (current->type != expectedType) {
         interp->buffer_error(interp->current_file, previous->row, previous->col, errorMessage);
-        // exitSuccess = false;
+        exitSuccess = false;
         // synchronize();
-        // return;
+        return;
     }
     advance();
 }
@@ -338,7 +338,7 @@ Ast_Expression *Parser::parseExpression(int minPrecedence)
         Ast_Literal *node = AST_NEW(Ast_Literal);
         node->value_type = LITERAL_STRING;
         node->string_value = reinterpret_cast<const char*>(current->string_value.data);
-        // node->string_count = current->string_value.count;
+        node->string_count = current->string_value.count;
         advance();
         left = node;
     }
@@ -1471,7 +1471,6 @@ Ast_Block *Parser::parseProgram(Ast_Block *program, bool skip_main)
         }
         else {
             report_parse_error("Unexpected token at top-level. Only declarations and main function allowed.");
-            break;
         }
     }
 

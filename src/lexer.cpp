@@ -65,7 +65,7 @@ inline void Lexer::lexerError(const char *message) {
 
 Token *Lexer::stringToken()
 {
-    const char *startPtr = Source + Pos+1; // start after quote
+    const char *startPtr = Source + Pos;
     while (Pos < size && (Source[Pos+1] != '"' || (Source[Pos] == '\\' && Source[Pos] != '"'))) { // also consider escape quote
         get_and_advance();
     }
