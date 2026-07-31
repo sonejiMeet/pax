@@ -1,0 +1,129 @@
+#import "General.pax"  // for array
+
+main :: () {
+    newline();
+
+    {
+        // multiple declarations, then multiple assignment
+        a, b, c: int;
+        a, b, c = 1, 2, 3;
+        printf("%d, %d, %d\n", a, b, c);
+    }
+
+    {
+        // multiple assignment, all same value
+        a, b, c: int;
+        a, b, c = 123;
+        printf("%d, %d, %d\n", a, b, c);
+    }
+
+    {
+        // multiple declarations with initial values
+        a, b, c: int = 7/2, 67, 3.9;
+        printf("%d, %d, %d\n", a, b, c);
+    }
+
+    {
+        // type inference
+        a, b, c := 1, 2, 3;
+        printf("%d, %d, %d\n", a, b, c);
+    }
+
+    {
+        // inference with mixed expression types
+        a, b, c := true, foo(), -25.357;
+        printf("%d, %d, %f\n", a, b, c);
+    }
+
+    {
+        // struct member as expression
+        s: T;
+        a, b, c := 123, 2.0, s.t;
+        printf("%d, %f, %d\n", a, b, c);
+    }
+
+    newline();
+
+    {
+        // multiple array declarations
+        a, b, c: [4]int;
+        init_array(&a);
+        init_array(&b);
+        init_array(&c);
+        a[2] = 5;
+        b[2] = 6;
+        c[2] = 7;
+
+        walk_array(&a);
+        newline();
+        walk_array(&b);
+        newline();
+        walk_array(&c);
+    }
+
+    newline();
+
+    {
+        // one value assigned to several variables
+        a: int = 23435;
+        b, c := a;
+        printf("b = %d\n", b);
+        printf("c = %d\n", c);
+    }
+
+    {
+        // two values, first reused
+        a: int = -375;
+        b, c := a, 6;
+        printf("b = %d\n", b);
+        printf("c = %d\n", c);
+    }
+
+    newline();
+
+    {
+        // single expression assigned to several variables
+        a, b := foo();
+        printf("a = %d\n", a);
+        printf("b = %d\n", b);
+    }
+
+    {
+        // underscore ignores a return value
+        _, c := func();
+        printf("c = %d\n", c);
+    }
+
+    newline();
+}
+
+
+foo :: () -> int {
+    return 5636;
+}
+
+func :: () -> int, int {
+    return 42, 1;
+}
+
+T :: struct {
+    t: int = 903098;
+}
+
+walk_array :: (arr: ^[]int) {
+    i := 0;
+    while i < arr.count {
+        printf("%d\n", arr[i]);
+        i = i + 1;
+    }
+}
+
+init_array :: (arr: ^[]int) {
+    i := 0;
+    while i < arr.count {
+        arr[i] = 66666;
+        i = i + 1;
+    }
+}
+
+newline :: () { printf("--------------------------\n"); }

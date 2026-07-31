@@ -722,6 +722,11 @@ void CodeManager::resolve_idents_in_declaration(Ast_Declaration *decl)
     if (decl->initializer) {
         resolve_idents_in_expr(decl->initializer);
     }
+    if (!decl->is_function && decl->initializers && decl->identifiers.count > 0) {
+        FOR(decl->initializers->arguments) {
+            resolve_idents_in_expr(it);
+        }
+    }
 
     if (decl->declared_type) {
         // direct arrays and arrays under pointers

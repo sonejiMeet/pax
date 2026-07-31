@@ -64,7 +64,7 @@ static const Test tests[] = {
     PASS(demo_binary_search),
 
     PASS(a),
-    PASS(b),
+    PASS(demo_multi_variable),
     PASS(c),
     PASS(d),
     PASS(e),
