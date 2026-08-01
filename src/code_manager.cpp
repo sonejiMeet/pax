@@ -107,6 +107,8 @@ void CodeManager::report_error_with_previous_impl(Ast *ast_node, Ast *ast_prev, 
 void CodeManager::push_scope()
 {
     Ast_Block *block = AST_NEW(Ast_Block);
+    if (scope_stack.count > 0)
+        block->parent = scope_stack.get_back();
     scope_stack.push_back(block);
 }
 
@@ -237,6 +239,9 @@ bool CodeManager::declare_function(Ast_Declaration *decl) {
     Ast_Block *current_block = scope_stack.get_back();
 
     decl->initialized = decl->is_function_body;
+
+    if (decl->my_scope)
+        decl->my_scope->parent = current_block;
 
     current_block->statements.push_back(static_cast<Ast_Statement*>(decl));
 
@@ -973,7 +978,7 @@ void CodeManager::resolve_unresolved_member_accesses() {
             // printf("Numer %d, inside if at: %p\n", temp, u.assignment_expr);
 
             scope_stack.push_back(it->my_scope);
-            resolve_idents_in_expr(it->assignment_expr->rhs);
+            resolve_idents_in_expr(it->assignment_expr->rhs, it->my_scope); // must always pass my_scope in a deferred resolve
             field->initializer = it->assignment_expr->rhs;
             field->initialized = true;
 
@@ -2569,6 +2574,8 @@ void CodeManager::infer_types_expr(Ast_Expression **expr_ptr)
             if(!s) return;
 
             Ast_Block *temp_scope = AST_NEW(Ast_Block);
+            if (scope_stack.count > 0)
+                temp_scope->parent = scope_stack.get_back();
 
             FOR(s->members){
                 temp_scope->statements.push_back(it);
@@ -3144,6 +3151,7 @@ void CodeManager::infer_types_block(Ast_Block *block, Ast_Declaration *my_func)
 
             if(decl->is_function) {
                 if (decl->my_scope && decl->is_function_body) {
+                    decl->my_scope->parent = scope_stack.get_back();
                     push_scope();
 
                     FOR(decl->parameters){
