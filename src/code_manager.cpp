@@ -356,7 +356,6 @@ void CodeManager::resolve_idents(Ast_Block *block) {
     bool is_global_scope = (scope_stack.count == 1);
 
     for (int i = 0; i < block->statements.count; i++) {
-
         Ast_Statement *stmt = block->statements.data[i];
         if (!stmt) continue;
 
@@ -368,135 +367,26 @@ void CodeManager::resolve_idents(Ast_Block *block) {
         if (stmt->expression && stmt->expression->type == AST_STRUCT){
             declare_struct(stmt);
             resolve_idents_in_expr(stmt->expression);
+            continue;
+        }
 
-        } else if (stmt->type == AST_DECLARATION){
-
+        if (stmt->type == AST_DECLARATION) {
             Ast_Declaration *decl = static_cast<Ast_Declaration*>(stmt);
-            if (is_global_scope) {
 
-                if (decl->is_function) {
-                    declare_function(decl);
-                    if (decl->is_function_body) {
-                        bool has_return_spec = decl->return_type || decl->return_types.count > 0;
-                        if (!has_return_spec) {
-                            report_error(decl, "Function '%s' must specify a return type", decl->identifier->name);
-                        } else if ((decl->return_type != _type->type_def_void || decl->return_types.count > 1) && decl->my_scope) {
-                            checkFunctionReturns(decl);
-                        }
-                    }
-                } else {
-                    declare_variable(decl);
-                }
+            if (decl->is_function)
+                resolve_function_declaration(decl, is_global_scope);
+            else
+                resolve_variable_declaration(decl, block, is_global_scope);
 
-                resolve_idents_in_declaration(decl);
-                if (decl->is_function && decl->my_scope && decl->is_function_body) {
-                    push_scope();
-
-                    FOR(decl->parameters){
-                        declare_variable(it);
-                        resolve_idents_in_declaration(it);
-                    }
-                    resolve_idents(decl->my_scope);
-
-                    pop_scope();
-                }
-            } else {
-                // Non-global scope
-                if (decl->is_function) {
-                    declare_function(decl);
-                    if (decl->my_scope && decl->is_function_body) {
-                        push_scope();
-                        FOR(decl->parameters){
-                            declare_variable(it);
-                            resolve_idents_in_declaration(it);
-                        }
-                        resolve_idents(decl->my_scope);
-                        pop_scope();
-                    }
-                } else {
-                    if(decl->identifier) {
-                        Ast_Declaration *is_decl = lookup_symbol_current_scope(decl->identifier->name);
-                        if (!is_decl) {
-                            declare_variable(decl, true);
-                        }
-                        else {
-                            // printf("%p \n %p \n", decl, is_decl);
-                            report_error_with_previous(decl, is_decl, "Variable '%s' already declared.", decl->identifier->name);
-                        }
-                    }
-                    else {
-                        bool collision = false;
-                        FOR(decl->identifiers) {
-                            if (it->name && strcmp(it->name, "_") == 0) continue;
-                            Ast_Declaration *is_decl = lookup_symbol_current_scope(it->name);
-
-                            if (is_decl && is_decl != decl) {
-                                report_error(decl, "Variable '%s' already declared.", it->name);
-                                collision = true;
-                            }
-
-                            if (!collision) {
-                                declare_variable(decl, true);
-                            }
-                        }
-                    }
-                    if (!decl->is_function && decl->initializer) {
-                        resolve_idents_in_expr(decl->initializer, block);
-
-                    }
-                    if (!decl->is_function && decl->initializers && decl->identifiers.count > 0) {
-                        FOR(decl->initializers->arguments) {
-                            resolve_idents_in_expr(it, block);
-                        }
-                        continue;
-                    }
-
-                    bool should_queue = true;
-                    if (decl->declared_type && !decl->is_function) {
-                        resolve_idents_in_declaration(decl);
-                        Ast_Type_Definition *base = get_base_type(decl->declared_type);
-
-                        if (base && base->is_unresolved) {
-                            should_queue = false; // already queued inside resolve_idents_in_declaration
-                        }
-
-                        if (base && base->struct_def) {
-                            decl->declared_type = clone_type_definition(decl->declared_type);
-                            create_type_instantiation(decl->declared_type);
-                        }
-                    }
-                    else if (decl->declared_type && (decl->declared_type->is_unresolved || decl->declared_type->pointed_to_type))
-                    {
-                        Ast_Type_Definition *base = get_base_type(decl->declared_type);
-
-                        if (base->is_unresolved && base->name) {
-                            Ast_Type_Definition *def = find_struct_type_in_scopes(base->name);
-                            if (def && def->struct_def) {
-                                base->struct_def = def->struct_def;
-                                base->is_unresolved = false;
-
-                                decl->declared_type = clone_type_definition(decl->declared_type);
-                                create_type_instantiation(decl->declared_type);
-                            } else {
-                                if(should_queue)
-                                    push_unresolved_type(decl, base);
-                            }
-                        }
-                    }
-                }
-            }
             continue;
         }
 
         if (is_global_scope) {
-            if(stmt->block && !stmt->block->is_entry_point && !stmt->block->is_scoped_block) {
+            if (stmt->block && !stmt->block->is_entry_point && !stmt->block->is_scoped_block) {
                 report_error(stmt, "Non declaration statements in global scope are not allowed"); // this should be caught in parser but just in case...
-            }
-            else if (stmt->block){
+            } else {
                 // main entry point
-                push_scope();
-                resolve_idents(stmt->block);
-                pop_scope();
+                resolve_block_scope(stmt->block);
             }
             continue;
         }
@@ -506,49 +396,121 @@ void CodeManager::resolve_idents(Ast_Block *block) {
         } else if (stmt->expression) {
             resolve_idents_in_expr(stmt->expression);
         } else if (stmt->block) {
-            push_scope();
-            resolve_idents(stmt->block);
-            pop_scope();
-        } else if (stmt->type == AST_WHILE){
+            resolve_block_scope(stmt->block);
+        } else if (stmt->type == AST_WHILE) {
             Ast_While *_while = static_cast<Ast_While*>(stmt);
             if (_while->condition) resolve_idents_in_expr(_while->condition);
-            if (_while->block) {
-                push_scope();
-                resolve_idents(_while->block);
-                pop_scope();
-            }
-        } else if (stmt->type == AST_FOR){
+            resolve_block_scope(_while->block);
+        } else if (stmt->type == AST_FOR) {
             Ast_For *for_loop = static_cast<Ast_For*>(stmt);
             if (for_loop->start) resolve_idents_in_expr(for_loop->start);
             if (for_loop->end) resolve_idents_in_expr(for_loop->end);
             if (for_loop->array) resolve_idents_in_expr(for_loop->array);
-            if (for_loop->block) {
-                push_scope();
-                resolve_idents(for_loop->block);
-                pop_scope();
+            resolve_block_scope(for_loop->block);
+        }
+    }
+}
+
+void CodeManager::resolve_function_declaration(Ast_Declaration *decl, bool is_global_scope) {
+    declare_function(decl);
+
+    if (is_global_scope) {
+        if (decl->is_function_body) {
+            bool has_return_spec = decl->return_type || decl->return_types.count > 0;
+            if (!has_return_spec) {
+                report_error(decl, "Function '%s' must specify a return type", decl->identifier->name);
+            } else if ((decl->return_type != _type->type_def_void || decl->return_types.count > 1) && decl->my_scope) {
+                checkFunctionReturns(decl);
+            }
+        }
+
+        resolve_idents_in_declaration(decl);
+    }
+
+    if (!decl->my_scope || !decl->is_function_body) return;
+
+    push_scope();
+    FOR(decl->parameters) {
+        declare_variable(it);
+        resolve_idents_in_declaration(it);
+    }
+    resolve_idents(decl->my_scope);
+    pop_scope();
+}
+
+void CodeManager::resolve_variable_declaration(Ast_Declaration *decl, Ast_Block *block, bool is_global_scope) {
+    if (is_global_scope) {
+        declare_variable(decl);
+        resolve_idents_in_declaration(decl);
+        return;
+    }
+
+    // Non-global scope
+    if (decl->identifier) {
+        Ast_Declaration *is_decl = lookup_symbol_current_scope(decl->identifier->name);
+        if (!is_decl) {
+            declare_variable(decl, true);
+        } else {
+            report_error_with_previous(decl, is_decl, "Variable '%s' already declared.", decl->identifier->name);
+        }
+    } else {
+        bool collision = false;
+        FOR(decl->identifiers) {
+            if (it->name && strcmp(it->name, "_") == 0) continue;
+            Ast_Declaration *is_decl = lookup_symbol_current_scope(it->name);
+
+            if (is_decl && is_decl != decl) {
+                report_error(decl, "Variable '%s' already declared.", it->name);
+                collision = true;
+            }
+
+            if (!collision) {
+                declare_variable(decl, true);
             }
         }
     }
 
+    if (decl->initializer) {
+        resolve_idents_in_expr(decl->initializer, block);
+    }
+
+    if (decl->initializers && decl->identifiers.count > 0) {
+        FOR(decl->initializers->arguments) {
+            resolve_idents_in_expr(it, block);
+        }
+        return;
+    }
+
+    if (!decl->declared_type) return;
+
+    resolve_idents_in_declaration(decl);
+
+    Ast_Type_Definition *base = get_base_type(decl->declared_type);
+    if (base && base->struct_def) {
+        decl->declared_type = clone_type_definition(decl->declared_type);
+        create_type_instantiation(decl->declared_type);
+    }
+}
+
+void CodeManager::resolve_block_scope(Ast_Block *nested_block) {
+    if (!nested_block) return;
+
+    push_scope();
+    resolve_idents(nested_block);
+    pop_scope();
 }
 
 void CodeManager::resolve_idents_if(Ast_If *ifn) {
     if (ifn->condition) resolve_idents_in_expr(ifn->condition);
 
-    if (ifn->then_block) {
-        push_scope();
-        resolve_idents(ifn->then_block);
-        pop_scope();
-    }
+    resolve_block_scope(ifn->then_block);
 
     if (ifn->else_block) {
         if (ifn->else_block->type == AST_IF) {
             // Recursively handle else if
             resolve_idents_if(static_cast<Ast_If*>(ifn->else_block));
         } else if (ifn->else_block->type == AST_BLOCK) {
-            push_scope();
-            resolve_idents(static_cast<Ast_Block*>(ifn->else_block));
-            pop_scope();
+            resolve_block_scope(static_cast<Ast_Block*>(ifn->else_block));
         }
     }
 }

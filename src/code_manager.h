@@ -111,6 +111,10 @@ struct CodeManager {
 
     void resolve_idents_if(Ast_If *ifn);
 
+    void resolve_function_declaration(Ast_Declaration *decl, bool is_global_scope);
+    void resolve_variable_declaration(Ast_Declaration *decl, Ast_Block *block, bool is_global_scope);
+    void resolve_block_scope(Ast_Block *nested_block);
+
     void try_resolve_type_on_decl(Ast_Declaration *owner, Ast_Type_Definition *&ty);
     void resolve_idents_in_declaration(Ast_Declaration *decl);
     void transform_array_to_struct(Ast_Type_Definition *type);
