@@ -153,16 +153,8 @@ void C_Converter::emitExpression(FILE *out, Ast_Expression *expr, int indent, bo
                 case LITERAL_NUMBER: fprintf(out, "%lld", lit->integer_value); break;
                 case LITERAL_FLOAT:  fprintf(out, "%.17f", lit->float_value); break;
                 case LITERAL_STRING: fprintf(out, "string{ (size_t)%zu, (u8*)\"%s\" }", lit->string_count, lit->string_value); break;
-                case LITERAL_TRUE: {
-                    char *s = (char *)"true";
-                    fprintf(out, "%s",s);
-                    break;
-                }
-                case LITERAL_FALSE: {
-                    char *s = (char *)"false";
-                    fprintf(out, "%s",s);
-                    break;
-                }
+                case LITERAL_TRUE:  fprintf(out, "true"); break;
+                case LITERAL_FALSE: fprintf(out, "false"); break;
                 case LITERAL_NULL: fprintf(out, "nullptr"); break;
                 default: fprintf(out, "/* unknown literal */"); break;
             }
@@ -174,27 +166,14 @@ void C_Converter::emitExpression(FILE *out, Ast_Expression *expr, int indent, bo
             fprintf(out, "(");
 
             switch (u->op){
-                case UNARY_ADDRESS_OF:
-                    fprintf(out, "&");
-                    emitExpression(out, u->operand, indent, true);
-                    break;
-
-                case UNARY_DEREFERENCE:
-                    fprintf(out, "*");
-                    emitExpression(out, u->operand, indent);
-                    break;
-
-                case UNARY_NEGATE:
-
-                    fprintf(out, "-");
-                    emitExpression(out, u->operand, indent);
-                    break;
-
-                case UNARY_NOT:
-                    fprintf(out, "!");
-                    emitExpression(out, u->operand, indent);
-                    break;
+                case UNARY_ADDRESS_OF: fprintf(out, "&"); break;
+                case UNARY_DEREFERENCE: fprintf(out, "*"); break;
+                case UNARY_NEGATE: fprintf(out, "-"); break;
+                case UNARY_NOT: fprintf(out, "!"); break;
+                default: break;
             }
+
+            emitExpression(out, u->operand, indent);
 
             fprintf(out, ")");
             break;
@@ -610,59 +589,30 @@ void C_Converter::emit_string_or_pointer(FILE *out, Ast_Expression *expr, Ast_Ty
 
 Ast_Expression *C_Converter::get_call_argument_value(Ast_Expression *argument)
 {
-    if (!argument) {
-        return nullptr;
-    }
-
-    if (argument->type == AST_NAMED_ARGUMENT) {
-        Ast_Named_Argument *named = static_cast<Ast_Named_Argument *>(argument);
-
-        return named->value;
-    }
-
-    return argument;
+    if (!argument) return nullptr;
+    if (argument->type != AST_NAMED_ARGUMENT) return argument;
+    return static_cast<Ast_Named_Argument *>(argument)->value;
 }
 
 Ast_Declaration *C_Converter::find_function_declaration(Ast_Procedure_Call_Expression *call)
 {
-    if (!call || !call->function) {
-        return nullptr;
-    }
-
-    if (call->function->type != AST_IDENT) {
+    if (!call || !call->function || call->function->type != AST_IDENT) {
         return nullptr;
     }
 
     Ast_Ident *function_name = static_cast<Ast_Ident *>(call->function);
-
-    if (!function_name->name) {
+    if (!function_name->name || !interp->ast) {
         return nullptr;
     }
 
-    /*
-     fix:
-        The semantic pass should ideally store this directly on the call AST, call->resolved_function = decl.
-    */
-    Ast_Block *global_scope = interp->ast;
+    // fix: the semantic pass should ideally store this directly on the call AST,
+    // e.g. call->resolved_function = decl.
+    FOR(interp->ast->statements) {
+        if (!it || it->type != AST_DECLARATION) continue;
 
-    if (!global_scope) {
-        return nullptr;
-    }
-
-    FOR(global_scope->statements) {
-        Ast_Statement *statement = it;
-
-        if (!statement || statement->type != AST_DECLARATION) {
-            continue;
-        }
-
-        Ast_Declaration *declaration = static_cast<Ast_Declaration *>(statement);
-
-        if (!declaration->is_function || !declaration->identifier || !declaration->identifier->name){
-            continue;
-        }
-
-        if (strcmp(declaration->identifier->name, function_name->name) == 0) {
+        Ast_Declaration *declaration = static_cast<Ast_Declaration *>(it);
+        if (declaration->is_function && declaration->identifier && declaration->identifier->name &&
+            strcmp(declaration->identifier->name, function_name->name) == 0) {
             return declaration;
         }
     }
@@ -674,69 +624,96 @@ Ast_Declaration *C_Converter::find_function_declaration(Ast_Procedure_Call_Expre
 Ast_Expression *C_Converter::find_call_argument(Ast_Procedure_Call_Expression *call,
                                                 Ast_Declaration *parameter, int *next_positional_argument)
 {
-    if (!call || !parameter || !parameter->identifier ||
-        !parameter->identifier->name || !next_positional_argument)
-    {
-        return nullptr;
-    }
-
-    if (!call->arguments) {
+    if (!call || !call->arguments || !next_positional_argument ||
+        !parameter || !parameter->identifier || !parameter->identifier->name) {
         return nullptr;
     }
 
     const char *parameter_name = parameter->identifier->name;
 
-    /*
-        Named arguments win by name. This makes a mixed call such as
-        func(10, c=4.0, b=20) map correctly once semantic validation allows it.
-    */
+    // Named arguments win by name: func(10, c=4.0, b=20) maps correctly.
     FOR(call->arguments->arguments) {
-        Ast_Expression *raw_argument = it;
+        if (!it || it->type != AST_NAMED_ARGUMENT) continue;
 
-        if (!raw_argument || raw_argument->type != AST_NAMED_ARGUMENT)
-        {
-            continue;
-        }
-
-        Ast_Named_Argument *named = static_cast<Ast_Named_Argument *>(raw_argument);
-
-        if (!named->name || !named->name->name) {
-            continue;
-        }
-
-        if (strcmp(named->name->name, parameter_name) == 0) {
+        Ast_Named_Argument *named = static_cast<Ast_Named_Argument *>(it);
+        if (named->name && named->name->name &&
+            strcmp(named->name->name, parameter_name) == 0) {
             return named->value;
         }
     }
 
-
-    // Positional arguments are consumed in source order, but named arguments do not occupy a positional slot.
-
+    // Positional arguments are consumed in source order; named ones don't occupy a slot.
     int seen_positional_arguments = 0;
-
     FOR(call->arguments->arguments) {
-        Ast_Expression *raw_argument = it;
-
-        if (!raw_argument || raw_argument->type == AST_NAMED_ARGUMENT)
-        {
-            continue;
-        }
+        if (!it || it->type == AST_NAMED_ARGUMENT) continue;
 
         if (seen_positional_arguments == *next_positional_argument) {
             ++(*next_positional_argument);
-            return raw_argument;
+            return it;
         }
-
         ++seen_positional_arguments;
     }
 
     return nullptr;
 }
 
+void C_Converter::array_element_type_to_string(char *out, size_t out_size, Ast_Array_Type *arr, const char *fallback) {
+    Ast_Type_Definition *elem = arr ? arr->element_type : nullptr;
+    int ptr_depth = 0;
+    while (elem && elem->pointed_to_type) {
+        ptr_depth++;
+        elem = elem->pointed_to_type;
+    }
+
+    snprintf(out, out_size, "%s", elem ? elem->to_string(*_type) : fallback);
+    size_t len = strlen(out);
+    for (int i = 0; i < ptr_depth; ++i) {
+        len += (size_t)snprintf(out + len, out_size - len, "*");
+    }
+}
+
+void C_Converter::emit_static_array_variable(FILE *out, const char *name, Ast_Array_Type *arr, int indent, bool emit_body, bool emit_init_loop) {
+    long long size = 0;
+    if (arr->size_expr && arr->size_expr->type == AST_LITERAL) {
+        auto *lit = static_cast<Ast_Literal*>(arr->size_expr);
+        if (lit->value_type == LITERAL_NUMBER) {
+            size = lit->integer_value;
+        }
+    }
+
+    char elem_type[256];
+    array_element_type_to_string(elem_type, sizeof(elem_type), arr, "void");
+    fprintf(out, "%s __data__%s[%lld];\n", elem_type, name, size);
+    indentLine(out, indent);
+    fprintf(out, "Static_Array %s;\n", name);
+
+    if (emit_body) {
+        indentLine(out, indent);
+        fprintf(out, "%s.data = (void *)__data__%s;\n", name, name);
+        indentLine(out, indent);
+        fprintf(out, "%s.count = %lld;\n", name, size);
+
+        if (emit_init_loop && arr->element_type && arr->element_type->struct_def) {
+            Ast_Struct *st = arr->element_type->struct_def;
+            indentLine(out, indent);
+            fprintf(out, "for(int _i=0; _i < %lld; ++_i) _init_%s(&((%s*)__data__%s)[_i]);\n",
+                    size, st->name, st->name, name);
+        }
+    }
+}
+
+void C_Converter::emit_array_copy_loop(FILE *out, const char *name, const char *elem_type, Ast_Expression *arr_expr, int indent) {
+    indentLine(out, indent);
+    fprintf(out, "{ s64 __i; for(__i=0; __i < %s.count; __i = __i + 1) ((%s*)%s.data)[__i] = ((%s*)",
+            name, elem_type, name, elem_type);
+    emitExpression(out, arr_expr, indent);
+    fprintf(out, ".data)[__i]; }\n");
+}
+
 void C_Converter::type_to_c_string(FILE *out, Ast_Type_Definition *type, Ast_Declaration *decl, bool need_semicolon, int indent, bool should_initializer){
     if(!type) return;
 
-    std::string type_str;
+    char type_str[256];
     Ast_Type_Definition *current = type;
     int pointer_depth = 0;
 
@@ -748,28 +725,28 @@ void C_Converter::type_to_c_string(FILE *out, Ast_Type_Definition *type, Ast_Dec
     if(current->type == AST_ARRAY_TYPE && current->struct_def){
         const char *struct_name = current->struct_def->name;
 
-        if(struct_name){
-            type_str = "struct ";
+        if (struct_name) {
             struct_decl = true;
-            type_str += struct_name;
+            snprintf(type_str, sizeof(type_str), "struct %s", struct_name);
         } else {
-            type_str = "void /* unresolved array */";
+            snprintf(type_str, sizeof(type_str), "void /* unresolved array */");
         }
 
     } else if(current->type == AST_ARRAY_TYPE && current->struct_def == nullptr){
-            type_str = "Static_Array";
+        snprintf(type_str, sizeof(type_str), "Static_Array");
     }
     else {
-        type_str = current->to_string(*_type);
+        snprintf(type_str, sizeof(type_str), "%s", current->to_string(*_type));
     }
 
+    size_t type_str_len = strlen(type_str);
     for(int i = 0; i < pointer_depth; ++i){
-        type_str += " *";
+        type_str_len += (size_t)snprintf(type_str + type_str_len, sizeof(type_str) - type_str_len, " *");
     }
 
     bool did_array = false;
     if(!decl)
-        fprintf(out, "(%s)", type_str.c_str());
+        fprintf(out, "(%s)", type_str);
 
     else if(decl && decl->identifier)
     {
@@ -778,33 +755,20 @@ void C_Converter::type_to_c_string(FILE *out, Ast_Type_Definition *type, Ast_Dec
         if (!should_initializer && pointer_depth == 0 && current && current->type == AST_ARRAY_TYPE) {
             auto *arr = static_cast<Ast_Array_Type*>(current);
             if (!arr->is_resizable && arr->size_expr && arr->size_expr->type == AST_LITERAL) {
-                long long arr_size = static_cast<Ast_Literal*>(arr->size_expr)->integer_value;
-                Ast_Type_Definition *element = arr->element_type;
-                while (element && element->pointed_to_type) element = element->pointed_to_type;
-                const char *aelem = element ? element->to_string(*_type) : "int";
-
-                fprintf(out, "%s __data__%s[%lld];\n", aelem, decl->identifier->name, arr_size);
-                indentLine(out, indent);
-                fprintf(out, "Static_Array %s;\n", decl->identifier->name);
-                indentLine(out, indent);
-                fprintf(out, "%s.data = (void *)__data__%s;\n", decl->identifier->name, decl->identifier->name);
-                indentLine(out, indent);
-                fprintf(out, "%s.count = %lld;\n", decl->identifier->name, arr_size);
+                emit_static_array_variable(out, decl->identifier->name, arr, indent, true, false);
 
                 if (decl->initializer && decl->initializer->inferred_type &&
                     decl->initializer->inferred_type->type == AST_ARRAY_TYPE) {
-                    indentLine(out, indent);
-                    fprintf(out, "{ s64 __i; for(__i=0; __i < %s.count; __i = __i + 1) ((%s*)%s.data)[__i] = ((%s*)",
-                            decl->identifier->name, aelem, decl->identifier->name, aelem);
-                    emitExpression(out, decl->initializer, indent);
-                    fprintf(out, ".data)[__i]; }\n");
+                    char elem_type[256];
+                    array_element_type_to_string(elem_type, sizeof(elem_type), arr, "int");
+                    emit_array_copy_loop(out, decl->identifier->name, elem_type, decl->initializer, indent);
                 }
                 did_array = true;
             }
         }
 
         if (!did_array) {
-            fprintf(out, "%s %s", type_str.c_str(), decl->identifier->name);
+            fprintf(out, "%s %s", type_str, decl->identifier->name);
 
             if(decl->initializer && !should_initializer){
                 fprintf(out, " = ");
@@ -881,7 +845,7 @@ void C_Converter::type_to_c_string(FILE *out, Ast_Type_Definition *type, Ast_Dec
                     this_type = decl->declared_type;
                 }
 
-                std::string this_type_str;
+                char this_type_str[256];
                 Ast_Type_Definition *current = this_type;
                 int ptr_depth_local = 0;
                 while (current && current->pointed_to_type) {
@@ -891,15 +855,17 @@ void C_Converter::type_to_c_string(FILE *out, Ast_Type_Definition *type, Ast_Dec
 
                 if (current) {
                     if (current->type == AST_ARRAY_TYPE && current->struct_def == nullptr) {
-                        this_type_str = "Static_Array";
+                        snprintf(this_type_str, sizeof(this_type_str), "Static_Array");
                     } else {
-                        this_type_str = current->to_string(*_type);
+                        snprintf(this_type_str, sizeof(this_type_str), "%s", current->to_string(*_type));
                     }
                 } else {
-                    this_type_str = "/*unknown type*/";
+                    snprintf(this_type_str, sizeof(this_type_str), "/*unknown type*/");
                 }
+                size_t this_type_str_len = strlen(this_type_str);
                 for (int p = 0; p < ptr_depth_local; ++p) {
-                    this_type_str += " *";
+                    this_type_str_len += (size_t)snprintf(this_type_str + this_type_str_len,
+                                                          sizeof(this_type_str) - this_type_str_len, " *");
                 }
 
                 // Special for static array in compound decl / := : own backing + value copy
@@ -907,18 +873,7 @@ void C_Converter::type_to_c_string(FILE *out, Ast_Type_Definition *type, Ast_Dec
                 if (!should_initializer && ptr_depth_local == 0 && current && current->type == AST_ARRAY_TYPE) {
                     auto *arr = static_cast<Ast_Array_Type*>(current);
                     if (!arr->is_resizable && arr->size_expr && arr->size_expr->type == AST_LITERAL) {
-                        long long arr_size = static_cast<Ast_Literal*>(arr->size_expr)->integer_value;
-                        Ast_Type_Definition *element = arr->element_type;
-                        while (element && element->pointed_to_type) element = element->pointed_to_type;
-                        const char *aelem = element ? element->to_string(*_type) : "int";
-
-                        fprintf(out, "%s __data__%s[%lld];\n", aelem, it->name, arr_size);
-                        indentLine(out, indent);
-                        fprintf(out, "Static_Array %s;\n", it->name);
-                        indentLine(out, indent);
-                        fprintf(out, "%s.data = (void *)__data__%s;\n", it->name, it->name);
-                        indentLine(out, indent);
-                        fprintf(out, "%s.count = %lld;\n", it->name, arr_size);
+                        emit_static_array_variable(out, it->name, arr, indent, true, false);
 
                         Ast_Expression *arr_expr = nullptr;
                         if (decl->initializers && decl->initializers->arguments.count > 0) {
@@ -929,18 +884,16 @@ void C_Converter::type_to_c_string(FILE *out, Ast_Type_Definition *type, Ast_Dec
                             arr_expr = decl->initializer;
                         }
                         if (arr_expr && arr_expr->inferred_type && arr_expr->inferred_type->type == AST_ARRAY_TYPE) {
-                            indentLine(out, indent);
-                            fprintf(out, "{ s64 __i; for(__i=0; __i < %s.count; __i = __i + 1) ((%s*)%s.data)[__i] = ((%s*)",
-                                    it->name, aelem, it->name, aelem);
-                            emitExpression(out, arr_expr, indent);
-                            fprintf(out, ".data)[__i]; }\n");
+                            char elem_type[256];
+                            array_element_type_to_string(elem_type, sizeof(elem_type), arr, "int");
+                            emit_array_copy_loop(out, it->name, elem_type, arr_expr, indent);
                         }
                         emitted_array_special = true;
                     }
                 }
 
                 if (!emitted_array_special) {
-                    fprintf(out, "%s %s", this_type_str.c_str(), it->name);
+                    fprintf(out, "%s %s", this_type_str, it->name);
 
                     if ((decl->initializer || decl->initializers) && !should_initializer) {
                         fprintf(out, " = ");
@@ -1044,6 +997,24 @@ void C_Converter::emitStruct(FILE *out, Ast_Statement *stmt, int indent){
     fprintf(out, "};\n");
 }
 
+void C_Converter::emit_loop_body(FILE *out, Ast_For* for_stmt, int body_indent, Ast_Declaration *current_func){
+    if (!for_stmt->block) return;
+    for (int i = 0; i < for_stmt->block->statements.count; i++) {
+        Ast_Statement *s = for_stmt->block->statements.data[i];
+        bool skip = false;
+        if (s && s->type == AST_DECLARATION) {
+            Ast_Declaration *d = static_cast<Ast_Declaration*>(s);
+            if (d->identifier && for_stmt->variable &&
+                strcmp(d->identifier->name, for_stmt->variable->name) == 0) {
+                skip = true;
+            }
+        }
+        if (!skip) {
+            emitStatement(out, s, body_indent, false, current_func);
+        }
+    }
+}
+
 void C_Converter::emitStatement(FILE *out, Ast_Statement *stmt, int indent, bool is_else_if, Ast_Declaration *current_func)
 {
     if(!stmt) return;
@@ -1104,20 +1075,7 @@ void C_Converter::emitStatement(FILE *out, Ast_Statement *stmt, int indent, bool
 
                 if (!arr->is_resizable && arr->size_expr && arr->size_expr->type == AST_LITERAL)
                 {
-                    long long size = 0;
-                    Ast_Literal *lit = static_cast<Ast_Literal*>(arr->size_expr);
-                    if (lit->value_type == LITERAL_NUMBER) {
-                        size = lit->integer_value;
-                    }
-
-                    Ast_Type_Definition *elem = arr->element_type;
-                    int elem_ptr_depth = 0;
-                    while (elem && elem->pointed_to_type) {
-                        elem_ptr_depth++;
-                        elem = elem->pointed_to_type;
-                    }
-
-                    const char *elem_type_str = elem ? elem->to_string(*_type) : "void";
+                    const bool emit_body = !decl->my_scope->is_global_scope;
 
                     // For each identifier: emit backing array + Static_Array header
                     for (int i = 0; i < decl->identifiers.count; ++i) {
@@ -1125,30 +1083,7 @@ void C_Converter::emitStatement(FILE *out, Ast_Statement *stmt, int indent, bool
                         if (!id || !id->name) continue;
 
                         indentLine(out, indent);
-                        fprintf(out, "%s", elem_type_str);
-                        for (int p = 0; p < elem_ptr_depth; ++p) {
-                            fprintf(out, "*");
-                        }
-                        fprintf(out, " __data__%s[%lld];\n", id->name, size);
-
-                        indentLine(out, indent);
-                        fprintf(out, "Static_Array %s;\n", id->name);
-
-                        if (!decl->my_scope->is_global_scope) {
-
-                            indentLine(out, indent);
-                            fprintf(out, "%s.data = (void *)__data__%s;\n", id->name, id->name);
-
-                            indentLine(out, indent);
-                            fprintf(out, "%s.count = %lld;\n", id->name, size);
-
-                            if (arr->element_type && arr->element_type->struct_def) {
-                                Ast_Struct *st = arr->element_type->struct_def;
-                                indentLine(out, indent);
-                                fprintf(out, "for(int _i=0; _i < %lld; ++_i) _init_%s(&((%s*)__data__%s)[_i]);\n",
-                                        size, st->name, st->name, id->name);
-                            }
-                        }
+                        emit_static_array_variable(out, id->name, arr, indent, emit_body, emit_body);
                     }
                     break;
                 }
@@ -1165,77 +1100,20 @@ void C_Converter::emitStatement(FILE *out, Ast_Statement *stmt, int indent, bool
             }
 
             // if its not behind a pointer
-            if(ptr_depth == 0 && base_type && base_type->type == AST_ARRAY_TYPE/* && base_type->struct_def*/){
-
+            if (ptr_depth == 0 && base_type && base_type->type == AST_ARRAY_TYPE) {
                 auto *arr = static_cast<Ast_Array_Type*>(base_type);
 
-                if(!arr->is_resizable && arr->size_expr && arr->size_expr->type == AST_LITERAL
-                    /*base_type->struct_def->name &&
-                    strcmp(base_type->struct_def->name, "Static_Array") == 0*/){
+                if (!arr->is_resizable && arr->size_expr && arr->size_expr->type == AST_LITERAL) {
+                    const bool emit_body = !decl->my_scope->is_global_scope;
 
-                    long long size = 0;
-                    // if(arr->size_expr->type == AST_LITERAL){
-                        Ast_Literal *lit = static_cast<Ast_Literal*>(arr->size_expr);
-                        if(lit->value_type == LITERAL_NUMBER){
-                            size = lit->integer_value;
-                        }
-                    // }
+                    emit_static_array_variable(out, decl->identifier->name, arr, indent, emit_body, emit_body);
 
-
-                    // this part should really be inside type_to_c_string()
-                    const char *elem_type_str = "void";
-
-                    int ptr_depth_2 = 0;
-                    Ast_Type_Definition *base2 = arr->element_type;
-
-                    while (base2->pointed_to_type){
-                        ptr_depth_2++;
-                        base2 = base2->pointed_to_type;
-                    }
-
-                    elem_type_str = base2->to_string(*_type);
-
-                    fprintf(out, "%s", elem_type_str);
-                    for(int i = 0; i < ptr_depth_2; i++){
-                        fprintf(out, "*");
-                    }
-
-                    fprintf(out, " __data__%s[%lld];\n",
-                           decl->identifier->name,
-                           size);
-
-                    indentLine(out, indent);
-
-                    fprintf(out, "Static_Array %s;\n", decl->identifier->name);
-
-                    if(decl->my_scope->is_global_scope == false){
-                        indentLine(out, indent);
-
-                        fprintf(out, "%s.data = (void *)__data__%s;\n",
-                               decl->identifier->name,
-                               decl->identifier->name);
-
-                        indentLine(out, indent);
-
-                        fprintf(out, "%s.count = %lld;\n", decl->identifier->name, size);
-
-                        if(arr->element_type && arr->element_type->struct_def){
-                            Ast_Struct *st = arr->element_type->struct_def;
-                            indentLine(out, indent);
-                            // Loop through the BACKING array directly
-                            fprintf(out, "for(int _i=0; _i < %lld; ++_i) _init_%s(&((%s*)__data__%s)[_i]);\n",
-                                    size, st->name, st->name, decl->identifier->name);
-                        }
-
-                        // implicit entire array copy by value when another array
-                        if (decl->initializer && decl->initializer->inferred_type &&
-                            decl->initializer->inferred_type->type == AST_ARRAY_TYPE) {
-                            indentLine(out, indent);
-                            fprintf(out, "{ s64 __i; for(__i=0; __i < %s.count; __i = __i + 1) ((%s*)%s.data)[__i] = ((%s*)",
-                                    decl->identifier->name, elem_type_str, decl->identifier->name, elem_type_str);
-                            emitExpression(out, decl->initializer, indent);
-                            fprintf(out, ".data)[__i]; }\n");
-                        }
+                    // implicit entire array copy by value when another array
+                    if (emit_body && decl->initializer && decl->initializer->inferred_type &&
+                        decl->initializer->inferred_type->type == AST_ARRAY_TYPE) {
+                        char elem_type[256];
+                        array_element_type_to_string(elem_type, sizeof(elem_type), arr, "void");
+                        emit_array_copy_loop(out, decl->identifier->name, elem_type, decl->initializer, indent);
                     }
 
                     break;
@@ -1257,7 +1135,7 @@ void C_Converter::emitStatement(FILE *out, Ast_Statement *stmt, int indent, bool
                         if(!arr->is_resizable && arr->size_expr && arr->size_expr->type == AST_LITERAL){
                             long long size = static_cast<Ast_Literal*>(arr->size_expr)->integer_value;
 
-                            std::string elem_type_str = "void";
+                            char elem_type_str[256];
                             if(arr->element_type){
                                 Ast_Type_Definition *elem = arr->element_type;
                                 int elem_ptr_depth = 0;
@@ -1267,14 +1145,18 @@ void C_Converter::emitStatement(FILE *out, Ast_Statement *stmt, int indent, bool
                                     elem = elem->pointed_to_type;
                                 }
 
-                                elem_type_str = elem->to_string(*_type);
+                                snprintf(elem_type_str, sizeof(elem_type_str), "%s", elem->to_string(*_type));
+                                size_t elem_type_len = strlen(elem_type_str);
                                 for(int p = 0; p < elem_ptr_depth; ++p){
-                                    elem_type_str += "*";
+                                    elem_type_len += (size_t)snprintf(elem_type_str + elem_type_len,
+                                                                      sizeof(elem_type_str) - elem_type_len, "*");
                                 }
+                            } else {
+                                snprintf(elem_type_str, sizeof(elem_type_str), "void");
                             }
 
                             fprintf(out, "%s __data__%s_%s[%lld];\n",
-                                   elem_type_str.c_str(),
+                                   elem_type_str,
                                    decl->identifier->name,
                                    member->identifier->name,
                                    size);
@@ -1480,23 +1362,8 @@ void C_Converter::emitStatement(FILE *out, Ast_Statement *stmt, int indent, bool
                 fprintf(out, "%s = ((%s*)", for_stmt->variable->name, ctype);
                 emitExpression(out, for_stmt->array, indent + 8);
                 fprintf(out, ".data)[__i];\n");
-                // body, skip the loop var decl
-                if (for_stmt->block) {
-                    for (int i = 0; i < for_stmt->block->statements.count; i++) {
-                        Ast_Statement *s = for_stmt->block->statements.data[i];
-                        bool skip = false;
-                        if (s && s->type == AST_DECLARATION) {
-                            Ast_Declaration *d = static_cast<Ast_Declaration*>(s);
-                            if (d->identifier && for_stmt->variable &&
-                                strcmp(d->identifier->name, for_stmt->variable->name) == 0) {
-                                skip = true;
-                            }
-                        }
-                        if (!skip) {
-                            emitStatement(out, s, indent + 8, false, current_func);
-                        }
-                    }
-                }
+                // emit body, skipping the synthesized loop var decl
+                emit_loop_body(out, for_stmt, indent + 8, current_func);
                 indentLine(out, indent + 8);
                 fprintf(out, "__i = __i + 1;\n");
                 indentLine(out, indent + 4);
@@ -1512,22 +1379,7 @@ void C_Converter::emitStatement(FILE *out, Ast_Statement *stmt, int indent, bool
                 emitExpression(out, for_stmt->end, indent);
                 fprintf(out, "; %s = %s + 1) {\n", for_stmt->variable->name, for_stmt->variable->name);
                 // emit body, skipping the synthesized loop var decl
-                if (for_stmt->block) {
-                    for (int i = 0; i < for_stmt->block->statements.count; i++) {
-                        Ast_Statement *s = for_stmt->block->statements.data[i];
-                        bool skip = false;
-                        if (s && s->type == AST_DECLARATION) {
-                            Ast_Declaration *d = static_cast<Ast_Declaration*>(s);
-                            if (d->identifier && for_stmt->variable &&
-                                strcmp(d->identifier->name, for_stmt->variable->name) == 0) {
-                                skip = true;
-                            }
-                        }
-                        if (!skip) {
-                            emitStatement(out, s, indent + 4, false, current_func);
-                        }
-                    }
-                }
+                emit_loop_body(out, for_stmt, indent + 4, current_func);
                 indentLine(out, indent);
                 fprintf(out, "}\n");
             }

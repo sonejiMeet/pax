@@ -1277,11 +1277,11 @@ Ast_Statement *Parser::parseStatement()
             return _while;
         }
         case TOK_FOR: {
-            Ast_For *forNode = AST_NEW(Ast_For);
+            Ast_For *for_stmt = AST_NEW(Ast_For);
             advance(); // consume 'for'
 
             bool should_consume_paren = false;
-            if(current->type == TOK_LPAREN) {
+            if (current->type == TOK_LPAREN) {
                 advance();
                 should_consume_paren = true;
             }
@@ -1290,43 +1290,45 @@ Ast_Statement *Parser::parseStatement()
                 report_parse_error("Expected identifier after 'for'");
                 return nullptr;
             }
-            Ast_Ident *var = AST_NEW(Ast_Ident);
-            var->name = current->value;
-            forNode->variable = var;
+
+            Ast_Ident *loop_var = AST_NEW(Ast_Ident);
+            loop_var->name = current->value;
+            for_stmt->variable = loop_var;
             advance();
 
             expect(TOK_COLON, "Expected ':' after for loop variable");
 
-            Ast_Expression *it = parseExpression();
+            Ast_Expression *expr = parseExpression();
             if (current->type == TOK_DOUBLE_DOT) {
                 advance();
-                forNode->start = it;
-                forNode->end = parseExpression();
+                for_stmt->start = expr;
+                for_stmt->end = parseExpression();
             } else {
-                forNode->array = it;
+                for_stmt->array = expr;
             }
-            if(should_consume_paren)
+
+            if (should_consume_paren)
                 expect(TOK_RPAREN, "Expected ')' after for expression.");
 
-            Ast_Block *block = parseBlockStatement(false, true);
-            forNode->block = block;
-            // append a synthetic declaration for the loop variable so normal
+            Ast_Block *body = parseBlockStatement(false, true);
+            for_stmt->block = body;
+
+            // Prepend a synthetic declaration for the loop variable so normal
             // resolution/declaration processing sees it (type inferred later).
             // C_Converter will skip re-emitting it inside the for.
-            if (forNode->block && forNode->variable) {
-                Ast_Declaration *loopd = AST_NEW(Ast_Declaration);
-                loopd->identifier = forNode->variable;
-                // prepend so that lookup during block walk finds it before uses
-                Array<Ast_Statement*> newstmts(forNode->block->statements.pool ? forNode->block->statements.pool : interp->pool);
-                newstmts.push_back(static_cast<Ast_Statement*>(loopd));
-                for (long k = 0; k < forNode->block->statements.count; k++) {
-                    newstmts.push_back(forNode->block->statements.data[k]);
+            if (for_stmt->block && for_stmt->variable) {
+                Ast_Declaration *loop_var_decl = AST_NEW(Ast_Declaration);
+                loop_var_decl->identifier = for_stmt->variable;
+
+                // Prepend so that lookup during block walk finds it before uses
+                Array<Ast_Statement*> new_statements(for_stmt->block->statements.pool ? for_stmt->block->statements.pool : interp->pool);
+                new_statements.push_back(static_cast<Ast_Statement*>(loop_var_decl));
+                for (long i = 0; i < for_stmt->block->statements.count; i++) {
+                    new_statements.push_back(for_stmt->block->statements.data[i]);
                 }
-                forNode->block->statements.data = newstmts.data;
-                forNode->block->statements.count = newstmts.count;
-                forNode->block->statements.capacity = newstmts.capacity;
+                for_stmt->block->statements = new_statements;
             }
-            return forNode;
+            return for_stmt;
         }
         case TOK_LCURLY_PAREN: {
             bool is_scoped_block = true;

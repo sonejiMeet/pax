@@ -118,6 +118,7 @@ struct CodeManager {
     void try_resolve_type_on_decl(Ast_Declaration *owner, Ast_Type_Definition *&ty);
     void resolve_idents_in_declaration(Ast_Declaration *decl);
     void transform_array_to_struct(Ast_Type_Definition *type);
+    void infer_error(Ast_Expression *expr, const char *fmt, ...);
 
     Ast_Ident *get_member_ident(Ast_Binary *dot_expr);
 
@@ -157,6 +158,7 @@ struct CodeManager {
     void infer_types_decl(Ast_Declaration *decl);
     void infer_types_if(Ast_If *ifn, Ast_Declaration *my_func);
     void infer_types_block(Ast_Block *block, Ast_Declaration *my_func = nullptr);
+    void infer_block_scope(Ast_Block *nested_block, Ast_Declaration *my_func);
 
     bool check_that_types_match(Ast_Type_Definition *wanted, Ast_Type_Definition *have, bool is_pointer = false);
 

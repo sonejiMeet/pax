@@ -103,6 +103,18 @@ void CodeManager::report_error_with_previous_impl(Ast *ast_node, Ast *ast_prev, 
     }
 }
 
+void CodeManager::infer_error(Ast_Expression *expr, const char *fmt, ...) {
+    expr->inferred_type = _type->type_def_dummy;
+
+    char buffer[512];
+    va_list args;
+    va_start(args, fmt);
+    vsnprintf(buffer, sizeof(buffer), fmt, args);
+    va_end(args);
+
+    report_error_impl(expr, "%s", buffer);
+}
+
 
 void CodeManager::push_scope()
 {
@@ -1106,16 +1118,22 @@ Ast_Declaration *CodeManager::resolve_member_access(Ast_Binary *dot_expr, Ast_Bl
         }
     };
 
+    auto handle_unresolved = [&]() -> Ast_Declaration * {
+        if (!skip_queuing) {
+            push_unresolved_member_access(dot_expr);
+        } else {
+            report_unresolved_member();
+        }
+        return nullptr;
+    };
+
     Ast_Binary *base_dot = static_cast<Ast_Binary*>(dot_expr->lhs);
     if (dot_expr->lhs->type == AST_BINARY) {
         if (base_dot->op == BINOP_DOT) {
             Ast_Declaration *nested_field = resolve_member_access(base_dot, my_scope, skip_init_check, true, should_infer);
             if (!nested_field) {
-                if (!skip_queuing) {
-                    // push_unresolved_member_access(dot_expr);
-                } else {
+                if (skip_queuing)
                     report_unresolved_member();
-                }
                 return nullptr;
             }
 
@@ -1137,12 +1155,7 @@ Ast_Declaration *CodeManager::resolve_member_access(Ast_Binary *dot_expr, Ast_Bl
             }
 
             if (!base_type) {
-                if (!skip_queuing) {
-                    push_unresolved_member_access(dot_expr);
-                } else {
-                    report_unresolved_member();
-                }
-                return nullptr;
+                return handle_unresolved();
             }
 
             Ast_Type_Definition *check_resolved = base_type;
@@ -1151,12 +1164,7 @@ Ast_Declaration *CodeManager::resolve_member_access(Ast_Binary *dot_expr, Ast_Bl
             }
 
             if (check_resolved->is_unresolved) {
-                if (!skip_queuing) {
-                    push_unresolved_member_access(dot_expr);
-                } else {
-                    report_unresolved_member();
-                }
-                return nullptr;
+                return handle_unresolved();
             }
 
             if (!skip_init_check && base_type && base_type->pointed_to_type) {
@@ -1185,12 +1193,7 @@ Ast_Declaration *CodeManager::resolve_member_access(Ast_Binary *dot_expr, Ast_Bl
         }
 
         if (!base_decl) {
-            if (!skip_queuing) {
-                push_unresolved_member_access(dot_expr);
-            } else {
-                report_unresolved_member();
-            }
-            return nullptr;
+            return handle_unresolved();
         }
 
         base_type = base_decl->declared_type;
@@ -1207,12 +1210,7 @@ Ast_Declaration *CodeManager::resolve_member_access(Ast_Binary *dot_expr, Ast_Bl
         }
 
         if (!base_type) {
-            if (!skip_queuing) {
-                push_unresolved_member_access(dot_expr);
-            } else {
-                report_unresolved_member();
-            }
-            return nullptr;
+            return handle_unresolved();
         }
 
         if (!skip_init_check && base_type && base_type->pointed_to_type) {
@@ -1245,12 +1243,7 @@ Ast_Declaration *CodeManager::resolve_member_access(Ast_Binary *dot_expr, Ast_Bl
         base_type = dot_expr->lhs->inferred_type;
 
         if (!base_type || base_type == _type->type_def_dummy || base_type->is_unresolved) {
-            if (!skip_queuing) {
-                push_unresolved_member_access(dot_expr);
-            } else {
-                report_unresolved_member();
-            }
-            return nullptr;
+            return handle_unresolved();
         }
 
         while (base_type->pointed_to_type) {
@@ -1258,12 +1251,7 @@ Ast_Declaration *CodeManager::resolve_member_access(Ast_Binary *dot_expr, Ast_Bl
         }
 
         if (!base_type->struct_def || base_type->is_unresolved) {
-            if (!skip_queuing) {
-                push_unresolved_member_access(dot_expr);
-            } else {
-                report_unresolved_member();
-            }
-            return nullptr;
+            return handle_unresolved();
         }
 
         current_instance = base_type->type_instance;
@@ -1271,11 +1259,7 @@ Ast_Declaration *CodeManager::resolve_member_access(Ast_Binary *dot_expr, Ast_Bl
 
     if (!base_type->struct_def) {
         if (base_type->is_unresolved) {
-            if (!skip_queuing) {
-                push_unresolved_member_access(dot_expr);
-            } else {
-                report_unresolved_member();
-            }
+            return handle_unresolved();
         } else if (should_infer) {
             if (member_id && member_id->name) {
                 report_error(member_id, "Member '%s' is not resolvable because base expression is not a struct", member_id->name);
@@ -1356,6 +1340,20 @@ void CodeManager::resolve_idents_in_expr(Ast_Expression *expr, Ast_Block *my_sco
         auto *b = static_cast<Ast_Binary*>(expr);
 
         if (b->op == BINOP_ASSIGN) {
+            auto resolve_assignment_targets = [&](Ast_Comma_Separated_Args *targets) {
+                FOR(targets->arguments) {
+                    bool disc = (it->type == AST_IDENT && strcmp(static_cast<Ast_Ident*>(it)->name, "_") == 0);
+                    if (disc) continue;
+                    resolve_idents_in_expr(it, my_scope);
+
+                    if (it->type == AST_IDENT) {
+                        Ast_Ident *l_ident = static_cast<Ast_Ident*>(it);
+                        Ast_Declaration *decl = lookup_symbol(l_ident->name);
+                        if (decl) decl->initialized = true;
+                    }
+                }
+            };
+
             if (b->lhs->type == AST_COMMA_SEPARATED_ARGS) {
                 auto *lhs_args = static_cast<Ast_Comma_Separated_Args*>(b->lhs);
 
@@ -1366,17 +1364,7 @@ void CodeManager::resolve_idents_in_expr(Ast_Expression *expr, Ast_Block *my_sco
                         Ast_Expression *single_rhs = rhs_args->arguments.data[0];
                         resolve_idents_in_expr(single_rhs, my_scope);
 
-                        FOR(lhs_args->arguments){
-                            bool disc = (it->type == AST_IDENT && strcmp(static_cast<Ast_Ident*>(it)->name, "_") == 0);
-                            if (disc) continue;
-                            resolve_idents_in_expr(it, my_scope);
-
-                            if (it->type == AST_IDENT) {
-                                Ast_Ident *l_ident = static_cast<Ast_Ident*>(it);
-                                Ast_Declaration *decl = lookup_symbol(l_ident->name);
-                                if (decl) decl->initialized = true;
-                            }
-                        }
+                        resolve_assignment_targets(lhs_args);
                         return;
                     }
 
@@ -1404,17 +1392,7 @@ void CodeManager::resolve_idents_in_expr(Ast_Expression *expr, Ast_Block *my_sco
                 } else {
                     resolve_idents_in_expr(b->rhs, my_scope);
 
-                    FOR(lhs_args->arguments) {
-                        bool disc = (it->type == AST_IDENT && strcmp(static_cast<Ast_Ident*>(it)->name, "_") == 0);
-                        if (disc) continue;
-                        resolve_idents_in_expr(it, my_scope);
-
-                        if (it->type == AST_IDENT) {
-                            Ast_Ident *l_ident = static_cast<Ast_Ident*>(it);
-                            Ast_Declaration *decl = lookup_symbol(l_ident->name);
-                            if (decl) decl->initialized = true;
-                        }
-                    }
+                    resolve_assignment_targets(lhs_args);
                     return;
                 }
             }
@@ -1518,10 +1496,6 @@ void CodeManager::resolve_idents_in_expr(Ast_Expression *expr, Ast_Block *my_sco
             if (field) {
                 b->inferred_type = field->declared_type;
             }
-             // //comment this out for now probably don't need to queue it for resolve since resolve_member_access should have queued it if it was necesssary
-             // else {
-             //     push_unresolved_member_access(b);
-             // }
 
         }
         else {
@@ -1777,6 +1751,31 @@ void CodeManager::infer_types_return(Ast_Statement *ret, Ast_Declaration *func_d
 }
 
 
+static bool is_integer_type(Def_Type *types, Ast_Type_Definition *t) {
+    return t == types->type_def_int || t == types->type_def_s8 ||
+           t == types->type_def_s16 || t == types->type_def_s32 ||
+           t == types->type_def_s64 || t == types->type_def_u8 ||
+           t == types->type_def_u16 || t == types->type_def_u32 ||
+           t == types->type_def_u64;
+}
+
+static Ast_Type_Definition *infer_numeric_binary_type(Def_Type *types, Ast_Type_Definition *lt, Ast_Type_Definition *rt, bool allow_pointer_arith) {
+    if (lt == types->type_def_float || rt == types->type_def_float) return types->type_def_float;
+    if (lt == types->type_def_float32 || rt == types->type_def_float32) return types->type_def_float32;
+    if (lt == types->type_def_float64 || rt == types->type_def_float64) return types->type_def_float64;
+    if (lt == types->type_def_int && rt == types->type_def_int) return types->type_def_int;
+    if (lt == types->type_def_s64 && rt == types->type_def_s64) return types->type_def_s64;
+    if (lt == types->type_def_int && rt == types->type_def_s64) return types->type_def_s64;
+    if (lt == types->type_def_s64 && rt == types->type_def_int) return types->type_def_s64;
+
+    if (allow_pointer_arith) {
+        if (lt == types->type_def_u64 && rt == types->type_def_u64) return types->type_def_u64;
+        if (lt && lt->pointed_to_type && (rt == types->type_def_int || rt == types->type_def_s64)) return lt;
+    }
+
+    return nullptr;
+}
+
 void CodeManager::infer_types_expr(Ast_Expression **expr_ptr)
 {
     if (!expr_ptr) return;
@@ -1805,35 +1804,18 @@ void CodeManager::infer_types_expr(Ast_Expression **expr_ptr)
         }
         case AST_ARRAY_LITERAL: {
             auto *lit = static_cast<Ast_Array_Literal *>(expr);
-            if (lit->element_type) {
-                // element type already provided in syntax
-            }
+
             FOR(lit->elements) {
                 infer_types_expr(&it);
             }
-            // create array type for inferred
-            Ast_Array_Type *arr_type = AST_NEW(Ast_Array_Type);
-            arr_type->element_type = lit->element_type;
-            arr_type->is_resizable = false; // static inferred size
-            // size_expr not set, or could count elements but for now
-            expr->inferred_type = arr_type;  // note: may need to wrap or use type def
-            // actually, for now, since arrays use special, but to make work, set element?
-            // better to leave as is, or use the element? Wait, the expr type should be the array type.
-            // For simplicity, we'll set it to point to element or handle in cconv.
-            // To make correct, we may need to create proper type.
-            // For now:
-            expr->inferred_type = lit->element_type; // temp? No.
-            // Actually, the literal's type is the array type, but since not full Ast_Array_Type in type system?
-            // We will handle specially in cconv and set a dummy or use array type.
-            // Let's create proper.
-            // Wait, set to a special.
-            // For now, to progress, we'll infer elements and set inferred to first or something.
+
             if (lit->elements.count > 0) {
-                Ast_Array_Type *arrt = AST_NEW(Ast_Array_Type);
-                arrt->element_type = lit->element_type ? lit->element_type : (lit->elements.data[0] ? lit->elements.data[0]->inferred_type : _type->type_def_dummy);
-                arrt->is_resizable = false;
-                // size inferred from init list length in later phases or cconv
-                expr->inferred_type = arrt;
+                Ast_Array_Type *arr_type = AST_NEW(Ast_Array_Type);
+                arr_type->element_type = lit->element_type ? lit->element_type
+                                                           : (lit->elements.data[0] ? lit->elements.data[0]->inferred_type
+                                                                                    : _type->type_def_dummy);
+                arr_type->is_resizable = false;
+                expr->inferred_type = arr_type;
             } else {
                 expr->inferred_type = _type->type_def_dummy;
             }
@@ -1847,8 +1829,7 @@ void CodeManager::infer_types_expr(Ast_Expression **expr_ptr)
             Ast_Declaration *decl = lookup_symbol(id->name);
 
             if (!decl) {
-                report_error(id, "Use of undeclared identifier '%s'", id->name);
-                expr->inferred_type = _type->type_def_dummy;
+                infer_error(id, "Use of undeclared identifier '%s'", id->name);
                 break;
             }
 
@@ -1897,8 +1878,7 @@ void CodeManager::infer_types_expr(Ast_Expression **expr_ptr)
             infer_types_expr(&u->operand);
             Ast_Type_Definition *operandType = u->operand->inferred_type;
             if (!operandType) {
-                report_error(u, "Could not determine type of operand for unary expression");
-                expr->inferred_type = _type->type_def_dummy;
+                infer_error(u, "Could not determine type of operand for unary expression");
                 break;
             }
 
@@ -1906,16 +1886,14 @@ void CodeManager::infer_types_expr(Ast_Expression **expr_ptr)
             switch (u->op) {
             case UNARY_DEREFERENCE: {
                 if (!operandType->pointed_to_type || operandType == _type->type_def_dummy) {
-                    report_error(u, "Cannot dereference non-pointer type");
-                    expr->inferred_type = _type->type_def_dummy;
+                    infer_error(u, "Cannot dereference non-pointer type");
                     break;
                 }
 
                 if (Ast_Ident *operand_ident = ast_static_cast<Ast_Ident>(u->operand, AST_IDENT)) {
                     Ast_Declaration *decl = lookup_symbol(operand_ident->name);
                     if (decl && !decl->initialized && !decl->is_declaration_function_argument) {
-                        report_error(u, "Cannot dereference uninitialized pointer '%s'", operand_ident->name);
-                        expr->inferred_type = _type->type_def_dummy;
+                        infer_error(u, "Cannot dereference uninitialized pointer '%s'", operand_ident->name);
                         break;
                     }
                 }
@@ -1940,9 +1918,8 @@ void CodeManager::infer_types_expr(Ast_Expression **expr_ptr)
                         }
 
                         if (member && !member->initialized && !should_skip) {
-                            report_error(u, "Cannot dereference uninitialized pointer member '%s'",
+                            infer_error(u, "Cannot dereference uninitialized pointer member '%s'",
                                 member->identifier ? member->identifier->name : "(unknown)");
-                            expr->inferred_type = _type->type_def_dummy;
                             break;
                         }
                     }
@@ -1961,8 +1938,7 @@ void CodeManager::infer_types_expr(Ast_Expression **expr_ptr)
                 break;
 
             default:
-                report_error(u, "Unknown unary operator");
-                expr->inferred_type = _type->type_def_dummy;
+                infer_error(u, "Unknown unary operator");
             }
             break;
         }
@@ -1975,10 +1951,21 @@ void CodeManager::infer_types_expr(Ast_Expression **expr_ptr)
                     infer_types_expr(&b->lhs);
                     infer_types_expr(&b->rhs);
 
+                    auto validate_index = [&](Ast_Type_Definition *index_type) -> bool {
+                        if (!index_type) {
+                            infer_error(b, "Array index has unknown type");
+                            return false;
+                        }
+                        if (!is_integer_type(_type, index_type)) {
+                            infer_error(b->rhs, "Array index must be an integer type");
+                            return false;
+                        }
+                        return true;
+                    };
+
                     Ast_Type_Definition *array_type = b->lhs->inferred_type;
                     if (!array_type) {
-                        report_error(b, "Cannot subscript expression with unknown type");
-                        expr->inferred_type = _type->type_def_dummy;
+                        infer_error(b, "Cannot subscript expression with unknown type");
                         return;
                     }
 
@@ -1990,33 +1977,10 @@ void CodeManager::infer_types_expr(Ast_Expression **expr_ptr)
                         if (pointee->type == AST_ARRAY_TYPE) {
                             auto *arr = static_cast<Ast_Array_Type*>(pointee);
 
-                            // Validate index is integer
-                            Ast_Type_Definition *index_type = b->rhs->inferred_type;
-                            if (!index_type) {
-                                report_error(b, "Array index has unknown type");
-                                expr->inferred_type = _type->type_def_dummy;
-                                return;
-                            }
-
-                            bool is_integer = (index_type == _type->type_def_int ||
-                                              index_type == _type->type_def_s8 ||
-                                              index_type == _type->type_def_s16 ||
-                                              index_type == _type->type_def_s32 ||
-                                              index_type == _type->type_def_s64 ||
-                                              index_type == _type->type_def_u8 ||
-                                              index_type == _type->type_def_u16 ||
-                                              index_type == _type->type_def_u32 ||
-                                              index_type == _type->type_def_u64);
-
-                            if (!is_integer) {
-                                report_error(b->rhs, "Array index must be an integer type");
-                                expr->inferred_type = _type->type_def_dummy;
-                                return;
-                            }
+                            if (!validate_index(b->rhs->inferred_type)) return;
 
                             if (!arr->element_type) {
-                                report_error(b, "Array type has no element type");
-                                expr->inferred_type = _type->type_def_dummy;
+                                infer_error(b, "Array type has no element type");
                                 return;
                             }
 
@@ -2035,28 +1999,7 @@ void CodeManager::infer_types_expr(Ast_Expression **expr_ptr)
                     if (array_type->type == AST_ARRAY_TYPE) {
                         auto *arr = static_cast<Ast_Array_Type*>(array_type);
 
-                        Ast_Type_Definition *index_type = b->rhs->inferred_type;
-                        if (!index_type) {
-                            report_error(b, "Array index has unknown type");
-                            expr->inferred_type = _type->type_def_dummy;
-                            return;
-                        }
-
-                        bool is_integer = (index_type == _type->type_def_int ||
-                                          index_type == _type->type_def_s8 ||
-                                          index_type == _type->type_def_s16 ||
-                                          index_type == _type->type_def_s32 ||
-                                          index_type == _type->type_def_s64 ||
-                                          index_type == _type->type_def_u8 ||
-                                          index_type == _type->type_def_u16 ||
-                                          index_type == _type->type_def_u32 ||
-                                          index_type == _type->type_def_u64);
-
-                        if (!is_integer) {
-                            report_error(b->rhs, "Array index must be an integer type");
-                            expr->inferred_type = _type->type_def_dummy;
-                            return;
-                        }
+                        if (!validate_index(b->rhs->inferred_type)) return;
 
                         // Bounds check for static arrays with constant indices
                         if (!arr->is_resizable && arr->size_expr && arr->size_expr->type == AST_LITERAL) {
@@ -2068,15 +2011,13 @@ void CodeManager::infer_types_expr(Ast_Expression **expr_ptr)
                                     if (index_lit->value_type == LITERAL_NUMBER) {
                                         long long index = index_lit->integer_value;
                                         if (index < 0) {
-                                            report_error(b->rhs, "Array index cannot be negative (got %lld)", index);
-                                            expr->inferred_type = _type->type_def_dummy;
+                                            infer_error(b->rhs, "Array index cannot be negative (got %lld)", index);
                                             return;
                                         }
                                         if (index >= array_size) {
-                                            report_error(b->rhs,
+                                            infer_error(b->rhs,
                                                        "Array index %lld is out of bounds for array of size %lld",
                                                        index, array_size);
-                                            expr->inferred_type = _type->type_def_dummy;
                                             return;
                                         }
                                     }
@@ -2085,8 +2026,7 @@ void CodeManager::infer_types_expr(Ast_Expression **expr_ptr)
                         }
 
                         if (!arr->element_type) {
-                            report_error(b, "Array type has no element type");
-                            expr->inferred_type = _type->type_def_dummy;
+                            infer_error(b, "Array type has no element type");
                             return;
                         }
 
@@ -2099,8 +2039,7 @@ void CodeManager::infer_types_expr(Ast_Expression **expr_ptr)
                         return;
                     }
 
-                    report_error(b, "Cannot subscript non-array type");
-                    expr->inferred_type = _type->type_def_dummy;
+                    infer_error(b, "Cannot subscript non-array type");
                 }
                 case BINOP_ADD:
                 case BINOP_SUB:
@@ -2119,59 +2058,26 @@ void CodeManager::infer_types_expr(Ast_Expression **expr_ptr)
                     Ast_Type_Definition *rt = b->rhs->inferred_type;
 
                     if(!lt || !rt || lt == _type->type_def_dummy || rt == _type->type_def_dummy){
-                        report_error(expr, "Cannot infer types for operands in binary operation");
-                        expr->inferred_type = _type->type_def_dummy;
+                        infer_error(expr, "Cannot infer types for operands in binary operation");
                         break;
                     }
 
                     if (b->op == BINOP_ADD || b->op == BINOP_SUB) {
-                        // Handle numeric types
-                        if (lt == _type->type_def_float || rt == _type->type_def_float) {
-                            expr->inferred_type = _type->type_def_float;
-                        } else if (lt == _type->type_def_float32 || rt == _type->type_def_float32) {
-                            expr->inferred_type = _type->type_def_float32;
-                        } else if (lt == _type->type_def_float64 || rt == _type->type_def_float64) {
-                            expr->inferred_type = _type->type_def_float64;
-                        } else if (lt == _type->type_def_int && rt == _type->type_def_int) {
-                            expr->inferred_type = _type->type_def_int;
-                        } else if (lt == _type->type_def_s64 && rt == _type->type_def_s64) {
-                            expr->inferred_type = _type->type_def_s64;
-                        } else if (lt == _type->type_def_int && rt == _type->type_def_s64) {
-                            expr->inferred_type = _type->type_def_s64;
-                        } else if (lt == _type->type_def_s64 && rt == _type->type_def_int) {
-                            expr->inferred_type = _type->type_def_s64;
-                        } else if (lt == _type->type_def_u64 && rt == _type->type_def_u64) {
-                            expr->inferred_type = _type->type_def_u64;
-                        }
-
-                        // pointer arithmetic
-                        else if (lt && lt->pointed_to_type && (rt == _type->type_def_int || rt == _type->type_def_s64)) {
-                            expr->inferred_type = lt;
+                        Ast_Type_Definition *result = infer_numeric_binary_type(_type, lt, rt, true);
+                        if (result) {
+                            expr->inferred_type = result;
                         } else {
-                            report_error(b, "Type error in binary arithmetic types incompatible, Expected '%s' Got '%s'", type_to_string(lt),type_to_string(rt));
-                            expr->inferred_type = _type->type_def_dummy;
+                            infer_error(b, "Type error in binary arithmetic types incompatible, Expected '%s' Got '%s'", type_to_string(lt),type_to_string(rt));
                         }
                         break;
                     }
 
                     else if (b->op == BINOP_MUL || b->op == BINOP_DIV) {
-                        if (lt == _type->type_def_float || rt == _type->type_def_float) {
-                            expr->inferred_type = _type->type_def_float;
-                        } else if (lt == _type->type_def_float32 || rt == _type->type_def_float32) {
-                            expr->inferred_type = _type->type_def_float32;
-                        } else if (lt == _type->type_def_float64 || rt == _type->type_def_float64) {
-                            expr->inferred_type = _type->type_def_float64;
-                        } else if (lt == _type->type_def_int && rt == _type->type_def_int) {
-                            expr->inferred_type = _type->type_def_int;
-                        } else if (lt == _type->type_def_s64 && rt == _type->type_def_s64) {
-                            expr->inferred_type = _type->type_def_s64;
-                        } else if (lt == _type->type_def_int && rt == _type->type_def_s64) {
-                            expr->inferred_type = _type->type_def_s64;
-                        } else if (lt == _type->type_def_s64 && rt == _type->type_def_int) {
-                            expr->inferred_type = _type->type_def_s64;
+                        Ast_Type_Definition *result = infer_numeric_binary_type(_type, lt, rt, false);
+                        if (result) {
+                            expr->inferred_type = result;
                         } else {
-                            report_error(b, "Type error in binary arithmetic: operand types incompatible");
-                            expr->inferred_type = _type->type_def_dummy;
+                            infer_error(b, "Type error in binary arithmetic: operand types incompatible");
                         }
                         break;
                     }
@@ -2188,8 +2094,7 @@ void CodeManager::infer_types_expr(Ast_Expression **expr_ptr)
                     Ast_Type_Definition *base_type = b->lhs->inferred_type;
 
                     if (!base_type) {
-                        report_error(b->lhs, "Cannot determine type of base expression");
-                        expr->inferred_type = _type->type_def_dummy;
+                        infer_error(b->lhs, "Cannot determine type of base expression");
                         break;
                     }
 
@@ -2199,8 +2104,7 @@ void CodeManager::infer_types_expr(Ast_Expression **expr_ptr)
                     }
 
                     if (!dereferenced->struct_def) {
-                        report_error(b->lhs, "Member access requires a struct");
-                        expr->inferred_type = _type->type_def_dummy;
+                        infer_error(b->lhs, "Member access requires a struct");
                         break;
                     }
 
@@ -2236,8 +2140,7 @@ void CodeManager::infer_types_expr(Ast_Expression **expr_ptr)
                             member_type = member_decl->declared_type;
                         }
                         if (!member_type) {
-                            report_error(member, "Struct '%s' has no member '%s'", dereferenced->struct_def->name, member->name);
-                            expr->inferred_type = _type->type_def_dummy;
+                            infer_error(member, "Struct '%s' has no member '%s'", dereferenced->struct_def->name, member->name);
                         } else {
                             expr->inferred_type = member_type;
                         }
@@ -2265,9 +2168,8 @@ void CodeManager::infer_types_expr(Ast_Expression **expr_ptr)
                                     Ast_Declaration *fdecl = lookup_symbol(fn->name);
                                     if (fdecl && fdecl->is_function && fdecl->return_types.count > 1) {
                                         if (lhs_args->arguments.count != fdecl->return_types.count) {
-                                            report_error(b, "Number of variables on left (%d) must match number of return values (%d)",
+                                            infer_error(b, "Number of variables on left (%d) must match number of return values (%d)",
                                                          lhs_args->arguments.count, fdecl->return_types.count);
-                                            expr->inferred_type = _type->type_def_dummy;
                                             return;
                                         }
                                         // _ only allowed as leading discards
@@ -2304,8 +2206,7 @@ void CodeManager::infer_types_expr(Ast_Expression **expr_ptr)
                                 Ast_Type_Definition *rhsType = single_rhs->inferred_type;
 
                                 if (rhsType == _type->type_def_dummy) {
-                                    report_error(b, "Right-hand side of assignment has unknown type");
-                                    expr->inferred_type = _type->type_def_dummy;
+                                    infer_error(b, "Right-hand side of assignment has unknown type");
                                     return;
                                 }
 
@@ -2328,9 +2229,8 @@ void CodeManager::infer_types_expr(Ast_Expression **expr_ptr)
 
                             // Normal Pairwise checking
                             if (lhs_args->arguments.count != rhs_args->arguments.count) {
-                                report_error(b, "Type Inference Error: Number of variables on LHS (%d) does not match number of values on RHS (%d)",
+                                infer_error(b, "Type Inference Error: Number of variables on LHS (%d) does not match number of values on RHS (%d)",
                                              lhs_args->arguments.count, rhs_args->arguments.count);
-                                expr->inferred_type = _type->type_def_dummy;
                                 return;
                             }
 
@@ -2369,8 +2269,7 @@ void CodeManager::infer_types_expr(Ast_Expression **expr_ptr)
                             Ast_Type_Definition *rhsType = b->rhs->inferred_type;
 
                             if (rhsType == _type->type_def_dummy) {
-                                report_error(b, "Right-hand side of assignment has unknown type");
-                                expr->inferred_type = _type->type_def_dummy;
+                                infer_error(b, "Right-hand side of assignment has unknown type");
                                 return;
                             }
 
@@ -2404,8 +2303,7 @@ void CodeManager::infer_types_expr(Ast_Expression **expr_ptr)
                     infer_types_expr(&b->rhs);
                     Ast_Type_Definition *rhsType = b->rhs->inferred_type;
                     if (rhsType == _type->type_def_dummy) {
-                        report_error(b, "Right-hand side of assignment has unknown type");
-                        expr->inferred_type = _type->type_def_dummy;
+                        infer_error(b, "Right-hand side of assignment has unknown type");
                         return;
                     }
 
@@ -2416,8 +2314,7 @@ void CodeManager::infer_types_expr(Ast_Expression **expr_ptr)
                             infer_types_expr(&b->lhs);  // infer the member access
 
                             if (!lhs_dot->inferred_type || lhs_dot->inferred_type == _type->type_def_dummy) {
-                                report_error(lhs_dot, "Cannot determine type of member access");
-                                expr->inferred_type = _type->type_def_dummy;
+                                infer_error(lhs_dot, "Cannot determine type of member access");
                                 break;
                             }
 
@@ -2436,8 +2333,7 @@ void CodeManager::infer_types_expr(Ast_Expression **expr_ptr)
                     else if (Ast_Ident *lhs_ident = ast_static_cast<Ast_Ident>(b->lhs, AST_IDENT)) {
                         Ast_Declaration *is_decl = lookup_symbol(lhs_ident->name);
                         if (!is_decl) {
-                            report_error(lhs_ident, "Undeclared variable '%s'", lhs_ident->name);
-                            expr->inferred_type = _type->type_def_dummy;
+                            infer_error(lhs_ident, "Undeclared variable '%s'", lhs_ident->name);
                             break;
                         }
 
@@ -2461,15 +2357,13 @@ void CodeManager::infer_types_expr(Ast_Expression **expr_ptr)
 
                             if (!operandType)
                             {
-                                report_error(lhs_unary, "Cannot determine type of LHS unary dereferenced expression.");
-                                expr->inferred_type = _type->type_def_dummy;
+                                infer_error(lhs_unary, "Cannot determine type of LHS unary dereferenced expression.");
                                 return;
 
                             }
 
                             if(!operandType->pointed_to_type) {
-                                report_error(lhs_unary, "Cannot dereference non-pointer expression of type '%s'", type_to_string(operandType));
-                                expr->inferred_type = _type->type_def_dummy;
+                                infer_error(lhs_unary, "Cannot dereference non-pointer expression of type '%s'", type_to_string(operandType));
                                 return;
                             }
 
@@ -2481,32 +2375,27 @@ void CodeManager::infer_types_expr(Ast_Expression **expr_ptr)
                             if (Ast_Ident *pointer_ident = ast_static_cast<Ast_Ident>(lhs_unary->operand, AST_IDENT)) {
                                 Ast_Declaration *pointer_decl = lookup_symbol(pointer_ident->name);
                                 if (pointer_decl && !pointer_decl->initialized && !pointer_decl->is_declaration_function_argument) {
-                                    report_error(lhs_unary, "Cannot dereference uninitialized pointer '%s'", pointer_ident->name);
-                                    expr->inferred_type = _type->type_def_dummy;
+                                    infer_error(lhs_unary, "Cannot dereference uninitialized pointer '%s'", pointer_ident->name);
                                     return;
                                 }
                             }
 
 
                             if (!check_that_types_match(lhsType, rhsType)) {
-                                report_error(lhs_unary, "Type mismatch: cannot assign '%s' to dereferenced pointer of type '%s'",
+                                infer_error(lhs_unary, "Type mismatch: cannot assign '%s' to dereferenced pointer of type '%s'",
                                                 type_to_string(rhsType), type_to_string(lhsType));
-
-                                expr->inferred_type = _type->type_def_dummy;
                                 return;
                             }
 
 
                         } else {
-                            report_error(lhs_unary, "Unsupported unary operation on LHS of assignment");
-                            expr->inferred_type = _type->type_def_dummy;
+                            infer_error(lhs_unary, "Unsupported unary operation on LHS of assignment");
                             return;
                         }
                     }
 
                     else {
-                        report_error(b, "Left-hand side of assignment must be an identifier or a dereferenced pointer");
-                        expr->inferred_type = _type->type_def_dummy;
+                        infer_error(b, "Left-hand side of assignment must be an identifier or a dereferenced pointer");
                         return;
                     }
 
@@ -2523,9 +2412,7 @@ void CodeManager::infer_types_expr(Ast_Expression **expr_ptr)
                 }
 
                 default:
-                    report_error(b, "Unknown binary operator in type inference");
-
-                    expr->inferred_type = _type->type_def_dummy;
+                    infer_error(b, "Unknown binary operator in type inference");
                     return;
             }
             break;
@@ -2565,16 +2452,14 @@ void CodeManager::infer_types_expr(Ast_Expression **expr_ptr)
                  if (fn->name && strcmp(fn->name, "sizeof") == 0) {
                     int arg_count = call->arguments ? call->arguments->arguments.count : 0;
                     if (arg_count != 1) {
-                        report_error(fn, "sizeof() expects exactly 1 argument");
-                        expr->inferred_type = _type->type_def_dummy;
+                        infer_error(fn, "sizeof() expects exactly 1 argument");
                         return;
                     }
 
                     Ast_Expression *arg = call->arguments->arguments.data[0];
 
                     if (arg->type != AST_IDENT) {
-                        report_error(arg, "sizeof() argument must be a type identifier");
-                        expr->inferred_type = _type->type_def_dummy;
+                        infer_error(arg, "sizeof() argument must be a type identifier");
                         return;
                     }
 
@@ -2584,13 +2469,10 @@ void CodeManager::infer_types_expr(Ast_Expression **expr_ptr)
                     if (!resolved) {
                         Ast_Declaration *var = lookup_symbol(type_ident->name);
                         if (var) {
-                            report_error(arg,
-                                "'%s' is a value/variable, but sizeof() expects a type name",
-                                type_ident->name);
+                            infer_error(arg, "'%s' is a value/variable, but sizeof() expects a type name", type_ident->name);
                         } else {
-                            report_error(arg, "Unknown type '%s' used in sizeof()", type_ident->name);
+                            infer_error(arg, "Unknown type '%s' used in sizeof()", type_ident->name);
                         }
-                        expr->inferred_type = _type->type_def_dummy;
                         return;
                     }
 
@@ -2707,16 +2589,7 @@ void CodeManager::infer_types_expr(Ast_Expression **expr_ptr)
                     infer_types_expr(&it);
                 }
             }
-            // If this call is part of an assignment, check the LHS type
-            expr->inferred_type = return_type;
-            if (!return_type || return_type == _type->type_def_dummy || expr->inferred_type == _type->type_def_dummy) {
-                if (expr->inferred_type == _type->type_def_dummy) {
-                    expr->inferred_type = return_type ? return_type : _type->type_def_dummy;
-                }
-            } else if (!check_that_types_match(expr->inferred_type, return_type)) {
-                report_error(expr, "Type mismatch: function call return type does not match expected type. Expected '%s' Got '%s'",
-                                    type_to_string(expr->inferred_type), type_to_string(return_type));
-            }
+            expr->inferred_type = return_type ? return_type : _type->type_def_dummy;
 
             break;
         }
@@ -2944,7 +2817,7 @@ void CodeManager::infer_types_decl(Ast_Declaration *decl) {
         infer_types_expr(&expr);
         Ast_Type_Definition *init_type = expr->inferred_type;
         if(!init_type) {
-            report_error(decl, "Could not infer type for variable '%s' from intitializer.",decl->identifier->name);
+            report_error(decl, "Could not infer type for variable '%s' from initializer.", decl->identifier->name);
             return;
         }
 
@@ -2959,7 +2832,7 @@ void CodeManager::infer_types_decl(Ast_Declaration *decl) {
             bool is_float_number = false;
             bool is_unary_negate = false;
 
-            Ast_Literal *lit = static_cast<Ast_Literal *>(expr);
+            Ast_Literal *lit = nullptr;
 
             if (expr->type == AST_LITERAL) {
                 lit = static_cast<Ast_Literal*>(expr);
@@ -3010,13 +2883,8 @@ void CodeManager::infer_types_decl(Ast_Declaration *decl) {
                 }
 
                 // Replace the expr tree with a single literal (collapse unary)
-                if (is_unary_negate) {
-                    expr = make_integer_literal(signed_value);
-                    decl->initializer = expr;
-                } else {
-                    expr = make_integer_literal(signed_value);
-                    decl->initializer = expr;
-                }
+                expr = make_integer_literal(signed_value);
+                decl->initializer = expr;
 
                 expr->inferred_type = decl_type;
                 init_type = decl_type;
@@ -3053,10 +2921,7 @@ void CodeManager::infer_types_decl(Ast_Declaration *decl) {
         }
     } else {
         auto inf = decl->declared_type;
-        if(inf == _type->type_def_int) {
-            decl->initializer = make_integer_literal(0);
-        }
-        else if(inf == _type->type_def_s8) {
+        if (inf == _type->type_def_int || inf == _type->type_def_s8) {
             decl->initializer = make_integer_literal(0);
         }
 
@@ -3070,22 +2935,24 @@ void CodeManager::infer_types_if(Ast_If *ifn, Ast_Declaration *my_func) {
         infer_types_expr(&cond);
     }
 
-    if (ifn->then_block) {
-        push_scope();
-        infer_types_block(ifn->then_block, my_func);
-        pop_scope();
-    }
+    infer_block_scope(ifn->then_block, my_func);
 
     if (ifn->else_block) {
         if (ifn->else_block->type == AST_IF) {
             // Recursively handle else if
             infer_types_if(static_cast<Ast_If*>(ifn->else_block), my_func);
         } else if (ifn->else_block->type == AST_BLOCK) {
-            push_scope();
-            infer_types_block(static_cast<Ast_Block*>(ifn->else_block), my_func);
-            pop_scope();
+            infer_block_scope(static_cast<Ast_Block*>(ifn->else_block), my_func);
         }
     }
+}
+
+void CodeManager::infer_block_scope(Ast_Block *nested_block, Ast_Declaration *my_func) {
+    if (!nested_block) return;
+
+    push_scope();
+    infer_types_block(nested_block, my_func);
+    pop_scope();
 }
 
 void CodeManager::infer_types_block(Ast_Block *block, Ast_Declaration *my_func)
@@ -3149,20 +3016,14 @@ void CodeManager::infer_types_block(Ast_Block *block, Ast_Declaration *my_func)
             Ast_Expression *expr = stmt->expression;
             infer_types_expr(&expr);
         } else if (stmt->block) {
-            push_scope();
-            infer_types_block(stmt->block);
-            pop_scope();
+            infer_block_scope(stmt->block, nullptr);
         } else if (stmt->type == AST_IF) {
             infer_types_if(static_cast<Ast_If *>(stmt), my_func);
-        }else if (stmt->type == AST_WHILE){
+        } else if (stmt->type == AST_WHILE) {
             Ast_While *_while = static_cast<Ast_While*>(stmt);
             if (_while->condition) infer_types_expr(&_while->condition);
-            if (_while->block) {
-                push_scope();
-                infer_types_block(_while->block, my_func);
-                pop_scope();
-            }
-        } else if (stmt->type == AST_FOR){
+            infer_block_scope(_while->block, my_func);
+        } else if (stmt->type == AST_FOR) {
             Ast_For *for_loop = static_cast<Ast_For*>(stmt);
             if (for_loop->start) infer_types_expr(&for_loop->start);
             if (for_loop->end) infer_types_expr(&for_loop->end);
