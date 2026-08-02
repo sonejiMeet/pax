@@ -57,6 +57,12 @@ enum TokenType {
     TOK_HASHTAG,        // #
 
     TOK_ASSIGN,         // =
+    TOK_PLUS_ASSIGN,    // +=
+    TOK_MINUS_ASSIGN,   // -=
+    TOK_STAR_ASSIGN,    // *=
+    TOK_SLASH_ASSIGN,   // /=
+    TOK_PERCENT_ASSIGN, // %=
+    TOK_PERCENT,        // %
     TOK_EQUAL,          // ==
     TOK_NOT_EQUAL,      // !=
     TOK_LESS,           // <
@@ -129,6 +135,12 @@ inline const char *tokenTypeToString(TokenType type) {
         case TOK_HASHTAG: return "TOK_HASHTAG";
 
         case TOK_ASSIGN: return "TOK_ASSIGN";
+        case TOK_PLUS_ASSIGN: return "TOK_PLUS_ASSIGN";
+        case TOK_MINUS_ASSIGN: return "TOK_MINUS_ASSIGN";
+        case TOK_STAR_ASSIGN: return "TOK_STAR_ASSIGN";
+        case TOK_SLASH_ASSIGN: return "TOK_SLASH_ASSIGN";
+        case TOK_PERCENT_ASSIGN: return "TOK_PERCENT_ASSIGN";
+        case TOK_PERCENT: return "TOK_PERCENT";
         case TOK_EQUAL: return "TOK_EQUAL";
         case TOK_NOT_EQUAL: return "TOK_NOT_EQUAL";
         case TOK_LESS: return "TOK_LESS";

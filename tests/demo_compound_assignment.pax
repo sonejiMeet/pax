@@ -1,0 +1,62 @@
+// demo_compound_assignment.pax
+// Exercises +=, -=, *=, /=, %= on ints, floats, array elements,
+// struct members, and dereferenced pointers, plus % as an operator.
+
+#import "General.pax"
+
+Counter :: struct {
+    count: int;
+}
+
+main :: () {
+    // ints
+    x: int = 10;
+    x += 5;
+    printf("x += 5  -> %d (expected 15)\n", x);
+    x -= 3;
+    printf("x -= 3  -> %d (expected 12)\n", x);
+    x *= 4;
+    printf("x *= 4  -> %d (expected 48)\n", x);
+    x /= 6;
+    printf("x /= 6  -> %d (expected 8)\n", x);
+    x %= 3;
+    printf("x %%= 3  -> %d (expected 2)\n", x);
+
+    // modulo as a regular operator
+    m: int = 17 % 5;
+    printf("17 %% 5 = %d (expected 2)\n", m);
+
+    // floats
+    f: float = 10.0;
+    f += 2.5;
+    f -= 1.5;
+    f *= 2.0;
+    f /= 3.0;
+    printf("f = %.2f (expected 7.33)\n", f);
+
+    // array element
+    arr: [4]int;
+    arr[0] = 1;
+    arr[0] += 10;
+    arr[0] *= 2;
+    printf("arr[0] = %d (expected 22)\n", arr[0]);
+
+    // struct member
+    c: Counter;
+    c.count = 5;
+    c.count += 7;
+    c.count %= 4;
+    printf("c.count = %d (expected 0)\n", c.count);
+
+    // dereferenced pointer
+    p: ^int = &x;
+    *p += 100;
+    printf("x after *p += 100 = %d (expected 102)\n", x);
+
+    // compound with a full expression on the right
+    y: int = 2;
+    y += 3 * 4;
+    printf("y = %d (expected 14)\n", y);
+
+    printf("DONE\n");
+}

@@ -445,9 +445,15 @@ void C_Converter::emitExpression(FILE *out, Ast_Expression *expr, int indent, bo
                     case BINOP_SUB: fprintf(out, " - "); break;
                     case BINOP_MUL: fprintf(out, " * "); break;
                     case BINOP_DIV: fprintf(out, " / "); break;
+                    case BINOP_MOD: fprintf(out, " %% "); break;
                     case BINOP_EQ:  fprintf(out, " == "); break;
                     case BINOP_NEQ: fprintf(out, " != "); break;
                     case BINOP_ASSIGN: fprintf(out, " = "); break;
+                    case BINOP_ASSIGN_ADD: fprintf(out, " += "); break;
+                    case BINOP_ASSIGN_SUB: fprintf(out, " -= "); break;
+                    case BINOP_ASSIGN_MUL: fprintf(out, " *= "); break;
+                    case BINOP_ASSIGN_DIV: fprintf(out, " /= "); break;
+                    case BINOP_ASSIGN_MOD: fprintf(out, " %%= "); break;
                     case BINOP_LESS: fprintf(out, " < "); break;
                     case BINOP_GREATER: fprintf(out, " > "); break;
                     case BINOP_LESS_EQUAL: fprintf(out, " <= "); break;

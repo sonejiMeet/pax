@@ -264,11 +264,15 @@ Token *Lexer::nextToken()
         case '.':
             if(match_and_advance('.')) return makeToken(TOK_DOUBLE_DOT, "..");
             return makeToken(TOK_DOT, ".");
-        case '+': return makeToken(TOK_PLUS, "+");
+        case '+':
+            if (match_and_advance('=')) return makeToken(TOK_PLUS_ASSIGN, "+=");
+            return makeToken(TOK_PLUS, "+");
         case '-':
             if (match_and_advance('>')) return makeToken(TOK_ARROW, "->");
+            if (match_and_advance('=')) return makeToken(TOK_MINUS_ASSIGN, "-=");
             return makeToken(TOK_MINUS, "-");
         case '*':
+            if (match_and_advance('=')) return makeToken(TOK_STAR_ASSIGN, "*=");
             return makeToken(TOK_STAR, "*");
 
         case '=':
@@ -289,7 +293,11 @@ Token *Lexer::nextToken()
                 return makeToken(TOK_DOUBLEQUOTE, "\"");
             return stringToken();
         case '/':
+            if (match_and_advance('=')) return makeToken(TOK_SLASH_ASSIGN, "/=");
             return makeToken(TOK_SLASH, "/");
+        case '%':
+            if (match_and_advance('=')) return makeToken(TOK_PERCENT_ASSIGN, "%=");
+            return makeToken(TOK_PERCENT, "%");
         case '^':
             return makeToken(TOK_CARET, "^");
         case '&':

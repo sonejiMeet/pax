@@ -431,6 +431,7 @@ int Parser::getPrecedence(TokenType type) {
             return 100;
         case TOK_STAR:
         case TOK_SLASH:
+        case TOK_PERCENT:
             return 90;
         case TOK_PLUS:
         case TOK_MINUS:
@@ -456,6 +457,7 @@ Binary_Op Parser::getBinaryOperator(TokenType type) {
         case TOK_DOT: return BINOP_DOT;
         case TOK_STAR: return BINOP_MUL;
         case TOK_SLASH: return BINOP_DIV;
+        case TOK_PERCENT: return BINOP_MOD;
         case TOK_PLUS: return BINOP_ADD;
         case TOK_MINUS: return BINOP_SUB;
         case TOK_EQUAL: return BINOP_EQ;
@@ -470,6 +472,19 @@ Binary_Op Parser::getBinaryOperator(TokenType type) {
         default: return BINOP_UNKNOWN;
     }
 }
+
+Binary_Op Parser::getAssignmentOperator(TokenType type) {
+    switch (type) {
+        case TOK_ASSIGN: return BINOP_ASSIGN;
+        case TOK_PLUS_ASSIGN: return BINOP_ASSIGN_ADD;
+        case TOK_MINUS_ASSIGN: return BINOP_ASSIGN_SUB;
+        case TOK_STAR_ASSIGN: return BINOP_ASSIGN_MUL;
+        case TOK_SLASH_ASSIGN: return BINOP_ASSIGN_DIV;
+        case TOK_PERCENT_ASSIGN: return BINOP_ASSIGN_MOD;
+        default: return BINOP_UNKNOWN;
+    }
+}
+
 Ast_Type_Definition *Parser::parseTypeSpecifier() {
 
     Ast_Type_Definition *currentType = nullptr;
@@ -1165,17 +1180,25 @@ Ast_Statement *Parser::parseStatement()
                 return parseMultipleAssignment();
             }
 
-            if (t && t->type == TOK_ASSIGN) {
+            if (t && getAssignmentOperator(t->type) != BINOP_UNKNOWN) {
                 if (is_underscore) {
                     report_parse_error("Unexpected use of _");
                     return nullptr;
                 }
+
                 Ast_Expression *lhs = parseExpression();
-                Expect(TOK_ASSIGN, "Expected '=' in assignment");
+
+                Binary_Op assign_op = getAssignmentOperator(current->type);
+                if (assign_op == BINOP_UNKNOWN) {
+                    report_parse_error("Expected an assignment operator");
+                    return nullptr;
+                }
+                advance(); // consume the assignment operator
+
                 Ast_Expression *rhs = parseExpression();
 
                 Ast_Binary *assignExpr = AST_NEW(Ast_Binary);
-                assignExpr->op = BINOP_ASSIGN;
+                assignExpr->op = assign_op;
                 assignExpr->lhs = lhs;
                 assignExpr->rhs = rhs;
 
@@ -1224,12 +1247,17 @@ Ast_Statement *Parser::parseStatement()
             // these can be in front of statement
             Ast_Expression *lhs = parseExpression(); // could be *p, ^x, &y
 
-            Expect(TOK_ASSIGN, "Expected '=' in pointer assignment.");
+            Binary_Op assign_op = getAssignmentOperator(current->type);
+            if (assign_op == BINOP_UNKNOWN) {
+                report_parse_error("Expected an assignment operator in pointer assignment.");
+                return nullptr;
+            }
+            advance(); // consume the assignment operator
 
             Ast_Expression *rhs = parseExpression();
 
             Ast_Binary *assignExpr = AST_NEW(Ast_Binary);
-            assignExpr->op = BINOP_ASSIGN;
+            assignExpr->op = assign_op;
             assignExpr->lhs = lhs;
             assignExpr->rhs = rhs;
 
@@ -1502,4 +1530,3 @@ Ast_Block *Parser::parseProgram(Ast_Block *program, bool skip_main)
     }
     return program;
 }
-

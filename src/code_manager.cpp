@@ -73,6 +73,10 @@ void CodeManager::report_error_impl(Ast *ast, const char *fmt, ...)
         static_cast<Ast*>(prev),                    \
         __VA_ARGS__)                                \
 
+static bool is_assignment_op(Binary_Op op) {
+    return op == BINOP_ASSIGN || (op >= BINOP_ASSIGN_ADD && op <= BINOP_ASSIGN_MOD);
+}
+
 void CodeManager::report_error_with_previous_impl(Ast *ast_node, Ast *ast_prev, const char *fmt, ...) {
     constexpr size_t BUFFER_SIZE = 512;
     char buffer[BUFFER_SIZE];
@@ -1339,7 +1343,7 @@ void CodeManager::resolve_idents_in_expr(Ast_Expression *expr, Ast_Block *my_sco
     case AST_BINARY: {
         auto *b = static_cast<Ast_Binary*>(expr);
 
-        if (b->op == BINOP_ASSIGN) {
+        if (is_assignment_op(b->op)) {
             auto resolve_assignment_targets = [&](Ast_Comma_Separated_Args *targets) {
                 FOR(targets->arguments) {
                     bool disc = (it->type == AST_IDENT && strcmp(static_cast<Ast_Ident*>(it)->name, "_") == 0);
@@ -2045,6 +2049,7 @@ void CodeManager::infer_types_expr(Ast_Expression **expr_ptr)
                 case BINOP_SUB:
                 case BINOP_MUL:
                 case BINOP_DIV:
+                case BINOP_MOD:
                 case BINOP_LESS:
                 case BINOP_GREATER:
                 case BINOP_LESS_EQUAL:
@@ -2078,6 +2083,18 @@ void CodeManager::infer_types_expr(Ast_Expression **expr_ptr)
                             expr->inferred_type = result;
                         } else {
                             infer_error(b, "Type error in binary arithmetic: operand types incompatible");
+                        }
+                        break;
+                    }
+
+                    else if (b->op == BINOP_MOD) {
+                        if (is_integer_type(_type, lt) && is_integer_type(_type, rt)) {
+                            expr->inferred_type = infer_numeric_binary_type(_type, lt, rt, false);
+                            if (!expr->inferred_type) {
+                                infer_error(b, "Type error in binary arithmetic: operand types incompatible");
+                            }
+                        } else {
+                            infer_error(b, "Modulo requires integer operands");
                         }
                         break;
                     }
@@ -2151,7 +2168,12 @@ void CodeManager::infer_types_expr(Ast_Expression **expr_ptr)
                 }
 
 
-                case BINOP_ASSIGN: {
+                case BINOP_ASSIGN:
+                case BINOP_ASSIGN_ADD:
+                case BINOP_ASSIGN_SUB:
+                case BINOP_ASSIGN_MUL:
+                case BINOP_ASSIGN_DIV:
+                case BINOP_ASSIGN_MOD: {
                     if (b->lhs->type == AST_COMMA_SEPARATED_ARGS) {
                         Ast_Comma_Separated_Args *lhs_args = static_cast<Ast_Comma_Separated_Args*>(b->lhs);
 

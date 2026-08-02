@@ -246,9 +246,15 @@ enum Binary_Op {
     BINOP_SUB,
     BINOP_MUL,
     BINOP_DIV,
+    BINOP_MOD,          // %
     BINOP_EQ,
     BINOP_NEQ,
     BINOP_ASSIGN,
+    BINOP_ASSIGN_ADD,   // +=
+    BINOP_ASSIGN_SUB,   // -=
+    BINOP_ASSIGN_MUL,   // *=
+    BINOP_ASSIGN_DIV,   // /=
+    BINOP_ASSIGN_MOD,   // %=
     BINOP_LESS,
     BINOP_GREATER,
     BINOP_LESS_EQUAL,

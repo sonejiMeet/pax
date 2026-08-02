@@ -39,6 +39,7 @@ struct Parser
     Ast_Expression *parseExpression(int minPrecedence = 0);
     int getPrecedence(TokenType type);
     Binary_Op getBinaryOperator(TokenType type);
+    Binary_Op getAssignmentOperator(TokenType type);
 
 
     Ast_Type_Definition *parseTypeSpecifier();
