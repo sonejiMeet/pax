@@ -1,0 +1,6 @@
+// basic.pax — implicitly imported by pax.exe from the baked-in modules folder.
+// Add foreign bindings here that should be available to every program
+// without an explicit #import.
+
+exit :: (status: int) #foreign;
+__rdtsc :: () -> u64 #foreign;

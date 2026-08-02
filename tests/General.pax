@@ -36,9 +36,6 @@ __NewArray_impl :: (count: s64, element_size: s64) -> Dynamic_Array {
     return arr;
 }
 
-__rdtsc :: () -> u64 #foreign;
-exit :: (status: int) #foreign;
-
 
 
 

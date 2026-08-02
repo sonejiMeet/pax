@@ -138,23 +138,64 @@ inline bool is_absolute_path(const char *path) {
     return false;
 }
 
+static bool file_exists(const char *path) {
+    FILE *f = fopen(path, "rb");
+    if (f) {
+        fclose(f);
+        return true;
+    }
+    return false;
+}
+
 char *Pax_Interp::resolve_import_path(const char *import_path, const char *current_file) {
     char *current_dir = get_directory(current_file);
 
-    char *temp = c_concat3(current_dir, "/", import_path);
-
-    // char *abs = get_absolute_path(temp);
-    char *abs = nullptr;
-    if (is_absolute_path(import_path)) {
-        abs = get_absolute_path(import_path);
-        return abs;
-    } else {
-        abs = get_absolute_path(temp);
-    }
+    char *local = c_concat3(current_dir, "/", import_path);
     free(current_dir);
-    free(temp);
 
+    if (is_absolute_path(import_path)) {
+        free(local);
+        return get_absolute_path(import_path);
+    }
+
+    // Importing file's directory first (existing behavior).
+    if (file_exists(local)) {
+        char *abs = get_absolute_path(local);
+        free(local);
+        return abs;
+    }
+
+    char *central = find_module_in_central_dirs(import_path);
+    if (central) {
+        free(local);
+        return central;
+    }
+
+    // if not found anywhere, fall back to the local path so the error mentions it.
+    char *abs = get_absolute_path(local);
+    free(local);
     return abs;
+}
+
+char *Pax_Interp::find_module_in_central_dirs(const char *module_name) {
+    // baked-in modules/ folder
+    char *candidate = c_concat3("./modules", "/", module_name);
+    if (!file_exists(candidate)) {
+        free(candidate);
+        return nullptr;
+    }
+    char *abs = get_absolute_path(candidate);
+    free(candidate);
+    return abs;
+}
+
+void Pax_Interp::load_implicit_module() {
+    char *module_path = find_module_in_central_dirs("Basic.pax");
+    if (!module_path) {
+        return;
+    }
+
+    load_and_parse_module(module_path);
 }
 
 void Pax_Interp::cache_source(const char *path, const char *text) {
@@ -291,6 +332,8 @@ bool Pax_Interp::init(const char *entry_file) {
     }
     ast = AST_NEW(pool, Ast_Block);
     char *abs_path = get_absolute_path(entry_file);
+
+    load_implicit_module();
 
     all_unique_import_paths.push_back(abs_path);
     load_imports(entry_ast, abs_path);

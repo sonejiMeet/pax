@@ -1,0 +1,8 @@
+// demo_implicit_foreign.pax
+// No #import needed: foreign bindings like exit come from the built-in prelude.
+
+main :: () {
+    printf("before exit\n");
+    exit(0);
+    printf("this should never print\n");
+}

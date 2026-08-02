@@ -52,6 +52,8 @@ struct Pax_Interp {
 
     Ast_Block *parse_file(const char *filename, bool skip_main_check);
     void load_imports(Ast_Block *module_ast, const char *module_path);
+    void load_implicit_module();
+    char *find_module_in_central_dirs(const char *module_name);
 
     bool does_import_already_exist(char*path);
     Ast_Block *load_and_parse_module(const char *filename);
