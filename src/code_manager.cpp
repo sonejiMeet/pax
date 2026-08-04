@@ -422,7 +422,13 @@ void CodeManager::resolve_idents(Ast_Block *block) {
             if (for_loop->start) resolve_idents_in_expr(for_loop->start);
             if (for_loop->end) resolve_idents_in_expr(for_loop->end);
             if (for_loop->array) resolve_idents_in_expr(for_loop->array);
-            resolve_block_scope(for_loop->block);
+            if (for_loop->block) {
+                push_scope();
+                if (for_loop->variable_decl)
+                    declare_variable(for_loop->variable_decl);
+                resolve_idents(for_loop->block);
+                pop_scope();
+            }
         }
     }
 }
@@ -1771,6 +1777,7 @@ static Ast_Type_Definition *infer_numeric_binary_type(Def_Type *types, Ast_Type_
     if (lt == types->type_def_s64 && rt == types->type_def_s64) return types->type_def_s64;
     if (lt == types->type_def_int && rt == types->type_def_s64) return types->type_def_s64;
     if (lt == types->type_def_s64 && rt == types->type_def_int) return types->type_def_s64;
+    if (lt == types->type_def_u8 && rt == types->type_def_u8) return types->type_def_u8;
 
     if (allow_pointer_arith) {
         if (lt == types->type_def_u64 && rt == types->type_def_u64) return types->type_def_u64;
@@ -3054,7 +3061,7 @@ void CodeManager::infer_types_block(Ast_Block *block, Ast_Declaration *my_func)
                 push_scope();
                 Ast_Type_Definition *var_type = nullptr;
                 if (for_loop->array) {
-                    if (for_loop->array && for_loop->array->inferred_type) {
+                    if (for_loop->array->inferred_type) {
                         Ast_Type_Definition *at = for_loop->array->inferred_type;
                         if (at->type == AST_ARRAY_TYPE) {
                             auto *arr = static_cast<Ast_Array_Type*>(at);
@@ -3062,23 +3069,19 @@ void CodeManager::infer_types_block(Ast_Block *block, Ast_Declaration *my_func)
                         } else if (at->pointed_to_type && at->pointed_to_type->type == AST_ARRAY_TYPE) {
                             auto *arr = static_cast<Ast_Array_Type*>(at->pointed_to_type);
                             var_type = arr->element_type;
+                        } else if (at == _type->type_def_string) {
+                            // for c: str iterates the string's u8 data
+                            var_type = _type->type_def_u8;
                         }
                     }
-                } else if (for_loop->variable && (for_loop->start || for_loop->end)) {
+                } else if (for_loop->start || for_loop->end) {
                     if (for_loop->start && for_loop->start->inferred_type) var_type = for_loop->start->inferred_type;
                     else if (for_loop->end && for_loop->end->inferred_type) var_type = for_loop->end->inferred_type;
                 }
-                if (var_type) {
-                    for (long ii = 0; ii < for_loop->block->statements.count; ii++) {
-                        Ast_Statement *ss = for_loop->block->statements.data[ii];
-                        if (ss && ss->type == AST_DECLARATION) {
-                            Ast_Declaration *dd = static_cast<Ast_Declaration*>(ss);
-                            if (dd->identifier && strcmp(dd->identifier->name, for_loop->variable->name) == 0) {
-                                dd->declared_type = var_type;
-                                break;
-                            }
-                        }
-                    }
+                if (for_loop->variable_decl) {
+                    if (var_type)
+                        for_loop->variable_decl->declared_type = var_type;
+                    declare_variable(for_loop->variable_decl);
                 }
                 infer_types_block(for_loop->block, my_func);
                 pop_scope();

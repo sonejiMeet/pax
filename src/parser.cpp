@@ -1341,21 +1341,12 @@ Ast_Statement *Parser::parseStatement()
             Ast_Block *body = parseBlockStatement(false, true);
             for_stmt->block = body;
 
-            // Prepend a synthetic declaration for the loop variable so normal
-            // resolution/declaration processing sees it (type inferred later).
-            // C_Converter will skip re-emitting it inside the for.
-            if (for_stmt->block && for_stmt->variable) {
-                Ast_Declaration *loop_var_decl = AST_NEW(Ast_Declaration);
-                loop_var_decl->identifier = for_stmt->variable;
+            // The loop variable is declared implicitly by resolve/infer/codegen
+            // via for_stmt->variable_decl, not by prepending into the body.
+            Ast_Declaration *loop_var_decl = AST_NEW(Ast_Declaration);
+            loop_var_decl->identifier = for_stmt->variable;
+            for_stmt->variable_decl = loop_var_decl;
 
-                // Prepend so that lookup during block walk finds it before uses
-                Array<Ast_Statement*> new_statements(for_stmt->block->statements.pool ? for_stmt->block->statements.pool : interp->pool);
-                new_statements.push_back(static_cast<Ast_Statement*>(loop_var_decl));
-                for (long i = 0; i < for_stmt->block->statements.count; i++) {
-                    new_statements.push_back(for_stmt->block->statements.data[i]);
-                }
-                for_stmt->block->statements = new_statements;
-            }
             return for_stmt;
         }
         case TOK_LCURLY_PAREN: {

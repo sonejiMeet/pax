@@ -1003,21 +1003,11 @@ void C_Converter::emitStruct(FILE *out, Ast_Statement *stmt, int indent){
     fprintf(out, "};\n");
 }
 
-void C_Converter::emit_loop_body(FILE *out, Ast_For* for_stmt, int body_indent, Ast_Declaration *current_func){
-    if (!for_stmt->block) return;
-    for (int i = 0; i < for_stmt->block->statements.count; i++) {
-        Ast_Statement *s = for_stmt->block->statements.data[i];
-        bool skip = false;
-        if (s && s->type == AST_DECLARATION) {
-            Ast_Declaration *d = static_cast<Ast_Declaration*>(s);
-            if (d->identifier && for_stmt->variable &&
-                strcmp(d->identifier->name, for_stmt->variable->name) == 0) {
-                skip = true;
-            }
-        }
-        if (!skip) {
-            emitStatement(out, s, body_indent, false, current_func);
-        }
+void C_Converter::emit_loop_body(FILE *out, Ast_Block *body, int body_indent, Ast_Declaration *current_func) {
+    if (!body) return;
+    for (int i = 0; i < body->statements.count; i++) {
+        Ast_Statement *s = body->statements.data[i];
+        if (s) emitStatement(out, s, body_indent, false, current_func);
     }
 }
 
@@ -1221,7 +1211,9 @@ void C_Converter::emitStatement(FILE *out, Ast_Statement *stmt, int indent, bool
 
             // PRINT_DEBUG_INFO(out, "#line %d \"%s\"\n", stmt->line_number, stmt->file_name);
 
-            if (stmt->expression || stmt->is_return || stmt->block) {
+            if (stmt->expression){
+                emit_debug_info(out, stmt->expression);
+            }else if (stmt->is_return || stmt->block) {
                 emit_debug_info(out, stmt);
             }
 
@@ -1334,20 +1326,9 @@ void C_Converter::emitStatement(FILE *out, Ast_Statement *stmt, int indent, bool
 
             auto *for_stmt = static_cast<Ast_For*>(stmt);
             const char *ctype = "int";
-            if (for_stmt->block) {
-                for (int jj = 0; jj < for_stmt->block->statements.count; jj++) {
-                    Ast_Statement *ss = for_stmt->block->statements.data[jj];
-                    if (ss && ss->type == AST_DECLARATION) {
-                        Ast_Declaration *dd = static_cast<Ast_Declaration*>(ss);
-                        if (dd->identifier && for_stmt->variable &&
-                            strcmp(dd->identifier->name, for_stmt->variable->name) == 0 &&
-                            dd->declared_type) {
-                            ctype = dd->declared_type->to_string(*_type);
-                            if (!ctype) ctype = "int";
-                            break;
-                        }
-                    }
-                }
+            if (for_stmt->variable_decl && for_stmt->variable_decl->declared_type) {
+                ctype = for_stmt->variable_decl->declared_type->to_string(*_type);
+                if (!ctype) ctype = "int";
             }
 
             if (for_stmt->array) {
@@ -1368,8 +1349,8 @@ void C_Converter::emitStatement(FILE *out, Ast_Statement *stmt, int indent, bool
                 fprintf(out, "%s = ((%s*)", for_stmt->variable->name, ctype);
                 emitExpression(out, for_stmt->array, indent + 8);
                 fprintf(out, ".data)[__i];\n");
-                // emit body, skipping the synthesized loop var decl
-                emit_loop_body(out, for_stmt, indent + 8, current_func);
+                // emit body
+                emit_loop_body(out, for_stmt->block, indent + 8, current_func);
                 indentLine(out, indent + 8);
                 fprintf(out, "__i = __i + 1;\n");
                 indentLine(out, indent + 4);
@@ -1384,8 +1365,8 @@ void C_Converter::emitStatement(FILE *out, Ast_Statement *stmt, int indent, bool
                 fprintf(out, "; %s <= ", for_stmt->variable->name);
                 emitExpression(out, for_stmt->end, indent);
                 fprintf(out, "; %s = %s + 1) {\n", for_stmt->variable->name, for_stmt->variable->name);
-                // emit body, skipping the synthesized loop var decl
-                emit_loop_body(out, for_stmt, indent + 4, current_func);
+                // emit body
+                emit_loop_body(out, for_stmt->block, indent + 4, current_func);
                 indentLine(out, indent);
                 fprintf(out, "}\n");
             }

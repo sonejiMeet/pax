@@ -30,7 +30,7 @@ struct C_Converter {
 
     void type_to_c_string(FILE *out, Ast_Type_Definition *type, Ast_Declaration *decl, bool need_semicolon, int indent, bool should_initializer = false);
 
-    void emit_loop_body(FILE *out, Ast_For* for_stmt, int body_indent, Ast_Declaration *current_func);
+    void emit_loop_body(FILE *out, Ast_Block *body, int body_indent, Ast_Declaration *current_func);
     void array_element_type_to_string(char *out, size_t out_size, Ast_Array_Type *arr, const char *fallback);
     void emit_static_array_variable(FILE *out, const char *name, Ast_Array_Type *arr, int indent, bool emit_body, bool emit_init_loop);
     void emit_array_copy_loop(FILE *out, const char *name, const char *elem_type, Ast_Expression *arr_expr, int indent);

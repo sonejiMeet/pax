@@ -119,16 +119,16 @@ test_array_of_string :: (){
 test_upper_to_lower_string :: () {
 	str := "THIS STRING WAS IN UPPER CASE BUT NOW ITS IN LOWER CASE :)";
 
-	for i: 0..str.count-1
-		printf("%c", to_lower(cast(int)str[i]));
+	for i: str
+		printf("%c", to_lower(i));
 
 }
 
-A := 65;
-Z := 90;
-a := 32;
+A :u8= 65;
+Z :u8= 90;
+a :u8= 32;
 
-to_lower :: (ch: int) -> int {
+to_lower :: (ch: u8) -> u8 {
 	if ch >= A && ch <= Z
 		return ch + a;
 	else

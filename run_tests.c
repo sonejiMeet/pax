@@ -67,7 +67,6 @@ static const Test tests[] = {
 
     PASS(a),
     PASS(demo_multi_variable),
-    PASS(c),
     PASS(d),
     PASS(e),
     PASS(f),

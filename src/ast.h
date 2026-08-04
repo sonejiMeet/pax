@@ -316,10 +316,11 @@ struct Ast_While : public Ast_Statement {
 
 struct Ast_For : public Ast_Statement {
     Ast_For(Pool* = nullptr) { type = AST_FOR; };
-    Ast_Ident *variable = nullptr;      // the loop variable, e.g. "number"
-    Ast_Expression *start = nullptr;    // lower bound, e.g. 1
-    Ast_Expression *end = nullptr;      // upper bound, e.g. 10
-    Ast_Expression *array = nullptr;    // for for x : arr  (element iteration)
+    Ast_Ident *variable = nullptr;
+    Ast_Declaration *variable_decl = nullptr;  // temp for now
+    Ast_Expression *start = nullptr;
+    Ast_Expression *end = nullptr;
+    Ast_Expression *array = nullptr; // iterable type
     Ast_Block *block = nullptr;
 };
 
