@@ -2550,6 +2550,40 @@ void CodeManager::infer_types_expr(Ast_Expression **expr_ptr)
                             report_error(fn, "Function '%s' return type mismatch", fn->name);
                         }
 
+                        if (return_type && return_type->struct_def && return_type->struct_def->name && strcmp(return_type->struct_def->name, "Dynamic_Array") == 0) 
+                        {
+                            Ast_Type_Definition *elem = nullptr;
+
+                            if (call->arguments) 
+                            {
+                                FOR(call->arguments->arguments) 
+                                {
+                                    Ast_Expression *arg = get_call_argument_value(it);
+                                    if (!arg || arg->type != AST_PROCEDURE_CALL_EXPRESSION) continue;
+
+                                    auto *inner = static_cast<Ast_Procedure_Call_Expression*>(arg);
+                                    if (!inner->function || inner->function->type != AST_IDENT) continue;
+                                    
+                                    Ast_Ident *fn2 = static_cast<Ast_Ident*>(inner->function);
+                                    if (!fn2->name || strcmp(fn2->name, "sizeof") != 0) continue;
+                                    
+                                    if (!inner->arguments || inner->arguments->arguments.count != 1) continue;
+                                    
+                                    Ast_Expression *tid_expr = inner->arguments->arguments.data[0];
+                                    if (tid_expr->type != AST_IDENT) continue;
+                                    
+                                    elem = resolve_type_by_name(static_cast<Ast_Ident*>(tid_expr)->name);
+                                    break;
+                                }
+                            }
+                            
+                            Ast_Array_Type *dyn_arr = AST_NEW(Ast_Array_Type);
+                            dyn_arr->is_resizable = true;
+                            dyn_arr->element_type = elem ? elem : _type->type_def_void;
+                            dyn_arr->struct_def = return_type->struct_def;
+                            dyn_arr->is_unresolved = false;
+                            return_type = dyn_arr;
+                        }
 
                         if (call->arguments) {
                             int next_positional_parameter = 0;
@@ -3126,6 +3160,11 @@ bool CodeManager::check_that_types_match(Ast_Type_Definition *wanted, Ast_Type_D
         if (wa && have->pointed_to_type) {
             return false;
         }
+
+        if (wa && wa->is_resizable && have->struct_def && have->struct_def->name &&
+            strcmp(have->struct_def->name, "Dynamic_Array") == 0) return true;
+        if (ha && ha->is_resizable && wanted->struct_def && wanted->struct_def->name &&
+            strcmp(wanted->struct_def->name, "Dynamic_Array") == 0) return true;
 
         if (!wa || !ha) return false;
 

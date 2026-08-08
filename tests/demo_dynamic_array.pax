@@ -1,0 +1,114 @@
+#import "General.pax";
+
+main :: () {
+    printf("----------------------------------------\n");
+
+    // 1) Fresh [..]int declaration starts zeroed
+    {
+        dyn: [..]int;
+        printf("fresh dyn: count=%d allocated=%d data=%p\n", dyn.count, dyn.allocated, dyn.data);
+        if dyn.count != 0 { printf("FAIL: fresh count not zero\n"); }
+        if dyn.allocated != 0 { printf("FAIL: fresh allocated not zero\n"); }
+        if dyn.data != null { printf("FAIL: fresh data not null\n"); }
+    }
+
+    // 2) NewArray + subscripting + struct fields
+    {
+        arr := NewArray(5, sizeof(int));
+        printf("new array: count=%d allocated=%d\n", arr.count, arr.allocated);
+        if arr.count != 5 { printf("FAIL: count != 5\n"); }
+        if arr.allocated != 5 { printf("FAIL: allocated != 5\n"); }
+
+        arr[0] = 10;
+        arr[1] = 20;
+        arr[4] = 50;
+        printf("arr[0]=%d arr[1]=%d arr[4]=%d\n", arr[0], arr[1], arr[4]);
+        if arr[0] != 10 { printf("FAIL: arr[0] != 10\n"); }
+        if arr[1] != 20 { printf("FAIL: arr[1] != 20\n"); }
+        if arr[4] != 50 { printf("FAIL: arr[4] != 50\n"); }
+        array_free(&arr);
+    }
+
+    // 3) Pointer to dynamic array
+    {
+        dyn := NewArray(3, sizeof(int));
+        dyn[0] = 7;
+        arr_ptr: ^[..]int;
+        arr_ptr = &dyn;
+        printf("arr_ptr[0]=%d count via ptr=%d\n", arr_ptr[0], arr_ptr.count);
+        if arr_ptr[0] != 7 { printf("FAIL: arr_ptr[0] != 7\n"); }
+        if arr_ptr.count != 3 { printf("FAIL: arr_ptr.count != 3\n"); }
+        arr_ptr[1] = 77;
+        if dyn[1] != 77 { printf("FAIL: dyn[1] != 77 after ptr write\n"); }
+        array_free(&dyn);
+    }
+
+    // 4) array_push / array_pop / array_free on [..]int
+    {
+        dyn: [..]int;
+        i: int = 1;
+        array_push(&dyn, &i, sizeof(int));
+        i = 2;
+        array_push(&dyn, &i, sizeof(int));
+        i = 3;
+        array_push(&dyn, &i, sizeof(int));
+        printf("pushed: count=%d allocated=%d\n", dyn.count, dyn.allocated);
+        if dyn.count != 3 { printf("FAIL: pushed count != 3\n"); }
+        if dyn[0] != 1 { printf("FAIL: dyn[0] != 1\n"); }
+        if dyn[1] != 2 { printf("FAIL: dyn[1] != 2\n"); }
+        if dyn[2] != 3 { printf("FAIL: dyn[2] != 3\n"); }
+
+        array_pop(&dyn);
+        printf("popped: count=%d\n", dyn.count);
+        if dyn.count != 2 { printf("FAIL: popped count != 2\n"); }
+
+        // push many more to force reallocation (doubling) and verify contents survive
+        i = 0;
+        while i < 100 {
+            i = i + 1;
+            array_push(&dyn, &i, sizeof(int));
+        }
+        func(&dyn);
+        printf("---------------------------dyn.count = %d\n", dyn.count);
+
+        printf("after 100 more pushes: count=%d allocated=%d\n", dyn.count, dyn.allocated);
+        if dyn.count != 102 { printf("FAIL: count != 102\n"); }
+        if dyn[0] != 1 { printf("FAIL: dyn[0] lost after realloc\n"); }
+        if dyn[1] != 2 { printf("FAIL: dyn[1] lost after realloc\n"); }
+        if dyn[101] != 100 { printf("FAIL: dyn[101] != 100\n"); }
+
+        array_free(&dyn);
+        printf("freed: count=%d allocated=%d data=%p\n", dyn.count, dyn.allocated, dyn.data);
+        if dyn.count != 0 { printf("FAIL: freed count != 0\n"); }
+        if dyn.allocated != 0 { printf("FAIL: freed allocated != 0\n"); }
+        if dyn.data != null { printf("FAIL: freed data != null\n"); }
+
+        // can reuse after free
+        i = 42;
+        array_push(&dyn, &i, sizeof(int));
+        if dyn.count != 1 { printf("FAIL: reuse count != 1\n"); }
+        if dyn[0] != 42 { printf("FAIL: reuse dyn[0] != 42\n"); }
+        array_free(&dyn);
+    }
+
+    // 5) Explicit [..]int with NewArray initializer
+    {
+        dyn: [..]int = NewArray(2, sizeof(int));
+        dyn[0] = 5;
+        dyn[1] = 6;
+        printf("explicit: count=%d dyn[0]=%d dyn[1]=%d\n", dyn.count, dyn[0], dyn[1]);
+        if dyn[0] != 5 { printf("FAIL: explicit dyn[0] != 5\n"); }
+        array_free(&dyn);
+    }
+
+    printf("DONEEEE\n");
+    printf("----------------------------------------\n");
+}
+
+
+func :: (dyn_arr: ^[..]int) {
+
+    for i: *dyn_arr {
+        printf("%d\n", i);
+    }
+}

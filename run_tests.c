@@ -54,7 +54,7 @@ static const Test tests[] = {
     PASS(demo_simple_nested_structs),
     PASS(demo_string),
     PASS(demo_pointer_cast_byte),
-
+    
     COMPILE_ONLY(demo_runtime_crash_handler),
     PASS(demo_named_defaults_parameter),
     PASS(demo_multi_return),
@@ -64,13 +64,15 @@ static const Test tests[] = {
     PASS(demo_binary_search),
     PASS(demo_compound_assignment),
     PASS(demo_implicit_foreign),
-
+    
     PASS(a),
     PASS(demo_multi_variable),
     PASS(d),
     PASS(e),
     PASS(f),
-
+    
+    PASS(demo_dynamic_array),
+    
     FAIL(demo_fail_uninitialized_ptr_member_passed_by_value),
     FAIL(demo_fail_is_declaration_passed_through_function),
     FAIL(demo_fail_nested_init),

@@ -1,13 +1,4 @@
 
-// // DO NOT REMOVE THAT EXTRA LINE UNDER fprintf below
-// #ifdef _DEBUG
-#define PRINT_DEBUG_INFO(out, ...) \
-        fprintf(out, __VA_ARGS__); \
-        fprintf(out, "//%d\n", __LINE__); \
-// #else
-// #define PRINT_DEBUG_INFO(out, ...)
-// #endif
-
 const char* ENABLE_CRT_LEAKS=
     "#define _CRTDBG_MAP_ALLOC\n"
     "#include <crtdbg.h>\n"
@@ -1200,8 +1191,13 @@ void C_Converter::emitStatement(FILE *out, Ast_Statement *stmt, int indent, bool
 
                 if(base_type && base_type->struct_def){
                     Ast_Struct *st = base_type->struct_def;
-                    indentLine(out, indent);
-                    fprintf(out, "_init_%s(&%s);\n", st->name, decl->identifier->name);
+                    bool has_initializer = decl->initializer != nullptr || (decl->initializers && decl->initializers->arguments.count > 0);
+                    
+                    // only init when uninitialized
+                    if (!has_initializer) {
+                        indentLine(out, indent);
+                        fprintf(out, "_init_%s(&%s);\n", st->name, decl->identifier->name);
+                    }
                 }
             }
             break;
@@ -1596,6 +1592,10 @@ void C_Converter::emit_struct_init_helper(FILE *out, Ast_Statement *stmt){
     if(!struct_def) return;
 
     fprintf(out, "inline void _init_%s(%s* self){\n", struct_def->name, struct_def->name);
+
+    if (struct_def->name && strcmp(struct_def->name, "Dynamic_Array") == 0) {
+        fprintf(out, "    memset(self, 0, sizeof(*self));\n");
+    }
 
     for(int i = 0; i < struct_def->members.count; ++i){
         Ast_Declaration *member = struct_def->members.data[i];
