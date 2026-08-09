@@ -1,0 +1,116 @@
+#import "General.pax"
+#import "String.pax"
+
+test :: (condition: bool, name: string) -> int {
+    if !condition {
+        printf("FAILED: %s\n", name);
+        return 1;
+    }
+    return 0;
+}
+
+main :: () {
+    failures: int = 0;
+
+    {
+        a: u32 = 4000000000;
+        b: u8 = 200;
+        r: u32 = a + b;
+        failures += test(r == 4000000200, "u32+u8");
+    }
+
+    {
+        a: s16 = -1000;
+        b: s8 = -50;
+        r: s16 = a + b;
+        failures += test(r == -1050, "s16+s8");
+    }
+
+    {
+        a: u64 = 5000000000000;
+        b: s64 = 3;
+        r: u64 = a + b;   // u64 + s64 -> u64 (unsigned wins if same rank)
+        failures += test(r == 5000000000003, "u64+s64");
+    }
+
+    {
+        a: int = 5;
+        b: s64 = 100;
+        r: s64 = a + b;  // int + s64 -> s64 (small to big is allowed)
+        failures += test(r == 105, "int+s64");
+    }
+
+    {
+        a: u32 = 7;
+        b: u8 = 250;
+        r: u32 = a * b;  // u32 * u8 -> u32
+        failures += test(r == 1750, "u32*u8");
+    }
+
+    // widening conversions in assignments (unsigned -> signed)
+    {
+        u: u8 = 200;
+        r: s64 = u;
+        failures += test(r == 200, "u8->s64");
+    }
+
+    {
+        f: float = 9.5;
+        r: int = f;
+        failures += test(r == 9, "float->int");
+    }
+
+    // float + float64 -> float64 (old code returned `float` and truncated)
+    {
+        f: float = 1.0;
+        d: float64 = 16777217.0;
+        r: float64 = f + d;             // 16777217 + 1 = 16777218; float32 would round to 16777216
+        failures += test(r == 16777218.0, "float+float64");
+    }
+
+    // int -> float widening
+    {
+        i: int = 3;
+        r: float = i + 1;
+        failures += test(r == 4.0, "int->float");
+    }
+
+    // modulo stays integer only,  promotes
+    {
+        a: u16 = 30000;
+        b: u8 = 7;
+        r: u16 = a % b;              // 30000 % 7 == 5
+        failures += test(r == 5, "u16%u8");
+    }
+
+    {
+        i: int = 1234;
+        r : s64 = i;
+        failures += test(r == 1234, "int->s64");
+    }
+
+    {
+        a: u8 = 255;
+        b : u8 = a+1;
+        failures += failures + test(b == 0, "u8+1 stays u8"); // wraps around too
+    }
+
+    {
+        a: u8 = 200;
+        b: u8 = a * 2;              // 2 fits u8, result stays u8
+        failures += test(b == 144, "u8*2 wraps as u8");
+    }
+
+    {
+        a: u8 = 100;
+        c := a + 1000;        // since 1000 does not fit in u8 it promotes to s64
+        failures += test(c == 1100, "u8+1000 promotes");
+    }
+
+    if failures != 0 
+        exit(1); // exit so run_tests can catch this at runtime
+    
+
+    printf("DONEEEE\n");
+}
+

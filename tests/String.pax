@@ -1,11 +1,8 @@
+// String.pax is standard module for heap based string manipulation
 #import "General.pax"
+#import "Basic.pax"  // this is where "string" struct is definened
 
-string :: struct {
-    count: s64;
-    data: ^u8;
-}
-
-strlen :: (str: string) -> s64 {
+strlen :: (str: string) -> u64 {
     return str.count;
 }
 
@@ -30,13 +27,13 @@ concat :: (a: string, b: string) -> string {
     if result.data != null {
         memcpy(result.data, a.data, a.count);
         memcpy(result.data + a.count, b.data, b.count);
-        *(result.data + result.count) = cast(u8)0;
+        result[result.count] = cast(u8)0;
     }
     return result;
 }
 
 // Extract substring [start, start+count)
-slice :: (s: string, start: s64, count: s64) -> string {
+slice :: (s: string, start: u64, count: u64) -> string {
     result: string;
 
     if start < 0 { start = 0; }
@@ -52,20 +49,20 @@ slice :: (s: string, start: s64, count: s64) -> string {
 
     if result.data != null {
         memcpy(result.data, s.data + start, count);
-        *(result.data + count) = cast(u8)0;
+        result[count] = cast(u8)0;
     }
     return result;
 }
 
 // Compare two strings lexicographically
-string_compare :: (a: string, b: string) -> s64 {
-    min: s64 = a.count;
+string_compare :: (a: string, b: string) -> u64 {
+    min: u64 = a.count;
     if b.count < min { min = b.count; }
 
-    i: s64 = 0;
+    i: u64 = 0;
     while i < min {
-        if *(a.data + i) != *(b.data + i) {
-            return cast(s64)*(a.data + i) - cast(s64)*(b.data + i);
+        if a[i] != b[i] {
+            return cast(u64)a[i] - cast(u64)b[i];
         }
         i = i + 1;
     }
@@ -77,11 +74,11 @@ equals :: (a: string, b: string) -> bool {
 }
 
 
-get :: (s: string, index: s64) -> u8 {
+get :: (s: string, index: u64) -> u8 {
     if index < 0 || index >= s.count {
         return cast(u8)0;
     }
-    return *(s.data + index);
+    return s[index];
 }
 
 empty :: () -> string {
@@ -91,7 +88,6 @@ empty :: () -> string {
     return s;
 }
 
-len :: (s: string) -> s64 { return s.count; }
 is_empty :: (s: string) -> bool { return s.count == 0; }
 
 destroy_str :: (s: ^string) {

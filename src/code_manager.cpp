@@ -11,6 +11,23 @@
     return node;                                                                     \
 }())
 
+// same as AST_NEW but we dont have file_name so can't set it
+#define UNRESOLVED_NEW(type) ([&]() -> type* {                  \
+    assert(interp->pool != nullptr && "Pool must not be null"); \
+    void *mem = pool_alloc_debug(interp->pool, sizeof(type), #type, "UNRESOLVED_CODE_MANAGER");         \
+    return new (mem) type;                                      \
+}())
+
+#define report_error(node, ...)                                 \
+        report_error_impl(static_cast<Ast*>(node), __VA_ARGS__) \
+
+#define report_error_with_previous(node, prev, ...) \
+        report_error_with_previous_impl(            \
+        static_cast<Ast*>(node),                    \
+        static_cast<Ast*>(prev),                    \
+        __VA_ARGS__)                                \
+
+
 CodeManager::CodeManager(Pax_Interp *_interp)
 {
     interp = _interp;
@@ -38,9 +55,6 @@ Ast_Literal *CodeManager::make_integer_literal(long long value){
     return literal;
 }
 
-#define report_error(node, ...)                                 \
-        report_error_impl(static_cast<Ast*>(node), __VA_ARGS__) \
-
 void CodeManager::report_error_impl(Ast *ast, const char *fmt, ...)
 {
     constexpr size_t BUFFER_SIZE = 512;
@@ -66,12 +80,6 @@ void CodeManager::report_error_impl(Ast *ast, const char *fmt, ...)
                              pool_strdup(interp->pool, buffer));
     }
 }
-
-#define report_error_with_previous(node, prev, ...) \
-        report_error_with_previous_impl(            \
-        static_cast<Ast*>(node),                    \
-        static_cast<Ast*>(prev),                    \
-        __VA_ARGS__)                                \
 
 static bool is_assignment_op(Binary_Op op) {
     return op == BINOP_ASSIGN || (op >= BINOP_ASSIGN_ADD && op <= BINOP_ASSIGN_MOD);
@@ -759,12 +767,6 @@ Ast_Type_Definition *CodeManager::find_struct_type_in_scopes(const char *name) c
     return nullptr;
 }
 
-// same as AST_NEW but we dont have file_name so can't set it
-#define UNRESOLVED_NEW(type) ([&]() -> type* {                  \
-    assert(interp->pool != nullptr && "Pool must not be null"); \
-    void *mem = pool_alloc_debug(interp->pool, sizeof(type), #type, "UNRESOLVED_CODE_MANAGER");         \
-    return new (mem) type;                                      \
-}())
 
 void CodeManager::resolve_unresolved_vars()
 {
@@ -933,12 +935,13 @@ void CodeManager::resolve_unresolved_arrays() {
     }
 }
 
-Ast_Ident *CodeManager::get_member_ident(Ast_Binary *dot_expr)
+inline Ast_Ident *CodeManager::get_member_ident(Ast_Binary *dot_expr)
 {
     if (!dot_expr || !dot_expr->rhs) return nullptr;
     if (dot_expr->rhs->type != AST_IDENT) return nullptr;
     return static_cast<Ast_Ident*>(dot_expr->rhs);
 }
+
 // int temp = 0;
 void CodeManager::resolve_unresolved_member_accesses() {
     Array<Unresolved_Member_Access*> still_unresolved;
@@ -1761,7 +1764,7 @@ void CodeManager::infer_types_return(Ast_Statement *ret, Ast_Declaration *func_d
 }
 
 
-static bool is_integer_type(Def_Type *types, Ast_Type_Definition *t) {
+inline bool CodeManager::is_integer_type(Def_Type *types, Ast_Type_Definition *t) {
     return t == types->type_def_int || t == types->type_def_s8 ||
            t == types->type_def_s16 || t == types->type_def_s32 ||
            t == types->type_def_s64 || t == types->type_def_u8 ||
@@ -1769,22 +1772,43 @@ static bool is_integer_type(Def_Type *types, Ast_Type_Definition *t) {
            t == types->type_def_u64;
 }
 
-static Ast_Type_Definition *infer_numeric_binary_type(Def_Type *types, Ast_Type_Definition *lt, Ast_Type_Definition *rt, bool allow_pointer_arith) {
-    if (lt == types->type_def_float || rt == types->type_def_float) return types->type_def_float;
-    if (lt == types->type_def_float32 || rt == types->type_def_float32) return types->type_def_float32;
-    if (lt == types->type_def_float64 || rt == types->type_def_float64) return types->type_def_float64;
-    if (lt == types->type_def_int && rt == types->type_def_int) return types->type_def_int;
-    if (lt == types->type_def_s64 && rt == types->type_def_s64) return types->type_def_s64;
-    if (lt == types->type_def_int && rt == types->type_def_s64) return types->type_def_s64;
-    if (lt == types->type_def_s64 && rt == types->type_def_int) return types->type_def_s64;
-    if (lt == types->type_def_u8 && rt == types->type_def_u8) return types->type_def_u8;
+// bit width of a numeric builtin type, -1 if not numeric
+inline int CodeManager::numeric_rank(Def_Type *types, Ast_Type_Definition *t) {
+    if (t == types->type_def_s8  || t == types->type_def_u8)  return 8;
+    if (t == types->type_def_s16 || t == types->type_def_u16) return 16;
+    if (t == types->type_def_int || t == types->type_def_s32 || t == types->type_def_u32 ||
+        t == types->type_def_float || t == types->type_def_float32) return 32;
+    if (t == types->type_def_s64 || t == types->type_def_u64 || t == types->type_def_float64) return 64;
+    return -1;
+}
 
+inline bool CodeManager::is_float_type(Def_Type *types, Ast_Type_Definition *t) {
+    return t == types->type_def_float || t == types->type_def_float32 || t == types->type_def_float64;
+}
+
+inline bool CodeManager::is_unsigned_type(Def_Type *types, Ast_Type_Definition *t) {
+    return t == types->type_def_u8 || t == types->type_def_u16 || t == types->type_def_u32 || t == types->type_def_u64;
+}
+
+Ast_Type_Definition *CodeManager::infer_numeric_binary_type(Def_Type *types, Ast_Type_Definition *lt, Ast_Type_Definition *rt, bool allow_pointer_arith) {
     if (allow_pointer_arith) {
-        if (lt == types->type_def_u64 && rt == types->type_def_u64) return types->type_def_u64;
-        if (lt && lt->pointed_to_type && (rt == types->type_def_int || rt == types->type_def_s64)) return lt;
+        if (lt && lt->pointed_to_type && is_integer_type(types, rt)) return lt;
+        if (rt && rt->pointed_to_type && is_integer_type(types, lt)) return rt;
     }
 
-    return nullptr;
+    if (is_float_type(types, lt) || is_float_type(types, rt)) {
+        if (!is_float_type(types, lt)) return rt;
+        if (!is_float_type(types, rt)) return lt;
+        return numeric_rank(types, rt) > numeric_rank(types, lt) ? rt : lt;  // wider float wins
+    }
+
+    int lr = numeric_rank(types, lt);
+    int rr = numeric_rank(types, rt);
+    if (lr == -1 || rr == -1) return nullptr;
+
+    if (lr > rr) return lt;
+    if (rr > lr) return rt;
+    return is_unsigned_type(types, lt) ? lt : rt;  // same width: unsigned wins
 }
 
 void CodeManager::infer_types_expr(Ast_Expression **expr_ptr)
@@ -2074,6 +2098,16 @@ void CodeManager::infer_types_expr(Ast_Expression **expr_ptr)
                         break;
                     }
 
+                    // literals get the other operand's type if they fit
+                    if (b->op == BINOP_ADD || b->op == BINOP_SUB || b->op == BINOP_MUL || b->op == BINOP_DIV || b->op == BINOP_MOD)
+                    {
+                        if (can_implicitly_convert_const(b->rhs, lt)) {
+                            rt = lt;
+                        } else if (can_implicitly_convert_const(b->lhs, rt)) {
+                            lt = rt;
+                        }
+                    }
+
                     if (b->op == BINOP_ADD || b->op == BINOP_SUB) {
                         Ast_Type_Definition *result = infer_numeric_binary_type(_type, lt, rt, true);
                         if (result) {
@@ -2349,7 +2383,7 @@ void CodeManager::infer_types_expr(Ast_Expression **expr_ptr)
 
                             lhsType = lhs_dot->inferred_type;
 
-                            if (!check_that_types_match(lhsType, rhsType)) {
+                            if (!check_that_types_match(lhsType, rhsType) && !can_implicitly_convert_const(b->rhs, lhsType)) {
                                 report_error(b, "Type mismatch in member assignment. Expected '%s' Got '%s'", type_to_string(lhsType), type_to_string(rhsType));
                             }
                         } else {
@@ -2368,7 +2402,7 @@ void CodeManager::infer_types_expr(Ast_Expression **expr_ptr)
 
                         if (!is_decl->declared_type) {
                             is_decl->declared_type = rhsType;
-                        } else if (!check_that_types_match(is_decl->declared_type, rhsType)) {
+                        } else if (!check_that_types_match(is_decl->declared_type, rhsType) && !can_implicitly_convert_const(b->rhs, is_decl->declared_type)) {
                             report_error(lhs_ident, "Type mismatch in assignment to '%s'. Expected '%s' Got '%s'",
                                           lhs_ident->name, type_to_string(is_decl->declared_type), type_to_string(rhsType));
                         }
@@ -2410,7 +2444,7 @@ void CodeManager::infer_types_expr(Ast_Expression **expr_ptr)
                             }
 
 
-                            if (!check_that_types_match(lhsType, rhsType)) {
+                            if (!check_that_types_match(lhsType, rhsType) && !can_implicitly_convert_const(b->rhs, lhsType)) {
                                 infer_error(lhs_unary, "Type mismatch: cannot assign '%s' to dereferenced pointer of type '%s'",
                                                 type_to_string(rhsType), type_to_string(lhsType));
                                 return;
@@ -2550,33 +2584,33 @@ void CodeManager::infer_types_expr(Ast_Expression **expr_ptr)
                             report_error(fn, "Function '%s' return type mismatch", fn->name);
                         }
 
-                        if (return_type && return_type->struct_def && return_type->struct_def->name && strcmp(return_type->struct_def->name, "Dynamic_Array") == 0) 
+                        if (return_type && return_type->struct_def && return_type->struct_def->name && strcmp(return_type->struct_def->name, "Dynamic_Array") == 0)
                         {
                             Ast_Type_Definition *elem = nullptr;
 
-                            if (call->arguments) 
+                            if (call->arguments)
                             {
-                                FOR(call->arguments->arguments) 
+                                FOR(call->arguments->arguments)
                                 {
                                     Ast_Expression *arg = get_call_argument_value(it);
                                     if (!arg || arg->type != AST_PROCEDURE_CALL_EXPRESSION) continue;
 
                                     auto *inner = static_cast<Ast_Procedure_Call_Expression*>(arg);
                                     if (!inner->function || inner->function->type != AST_IDENT) continue;
-                                    
+
                                     Ast_Ident *fn2 = static_cast<Ast_Ident*>(inner->function);
                                     if (!fn2->name || strcmp(fn2->name, "sizeof") != 0) continue;
-                                    
+
                                     if (!inner->arguments || inner->arguments->arguments.count != 1) continue;
-                                    
+
                                     Ast_Expression *tid_expr = inner->arguments->arguments.data[0];
                                     if (tid_expr->type != AST_IDENT) continue;
-                                    
+
                                     elem = resolve_type_by_name(static_cast<Ast_Ident*>(tid_expr)->name);
                                     break;
                                 }
                             }
-                            
+
                             Ast_Array_Type *dyn_arr = AST_NEW(Ast_Array_Type);
                             dyn_arr->is_resizable = true;
                             dyn_arr->element_type = elem ? elem : _type->type_def_void;
@@ -2681,7 +2715,7 @@ bool CodeManager::check_that_types_fit(long long value, Ast_Type_Definition *tar
     if(target == _type->type_def_int) return value >= -2147483648ll && value <= 2147483647ll;
     else if(target == _type->type_def_s8) return value >= -128ll && value <= 127ll;
     else if(target == _type->type_def_s16) return value >= -32768ll && value <= 32767ll;
-    else if(target == _type->type_def_s32) return value >= -2147483648ll && value <= 2147483648ll;
+    else if(target == _type->type_def_s32) return value >= -2147483648ll && value <= 2147483647ll;
     else if(target == _type->type_def_s64) return true;
     else if(target == _type->type_def_u8) return value >= 0 &&  value <= 255ull;
     else if(target == _type->type_def_u16) return value >= 0 && value <= 65535ull;
@@ -3210,35 +3244,46 @@ bool CodeManager::check_that_types_match(Ast_Type_Definition *wanted, Ast_Type_D
     // No implicit promotions allowed INSIDE a pointer type
     if (is_pointer) return false;
 
-    // Float promotions
-    if ((wanted == _type->type_def_float || wanted == _type->type_def_float32) && have == _type->type_def_s64) return true;
-    if ((wanted == _type->type_def_float || wanted == _type->type_def_float32) && have == _type->type_def_int) return true;
 
-    if (wanted == _type->type_def_int && have == _type->type_def_s64) return true;
-    if (wanted == _type->type_def_int && (have == _type->type_def_float || have == _type->type_def_float32)) return true;
+    // widening allowed (same family or same size signed<->unsigned)
+    // int -> float float widening only
+    if (wanted == _type->type_def_int) {
+        return is_integer_type(_type, have) || is_float_type(_type, have);
+    }
 
-    // Signed integer promotions
-    if (wanted == _type->type_def_s16 && have == _type->type_def_s8) return true;
-    if (wanted == _type->type_def_s32 && (have == _type->type_def_s8 || have == _type->type_def_s16)) return true;
-    if (wanted == _type->type_def_s64 && (have == _type->type_def_s8 || have == _type->type_def_s16 || have == _type->type_def_s32)) return true;
+    if (is_float_type(_type, wanted)) {
+        if (is_integer_type(_type, have)) return true;
+        if (is_float_type(_type, have)) return numeric_rank(_type, wanted) >= numeric_rank(_type, have);
+        return false;
+    }
 
-    // Unsigned integer promotions
-    if (wanted == _type->type_def_u16 && have == _type->type_def_u8) return true;
-    if (wanted == _type->type_def_u32 && (have == _type->type_def_u8 || have == _type->type_def_u16)) return true;
-    if (wanted == _type->type_def_u64 && (have == _type->type_def_u8 || have == _type->type_def_u16 || have == _type->type_def_u32)) return true;
+    if (is_integer_type(_type, wanted)) {
+        if (is_float_type(_type, have)) return false;
+        return numeric_rank(_type, wanted) >= numeric_rank(_type, have);
+    }
 
     return false;
 }
 
 inline bool CodeManager::can_implicitly_convert_const(Ast_Expression *expr, Ast_Type_Definition *target) {
-    if (!expr || expr->type != AST_LITERAL) return false;
+    if (!expr) return false;
 
-    Ast_Literal *lit = static_cast<Ast_Literal*>(expr);
-    if (lit->value_type != LITERAL_NUMBER) return false;
+    if (expr->type == AST_LITERAL) {
+        Ast_Literal *lit = static_cast<Ast_Literal*>(expr);
+        if (lit->value_type != LITERAL_NUMBER) return false;
+        return check_that_types_fit(lit->integer_value, target);
+    }
 
-    long long value = lit->integer_value;
+    // a negative number is parsed as a unary negate of a literal
+    if (expr->type == AST_UNARY) {
+        Ast_Unary *u = static_cast<Ast_Unary*>(expr);
+        if (u->op == UNARY_NEGATE && u->operand && u->operand->type == AST_LITERAL) {
+            Ast_Literal *lit = static_cast<Ast_Literal*>(u->operand);
+            if (lit->value_type == LITERAL_NUMBER) return check_that_types_fit(-lit->integer_value, target); // directly put a minus sine here
+        }
+    }
 
-    return check_that_types_fit(value, target);
+    return false;
 }
 
 
@@ -3343,13 +3388,10 @@ bool CodeManager::validate_call_arguments(Ast_Procedure_Call_Expression *call, A
     FOR(call->arguments->arguments)
     {
 
-        if (!it) {
-            continue;
-        }
+        if (!it) continue;
 
         if (it->type == AST_NAMED_ARGUMENT) {
-            Ast_Named_Argument *named =
-                static_cast<Ast_Named_Argument *>(it);
+            Ast_Named_Argument *named = static_cast<Ast_Named_Argument *>(it);
 
             if (!named->name || !named->name->name) {
                 report_error(it, "Invalid named argument");
@@ -3360,9 +3402,7 @@ bool CodeManager::validate_call_arguments(Ast_Procedure_Call_Expression *call, A
             Ast_Declaration *parameter = find_call_parameter(function_decl, named->name->name);
 
             if (!parameter) {
-                report_error(named->name, "Function '%s' has no parameter named '%s'",
-                                          function_decl->identifier->name, named->name->name);
-
+                report_error(named->name, "Function '%s' has no parameter named '%s'", function_decl->identifier->name, named->name->name);
                 valid = false;
                 continue;
             }
@@ -3382,9 +3422,7 @@ bool CodeManager::validate_call_arguments(Ast_Procedure_Call_Expression *call, A
             }
 
             if (parameter_was_provided.data[parameter_index]) {
-                report_error(named->name, "Argument '%s' was provided more than once",
-                                            named->name->name
-                );
+                report_error(named->name, "Argument '%s' was provided more than once", named->name->name);
 
                 valid = false;
                 continue;
@@ -3395,8 +3433,7 @@ bool CodeManager::validate_call_arguments(Ast_Procedure_Call_Expression *call, A
         }
 
         if (next_positional_parameter >= function_decl->parameters.count) {
-            report_error(it, "Function '%s' accepts at most %d arguments",
-                             function_decl->identifier->name, function_decl->parameters.count);
+            report_error(it, "Function '%s' accepts at most %d arguments", function_decl->identifier->name, function_decl->parameters.count);
 
             valid = false;
             continue;
@@ -3413,7 +3450,9 @@ bool CodeManager::validate_call_arguments(Ast_Procedure_Call_Expression *call, A
 
         if (!it->initializer) {
             report_error(call, "Function '%s' requires argument '%s' at position %d as it has no default initializer",
-                               function_decl->identifier->name, it->identifier && it->identifier->name ? it->identifier->name : "(unknown)", it_index+1);
+                               function_decl->identifier->name,
+                               it->identifier && it->identifier->name ? it->identifier->name : "(unknown)",
+                               it_index+1);
 
             valid = false;
         }

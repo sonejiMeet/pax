@@ -153,6 +153,13 @@ struct CodeManager {
     bool check_that_types_fit(long long value, Ast_Type_Definition *target);
     bool check_that_types_fit(double value, Ast_Type_Definition *target);
 
+    bool is_integer_type(Def_Type *types, Ast_Type_Definition *t);
+    int numeric_rank(Def_Type *types, Ast_Type_Definition *t);
+    bool is_float_type(Def_Type *types, Ast_Type_Definition *t);
+    bool is_unsigned_type(Def_Type *types, Ast_Type_Definition *t);
+    Ast_Type_Definition *infer_numeric_binary_type(Def_Type *types, Ast_Type_Definition *lt, Ast_Type_Definition *rt, bool allow_pointer_arith);
+
+
     long long wrap_integer_to_type(long long value, Ast_Type_Definition *target);
 
     void infer_types_decl(Ast_Declaration *decl);

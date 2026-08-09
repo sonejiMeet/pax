@@ -63,6 +63,7 @@ static const Test tests[] = {
     PASS(demo_sort),
     PASS(demo_binary_search),
     PASS(demo_compound_assignment),
+    PASS(demo_numeric_types),
     PASS(demo_implicit_foreign),
     
     PASS(a),
@@ -79,6 +80,8 @@ static const Test tests[] = {
     FAIL(demo_fail_nested_structs_with_members_as_pointers),
     FAIL(demo_fail_named_defaults_parameter),
     FAIL(demo_fail_named_defaults_parameter_2),
+    FAIL(demo_fail_numeric_narrowing),
+    FAIL(demo_fail_numeric_narrowing_float),
 };
 
 static void show_output(const char *path) {
@@ -96,8 +99,7 @@ static void show_output(const char *path) {
     printf("\n");
 }
 
-/* Pre-create the log so a shell-redirect failure can't kill the test
-   silently. */
+// pre create the log so a failure can't kill the test silently
 static int prepare_log(const char *path) {
     for (int attempt = 0; attempt < 3; attempt++) {
         FILE *f = fopen(path, "wb");
@@ -178,7 +180,7 @@ int main(int argc, char **argv) {
             continue;
         }
 
-        printf("[Running]   tests/%s", test->name);
+        printf("[Running]   %s.exe", test->name);
         fflush(stdout);
 
         snprintf(command, sizeof(command), "%s%s.exe > %s 2>&1", RUN_PREFIX, test->name, NULL_DEVICE);

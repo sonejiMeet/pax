@@ -1,0 +1,6 @@
+main :: () {
+    // float64 -> float32 cannot implicitly convert
+    d: float64 = 2.0;
+    r: float32 = d;
+    printf("%f\n", r);
+}

@@ -1,0 +1,6 @@
+main :: () {
+    // u64 -> s32 cannot implicitly convert  , u64<->s64 is allowed, but it shrinks the value
+    u: u64 = 10;
+    r: s32 = u;
+    printf("%d\n", r);
+}

@@ -83,7 +83,7 @@ void Parser::synchronize() {
         if (previous && previous->type == TOK_SEMICOLON) return;
         if (current->type == TOK_IDENTIFIER) {
             current = previous;
-            return;
+            // return;
         }
         switch (lexer->peekNextToken()->type) {
             case TOK_IF:
@@ -390,7 +390,7 @@ Ast_Expression *Parser::parseExpression(int minPrecedence)
     }
     else {
         report_parse_error("Expected a literal, identifier, or an expression.");
-        return nullptr;
+        // return nullptr;
     }
 
     // Handle binary operators based on precedence
