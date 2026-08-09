@@ -3271,7 +3271,7 @@ inline bool CodeManager::can_implicitly_convert_const(Ast_Expression *expr, Ast_
     if (expr->type == AST_LITERAL) {
         Ast_Literal *lit = static_cast<Ast_Literal*>(expr);
         if (lit->value_type != LITERAL_NUMBER) return false;
-        return check_that_types_fit(lit->integer_value, target);
+        return check_that_types_fit((long long)lit->integer_value, target);
     }
 
     // a negative number is parsed as a unary negate of a literal
@@ -3279,7 +3279,7 @@ inline bool CodeManager::can_implicitly_convert_const(Ast_Expression *expr, Ast_
         Ast_Unary *u = static_cast<Ast_Unary*>(expr);
         if (u->op == UNARY_NEGATE && u->operand && u->operand->type == AST_LITERAL) {
             Ast_Literal *lit = static_cast<Ast_Literal*>(u->operand);
-            if (lit->value_type == LITERAL_NUMBER) return check_that_types_fit(-lit->integer_value, target); // directly put a minus sine here
+            if (lit->value_type == LITERAL_NUMBER) return check_that_types_fit((long long)-lit->integer_value, target); // directly put a minus sine here
         }
     }
 

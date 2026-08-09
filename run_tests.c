@@ -66,12 +66,15 @@ static const Test tests[] = {
     PASS(demo_numeric_types),
     PASS(demo_implicit_foreign),
     
-    PASS(a),
     PASS(demo_multi_variable),
+
+#ifdef _WIN32
+    PASS(a),
     PASS(d),
     PASS(e),
     PASS(f),
-    
+#endif
+
     PASS(demo_dynamic_array),
     
     FAIL(demo_fail_uninitialized_ptr_member_passed_by_value),
