@@ -3082,6 +3082,7 @@ void CodeManager::infer_types_block(Ast_Block *block, Ast_Declaration *my_func)
 
                     FOR(decl->parameters){
                         declare_variable(it);
+                        infer_types_decl(it);
                     }
                     infer_types_block(decl->my_scope, decl); // Infer types in function body
                     pop_scope();

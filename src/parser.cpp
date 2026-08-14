@@ -565,8 +565,7 @@ Ast_Type_Definition *Parser::parseTypeSpecifier() {
         baseType = user_defined_type;
     }
     else {
-        report_parse_error("Expected a base type");
-        return nullptr;
+        baseType = nullptr;
     }
     advance();
 
@@ -1005,17 +1004,13 @@ Ast_Declaration *Parser::parseFunctionDeclaration(bool is_local) {
 
             param->declared_type = parseTypeSpecifier();
             if (!param->declared_type) {
-                report_parse_error("Invalid parameter type");
-                return nullptr;
-            }
+                param->initializer = parseExpression();
 
-            func_decl->parameters.push_back(param);
-
-            if(current->type == TOK_ASSIGN){
+            } else if(current->type == TOK_ASSIGN){
                 advance();
-
                 param->initializer = parseExpression();
             }
+            func_decl->parameters.push_back(param);
 
             if (current->type != TOK_COMMA)
                 break;
