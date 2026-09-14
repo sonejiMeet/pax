@@ -68,12 +68,10 @@ static const Test tests[] = {
     
     PASS(demo_multi_variable),
 
-#ifdef _WIN32
-    PASS(a),
-    PASS(d),
-    PASS(e),
-    PASS(f),
-#endif
+    PASS(demo_sphere_shader),
+    PASS(demo_shader),
+    PASS(demo_arena_allocator),
+    PASS(demo_insertion_sort),
 
     PASS(demo_dynamic_array),
     

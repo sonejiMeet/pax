@@ -1,0 +1,186 @@
+// terminal shader animated ASCII demo
+#import "General.pax"
+
+// ---- entry ----
+main :: () {
+    init_palette();
+
+    printf("=== Pax ASCII plasma shader ===\n");
+    printf("resolution %dx%d, %d frames\n\n", WIDTH, HEIGHT, FRAMES);
+
+    frame := 0;
+    program_start := __rdtsc();
+
+    while frame < FRAMES {
+        frame_start := __rdtsc();
+
+        info: FrameInfo;
+        info.index = frame;
+
+        elapsed_cycles := __rdtsc() - program_start;
+        info.time = cast(float)elapsed_cycles / cast(float)CPU_HZ;
+        info.phase = info.time * TAU;
+
+        clear_screen();
+
+        w, h := resolution();
+        printf("frame %d  t=%.2f  size=%dx%d\n", frame, info.time, w, h);
+
+        render_frame(info, intensity=1.0, invert=false);
+
+        frame = frame + 1;
+
+        // wait until exactly 1/60 second has passed
+        while __rdtsc() - frame_start < CYCLES_PER_FRAME {
+        }
+    }
+
+    clear_screen();
+}
+
+SHADER_RUN_TIME_SECONDS := 5;
+
+WIDTH  := 72;
+HEIGHT := 28;
+FRAMES := 60*SHADER_RUN_TIME_SECONDS;
+PI     := 3.14159265;
+TAU    := 6.28318530;
+
+// ---- structs ----
+Vec2 :: struct {
+    x: float;
+    y: float;
+};
+FrameInfo :: struct {
+    index: int;
+    time:  float;   // seconds since start
+    phase: float;   // radians
+};
+
+FPS := 60;
+CPU_HZ := 2000000000;  // 2.6 Ghz
+CYCLES_PER_FRAME := CPU_HZ / FPS;
+
+// palette of ASCII "shades" (dark -> bright)
+PALETTE: [12]u8;
+
+resolution :: () -> int, int {
+    return WIDTH, HEIGHT;
+}
+
+FRAME_BUF_SZ := 2150; // HEIGHT*(WIDTH+1);
+frame_buf: [FRAME_BUF_SZ]u8;
+
+// ---- named + default params ----
+render_frame :: (info: FrameInfo, intensity: float = 1.0, invert: bool = false) {
+
+    pos := 0;
+    for y: 0..HEIGHT {
+        for x: 0..WIDTH {
+            // normalized UV in [-1, 1]
+            uv := pixel_uv(x, y);
+
+            // sample "shader"
+            bright := shader(uv, info, intensity=intensity);
+
+            if invert {
+                bright = 1.0 - bright;
+            }
+
+            ch := sample_palette(bright);
+
+            frame_buf[pos] = ch;
+            pos = pos + 1;
+        }
+        frame_buf[pos] = cast(u8)10;
+        pos = pos + 1;
+    }
+    frame_buf[pos] = cast(u8)0;
+    printf("%s", cast(^u8) frame_buf.data);
+
+}
+
+// map pixel -> UV (uses cast, floats, arithmetic)
+pixel_uv :: (px: int, py: int) -> Vec2 {
+    u: float = cast(float)px / (WIDTH  - 1) * 2.0 - 1.0;
+    v: float = cast(float)py / (HEIGHT - 1) * 2.0 - 1.0;
+
+    // keep aspect roughly square in character cells (chars are taller)
+    u = u * cast(float)WIDTH / HEIGHT * 0.55;
+
+    out: Vec2;
+    out.x = u;
+    out.y = v;
+    return out;
+}
+
+shader :: (uv: Vec2, info: FrameInfo, intensity: float = 1.0) -> float {
+    t := info.phase;
+
+    a := sin(uv.x * 3.0 + t);
+    b := cos(uv.y * 3.5 - t * 1.2);
+
+    c := sin((a + b) * 4.0);
+
+    v := c * 0.5 + 0.5;
+
+    return clampf(v * intensity, 0.0, 1.0);
+}
+
+// shader :: (uv: Vec2, info: FrameInfo, intensity: float = 1.0) -> float {
+//     t := info.phase;
+
+//     r2 := uv.x * uv.x + uv.y * uv.y;
+//     r := sqrt(r2);
+
+//     rings := sin(r * 20.0 - t * 2.5);
+//     fade := exp(-r2 * 0.8);
+
+//     v := (rings * 0.5 + 0.5) * fade;
+
+//     return clampf(v * intensity, 0.0, 1.0);
+// }
+
+
+length2 :: (x: float, y: float) -> float {
+    return pow(x*x + y*y, 0.5);
+}
+
+clampf :: (x: float, a: float, b: float) -> float {
+    if x < a return a;
+    if x > b return b;
+    return x;
+}
+
+// ---- palette ----
+init_palette :: () {
+    // " .:-=+*#%@" plus a couple extras
+    PALETTE[0]  = 32;  // space
+    PALETTE[1]  = 46;  // .
+    PALETTE[2]  = 58;  // :
+    PALETTE[3]  = 45;  // -
+    PALETTE[4]  = 61;  // =
+    PALETTE[5]  = 43;  // +
+    PALETTE[6]  = 42;  // *
+    PALETTE[7]  = 35;  // #
+    PALETTE[8]  = 37;  // %
+    PALETTE[9]  = 64;  // @
+    PALETTE[10] = 64;
+    PALETTE[11] = 64;
+}
+
+sample_palette :: (brightness: float) -> u8 {
+    b := clampf(brightness, 0.0, 1.0);
+    n := PALETTE.count;
+    idx: int = b * cast(float)(n - 1);
+
+    if idx < 0     idx = 0;
+    if idx >= n    idx = n - 1;
+
+    return PALETTE[idx];
+}
+
+// ANSI: clear screen + home cursor
+clear_screen :: () {
+    printf("\x1b[2J\x1b[H");
+}

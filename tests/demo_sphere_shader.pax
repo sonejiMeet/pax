@@ -1,0 +1,238 @@
+#import "General.pax";
+
+WIDTH  := 80;
+HEIGHT := 40;
+FRAMES := 60;
+TAU := 6.28318530;
+
+FRAME_BUF_SZ: s64 = 3500;     // HEIGHT*(WIDTH+1) + status + null
+frame_buf: [FRAME_BUF_SZ]u8;   // reusable global buffer
+
+FPS := 20;
+CPU_HZ := 3000000000;  // 3.0 GHz
+CYCLES_PER_FRAME := CPU_HZ / FPS;
+FrameInfo :: struct {
+    index: int;
+    time:  float;   // seconds since start
+    phase: float;   // radians
+};
+
+main :: () {
+
+    init_gradient();
+
+    frame := 0;
+    program_start := __rdtsc();
+
+    while frame < FRAMES {
+
+        clear_screen();
+
+        frame_start := __rdtsc();
+        info: FrameInfo;
+        info.index = frame;
+        elapsed_cycles := __rdtsc() - program_start;
+        info.time = cast(float)elapsed_cycles / cast(float)CPU_HZ;
+        info.phase = info.time * TAU;
+
+
+        t: float = cast(float)frame / FRAMES;
+        angle := t * TAU;
+
+        // camera orbit
+        cam_x := 3.0 * cos(angle);
+        cam_z := 3.0 * sin(angle);
+        cam_y := 1.0;
+
+        // animate sphere center
+        g_sx = 0.7 * cos(angle * 6.0);
+        g_sy = 0.0;
+        g_sz = 0.7 * sin(angle * 6.0);
+
+        // rotating light
+        g_lx = cos(angle) * 0.7;
+        g_ly = 0.8;
+        g_lz = sin(angle) * 0.7;
+
+        // view basis
+        dir_x := -cam_x;
+        dir_y := -cam_y;
+        dir_z := -cam_z;
+        normalize3(dir_x, dir_y, dir_z, &dir_x, &dir_y, &dir_z);
+
+        up_x := 0.0;
+        up_y := 1.0;
+        up_z := 0.0;
+
+        side_x := dir_z * up_y - dir_y * up_z;
+        side_y := dir_x * up_z - dir_z * up_x;
+        side_z := dir_y * up_x - dir_x * up_y;
+        normalize3(side_x, side_y, side_z, &side_x, &side_y, &side_z);
+
+        up_x = side_y * dir_z - side_z * dir_y;
+        up_y = side_z * dir_x - side_x * dir_z;
+        up_z = side_x * dir_y - side_y * dir_x;
+        normalize3(up_x, up_y, up_z, &up_x, &up_y, &up_z);
+
+        fov := 1.0;
+
+        y := 0;
+        pos: s64 = 0;
+        while y < HEIGHT {
+            x := 0;
+            while x < WIDTH {
+
+                u: float = cast(float)x / (WIDTH - 1) * 2.0 - 1.0;
+                v: float = cast(float)y / (HEIGHT - 1) * 2.0 - 1.0;
+
+                ray_x := dir_x * fov + side_x * u + up_x * (-v);
+                ray_y := dir_y * fov + side_y * u + up_y * (-v);
+                ray_z := dir_z * fov + side_z * u + up_z * (-v);
+                normalize3(ray_x, ray_y, ray_z, &ray_x, &ray_y, &ray_z);
+
+                brightness := raymarch(cam_x, cam_y, cam_z, ray_x, ray_y, ray_z);
+                if brightness < 0.0 brightness = 0.0;
+                if brightness > 1.0 brightness = 1.0;
+
+                ch: u8 = sample_char(brightness);
+                frame_buf[pos] = ch;
+                pos = pos + 1;
+                x = x + 1;
+            }
+            frame_buf[pos] = cast(u8)10;
+            pos = pos + 1;
+            y = y + 1;
+        }
+        frame_buf[pos] = cast(u8)0;
+        printf("%s", cast(^u8)frame_buf.data);
+        printf("\nframe = %d\n", frame);
+        frame = frame + 1;
+
+        // delay();
+        while __rdtsc() - frame_start < CYCLES_PER_FRAME {
+        }
+
+    }
+
+    printf("\nDONE ASCII SHADER\n");
+}
+
+
+// light and sphere center
+g_lx := 0.0;
+g_ly := 1.0;
+g_lz := 0.0;
+
+g_sx := 0.0;
+g_sy := 0.0;
+g_sz := 0.0;
+
+clampf :: (x: float, a: float, b: float) -> float {
+    if x < a return a;
+    if x > b return b;
+    return x;
+}
+
+lerpf :: (a: float, b: float, t: float) -> float {
+    return a + (b - a) * t;
+}
+
+length3 :: (x: float, y: float, z: float) -> float {
+    p := pow(x*x + y*y + z*z, 0.5);
+    return p;
+}
+
+normalize3 :: (x: float, y: float, z: float, outx: ^float, outy: ^float, outz: ^float) {
+    len := length3(x, y, z);
+    if len == 0.0 {
+        *outx = 0.0;
+        *outy = 0.0;
+        *outz = 0.0;
+        return;
+    }
+    inv := 1.0 / len;
+    *outx = x * inv;
+    *outy = y * inv;
+    *outz = z * inv;
+}
+
+// ---------- sphere SDF with moving center ----------
+
+sd_sphere :: (px: float, py: float, pz: float, radius: float) -> float {
+    dx := px - g_sx;
+    dy := py - g_sy;
+    dz := pz - g_sz;
+    d := length3(dx, dy, dz) - radius;
+    return d;
+}
+
+// ---------- raymarch ----------
+
+raymarch :: (ox: float, oy: float, oz: float,
+             dx: float, dy: float, dz: float) -> float {
+    t := 0.0;
+    i := 0;
+    while i < 64 {
+        px := ox + dx * t;
+        py := oy + dy * t;
+        pz := oz + dz * t;
+
+        dist := sd_sphere(px, py, pz, 1.0);
+        if dist < 0.001 {
+            nx := px;
+            ny := py;
+            nz := pz;
+            normalize3(nx, ny, nz, &nx, &ny, &nz);
+
+            lx := g_lx;
+            ly := g_ly;
+            lz := g_lz;
+            normalize3(lx, ly, lz, &lx, &ly, &lz);
+
+            dot := nx*lx + ny*ly + nz*lz;
+            if dot < 0.0 dot = 0.0;
+            return dot;
+        }
+
+        if dist > 1.0 dist = 1.0;
+        t = t + dist;
+        if t > 10.0 break;
+
+        i = i + 1;
+    }
+
+    return 0.0;
+}
+
+GRADIENT_DATA: [10]u8;
+init_gradient :: () {
+
+    GRADIENT_DATA[0] = 32; // '.'
+    GRADIENT_DATA[1] = 58; // ':'
+    GRADIENT_DATA[2] = 45; // '-'
+    GRADIENT_DATA[3] = 61; // '='
+    GRADIENT_DATA[4] = 43; // '+'
+    GRADIENT_DATA[5] = 42; // '*'
+    GRADIENT_DATA[6] = 35; // '#'
+    GRADIENT_DATA[7] = 37; // '%'
+    GRADIENT_DATA[8] = 64; // '@'
+    GRADIENT_DATA[9] = 64; // '@'
+}
+
+sample_char :: (brightness: float) -> u8 {
+    count := 10;
+
+    if brightness < 0.0 brightness = 0.0;
+    if brightness > 1.0 brightness = 1.0;
+
+    idx: int = brightness * (count - 1);
+
+    if idx < 0 idx = 0;
+    if idx >= count idx = count - 1;
+
+    return GRADIENT_DATA[idx];
+}
+
+clear_screen :: () {
+    printf("\x1b[2J\x1b[H");
+}

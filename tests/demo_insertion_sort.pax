@@ -1,0 +1,98 @@
+#import "String.pax"
+#import "General.pax"
+
+
+main :: () {
+
+    // Insertion sort on linked list ----------------------------
+    printf("========== Insertion Sort Demo ==========\n");
+    list: ^ListNode = null;
+
+    // data array to insert (exercises auto-boxing into int)
+    data: [8]int;
+    data[0] = 42;
+    data[1] = 7;
+    data[2] = 99;
+    data[3] = 3;
+    data[4] = 55;
+    data[5] = 18;
+    data[6] = 60;
+    data[7] = 1;
+
+    for i:0..data.count-1
+        list = sorted_insert(list, data[i]);
+
+    // Test: assert length == 8
+    len: int = list_len(list);
+    printf("  List length = %d (expected 8)\n", len);
+    if len == 8 {
+        printf("  PASS: length check\n");
+    } else if len != 8 {
+        printf("  FAIL: length mismatch\n");
+    }
+    printf("  Sorted list:\n");
+    list_print(list);
+
+    // Also test recursion with list_len (already done above)
+    // Free list nodes
+    curr: ^ListNode = list;
+    while curr != null {
+        next_tmp: ^ListNode = curr.next;
+        free(curr);
+        curr = next_tmp;
+    }
+    newline();
+
+    printf("========== ALL DONE ==========\n");
+}
+
+// -- ListNode for the sort demo ---------------------------------------------
+ListNode :: struct {
+    value: int = 0;
+    next:  ^ListNode = null;
+};
+
+//  Linked List insertion sort
+
+sorted_insert :: (head: ^ListNode, val: int) -> ^ListNode {
+    // Allocate node (pretend this comes from an arena allocator)
+    node: ^ListNode = malloc(sizeof(ListNode));
+    if node == null { return head; }
+    node.value = val;
+    node.next  = null;
+
+    // Insert at head?
+    if head == null || val <= head.value {
+        node.next = head;
+        return node;
+    }
+
+    // Walk to insertion point
+    prev: ^ListNode = head;
+    curr: ^ListNode = head.next;
+    while curr != null && curr.value < val {
+        prev = curr;
+        curr = curr.next;
+    }
+    prev.next = node;
+    node.next = curr;
+    return head;
+}
+
+// Recursively count nodes
+list_len :: (head: ^ListNode) -> int {
+    if head == null { return 0; }
+    return 1 + list_len(head.next);
+}
+
+// Print a list
+list_print :: (head: ^ListNode) {
+    while head != null {
+        printf("    %d\n", head.value);
+        head = head.next;
+    }
+}
+
+newline :: () {
+    printf("\n");
+}

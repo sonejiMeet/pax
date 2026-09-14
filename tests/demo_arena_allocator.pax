@@ -1,0 +1,157 @@
+// Arena Allocator 
+
+#import "String.pax"
+#import "General.pax"
+
+main :: () {
+
+    newline();
+
+    printf("========== Arena Allocator Demo ==========\n");
+    arena: ^Arena = make_arena(2048);
+
+    defer free(arena);
+
+    arena_stats(arena);
+
+    // Allocate three things from the arena
+    p1: ^u8 = arena_alloc(arena, 128);
+    p2: ^u8 = arena_alloc(arena, 1024);
+    p3: ^u8 = arena_alloc(arena, 512);
+    printf("  After three allocs--------------------\n");
+    arena_stats(arena);
+    newline();
+
+    // Allocate 1 byte bigger than DEFAULT_BLOCK_SIZE, this forces arena to make a new block 
+    big: ^u8 = arena_alloc(arena, DEFAULT_BLOCK_SIZE + 1);
+    printf("  Big alloc (%d) = %p\n", DEFAULT_BLOCK_SIZE, big);
+    arena_stats(arena);
+
+    arena_destroy(arena);
+
+    printf("========== ALL DONE ==========\n");
+}
+
+// -- Default block size for arena -------------------------------------------
+DEFAULT_BLOCK_SIZE := 0;
+
+// -- Arena: a simple bump allocator with a linked list of blocks -------------
+Arena :: struct {
+    current: ^Block = null;  // active block being allocated-from
+    first:   ^Block = null;  // head of the block linked-list
+    pos:     s64 = 0;        // bytes already consumed inside current block
+};
+
+Block :: struct {
+    memory: ^u8 = null;       // raw backing memory
+    size:   s64 = 0;          // total bytes in this block
+    next:   ^Block = null;    // next block in the chain
+    used:   bool = false;     // has this block been allocated into yet?
+};
+
+
+// ============================================================
+//  Arena API
+// ============================================================
+
+// Create a new arena, pre-allocating its first block.
+make_arena :: (block_size := 4096) -> ^Arena {
+    DEFAULT_BLOCK_SIZE = block_size;
+    a := malloc(sizeof(Arena));
+    if a == null { return null; }
+
+    a.pos     = 0;
+    a.first   = null;
+    a.current = null;
+
+    blk: ^Block = malloc(sizeof(Block));
+    if blk == null {
+        free(a);
+        return null;
+    }
+    blk.memory = cast(^u8)malloc(DEFAULT_BLOCK_SIZE);
+    blk.size   = DEFAULT_BLOCK_SIZE;
+    blk.next   = null;
+    blk.used   = false;
+
+    a.first   = blk;
+    a.current = blk;
+    return a;
+}
+
+// Allocate `bytes` from the arena.  Falls back to a new block if needed.
+arena_alloc :: (a: ^Arena, bytes: s64) -> ^u8 {
+    if a == null || bytes <= 0 { return null; }
+
+    // Round up to 8-byte alignment
+    aligned: s64 = ((bytes + 7) / 8) * 8;
+
+    // Grab current block into a local 
+    if a.pos + aligned > a.current.size {
+        // make a new block 
+        new_size: s64 = DEFAULT_BLOCK_SIZE;
+        if aligned > new_size { new_size = aligned; }
+
+        new_blk: ^Block = malloc(sizeof(Block));
+        if new_blk == null { return null; }
+
+        new_blk.memory = cast(^u8)malloc(new_size);
+        new_blk.size   = new_size;
+        new_blk.next   = null;
+        new_blk.used   = false;
+
+        // Link into chain and switch the active block
+        a.current.next = new_blk;
+        a.current = new_blk;
+        a.pos     = 0;
+    }
+
+    // Bump the pointer
+    ptr: ^u8 = a.current.memory + a.pos;
+    a.pos = a.pos + aligned;
+    a.current.used = true;
+    return ptr;
+}
+
+// Free all blocks (but NOT the arena ptr itself — let C runtime handle it).
+arena_destroy :: (a: ^Arena) {
+    if a == null { return; }
+
+    blk: ^Block = a.first;
+    while blk != null {
+        next_blk: ^Block = blk.next;
+        if blk.memory != null { free(blk.memory); }
+        free(blk);
+        blk = next_blk;
+    }
+    // arena itself is left for the OS
+}
+
+// Print arena stats
+arena_stats :: (a: ^Arena) {
+    if a == null {
+        printf("  Arena is NULL\n");
+        return;
+    }
+
+    total_bytes, block_count, pos, cap := 0;
+
+    blk: ^Block = a.first;
+    while blk != null {
+        total_bytes += blk.size;
+        printf("total_bytes = %d, blk.size = %d\n", total_bytes, blk.size);
+        block_count += 1;
+        blk = blk.next;
+    }
+
+    printf("  Arena: blocks=%d  total-bytes=%d", block_count, total_bytes);
+
+    if a.current != null {
+        printf("  used=%d/%d", a.pos,  a.current.size);
+    }
+    printf("\n");
+}
+
+newline :: () {
+    printf("\n");
+}
