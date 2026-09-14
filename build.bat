@@ -11,7 +11,9 @@ if "%~1"=="" 								   echo [Default mode]
 
 pushd src\
 
-cl %debug% %optimize% /Z7 /w /EHsc /nologo /Zc:preprocessor /Zc:inline main.cpp logo.res /Fe:pax.exe /link /INCREMENTAL:NO /DYNAMICBASE:NO
+if not exist ..\bin mkdir ..\bin
+
+cl %debug% %optimize% /Z7 /w /EHsc /nologo /Zc:preprocessor /Zc:inline main.cpp ..\bin\logo.res /Fe:..\bin\pax.exe /link /INCREMENTAL:NO /DYNAMICBASE:NO
 
 
 : for .i file
@@ -29,3 +31,6 @@ rem g++ -o pax1.exe -w main.cpp
 rem clang++ -o pax1.exe -w main.cpp
 
 popd
+
+echo:
+echo Output: .\bin\pax.exe

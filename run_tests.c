@@ -6,12 +6,12 @@
 
 #ifdef _WIN32
 #define NULL_DEVICE "nul"
-#define BIN_PATH    ".\\src\\pax.exe"
+#define BIN_PATH    ".\\bin\\pax.exe"
 #define TESTS_DIR   ".\\tests\\"
 #define RUN_PREFIX  ".\\"
 #else
 #define NULL_DEVICE "/dev/null"
-#define BIN_PATH    "./src/pax.exe"
+#define BIN_PATH    "./bin/pax.exe"
 #define TESTS_DIR   "./tests/"
 #define RUN_PREFIX  "./"
 #endif
@@ -54,7 +54,7 @@ static const Test tests[] = {
     PASS(demo_simple_nested_structs),
     PASS(demo_string),
     PASS(demo_pointer_cast_byte),
-    
+
     COMPILE_ONLY(demo_runtime_crash_handler),
     PASS(demo_named_defaults_parameter),
     PASS(demo_multi_return),
@@ -65,7 +65,7 @@ static const Test tests[] = {
     PASS(demo_compound_assignment),
     PASS(demo_numeric_types),
     PASS(demo_implicit_foreign),
-    
+
     PASS(demo_multi_variable),
 
     PASS(demo_sphere_shader),
@@ -74,7 +74,7 @@ static const Test tests[] = {
     PASS(demo_insertion_sort),
 
     PASS(demo_dynamic_array),
-    
+
     FAIL(demo_fail_uninitialized_ptr_member_passed_by_value),
     FAIL(demo_fail_is_declaration_passed_through_function),
     FAIL(demo_fail_nested_init),

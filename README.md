@@ -14,6 +14,38 @@ from C compiler (otherwise its a bug in Pax transpiler that should be fixed).
 Eventually, the aim is to shift from transpiling to a native backend.
 For now, I wanted to focus on language design and frontend implementation.
 
+# How to build
+## On Windows (requires VS 2022)
+```C
+./build.bat
+./tests.bat // check if all tests pass
+```
+## On Linux
+```C
+./build.sh
+./tests.sh // check if all tests pass
+```
+# Usage
+```C
+.\bin\pax.exe // pax compiler exists in bin folder
+```
+```
+Usage :  pax file.pax [option]
+Option:
+        -time,     show how long each step takes
+        -profile,  enable memory tracer (outputs a text file)
+        -lex,      print lexer tokens
+        -verbose,  continue past errors, report all at once
+        -mem,      windows memory leak check
+        -debug,    debug
+        -h,        print help
+```
+# Important note
+For now the build system of Pax may not seem reliable. Main built-in modules like General.pax, String.pax and Sort.pax are inside modules/ folder. This folder is searched at the beginning for their existence, if it does not exit there then it falls back to local path. 
+
+Also, the only way to compile Pax project is to pass a file with atleast main entry point (main function) and as long as it has relative paths to other pax module files it uses its fine. Best way is to just keep all the Pax files in single folder including main entry point.
+
+
 # Memory tracing
 Pax uses Pool allocator (aka bump allocator), where a huge chunk of memory (ex. 128 KiB)
 is allocated by the global malloc and data is pushed in contiguous form and pointer is 
@@ -33,19 +65,14 @@ see below.
 https://github.com/user-attachments/assets/5eb5fc7f-b7d5-4cc5-8596-2fdbb91050db
 
 ---
-## How to use it
-1. To enable memory profiling, add following at the top of `src/main.cpp`
-```cpp
-#define ENABLE_MEMORY_TRACER
+## How to use memory tracer
+1. Pass the **-profile** argument when compiling a pax file, see example below 
+```bash
+.\src\pax.exe main.pax -profile
 ```
-2. Rebuild project
-3. Now when you compile a Pax file, it will output `pool_trace.txt`
-4. Run following to generate json file
+2. Now it will output a `pool_trace.txt`
+3. Run following to generate json file
 ```bash
 python mem_tracing\main.py pool_trace.txt
 ```
-5. Upload `pool_trace.json` to [Perfetto](https://ui.perfetto.dev/)
-
-(This project is under development)
-
-###### P.S. Language design is heavily inspired by Jonathan Blow's Jai programming language.
+4. Upload `pool_trace.json` to [Perfetto](https://ui.perfetto.dev/)

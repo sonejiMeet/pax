@@ -194,7 +194,6 @@ def convert_txt_to_chrome_trace(input_file: str, output_file: str):
 
     print(f"\nTotal Types: {len(type_first_seen)}")
 
-    print(f"\nOutput: {output_file}")
 
 
 
@@ -208,6 +207,8 @@ def main():
 
     convert_txt_to_chrome_trace(input_path, output_path)
     print(f"Total extra bytes (padding) = {print_extra}")
+    
+    print(f"\nOutput: {output_path}\n")
 
 if __name__ == "__main__":
     main()
