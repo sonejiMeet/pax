@@ -18,7 +18,10 @@ const char *BOILTERPLATE_TOP =
     "#include <math.h>\n"
 #ifdef _WIN32
     "#include <intrin.h>\n"
+#else
+    "#include <x86intrin.h>\n"
 #endif
+
     "typedef unsigned long long u64;\n"
     "typedef unsigned int       u32;\n"
     "typedef unsigned short     u16;\n"
