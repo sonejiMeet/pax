@@ -67,13 +67,14 @@ static const Test tests[] = {
     PASS(demo_implicit_foreign),
 
     PASS(demo_multi_variable),
+    PASS(demo_dynamic_array),
 
     PASS(demo_sphere_shader),
     PASS(demo_shader),
     PASS(demo_arena_allocator),
     PASS(demo_insertion_sort),
+    PASS(demo_game_of_life),
 
-    PASS(demo_dynamic_array),
 
     FAIL(demo_fail_uninitialized_ptr_member_passed_by_value),
     FAIL(demo_fail_is_declaration_passed_through_function),
@@ -135,7 +136,7 @@ int main(int argc, char **argv) {
         snprintf(exe, sizeof(exe), "%s.exe", test->name);
         remove(exe);
 
-        printf("[Compiling] src/pax.exe tests/%s.pax -mem -debug -verbose", test->name);
+        printf("[Compiling] %s tests/%s.pax -mem -debug -verbose", BIN_PATH, test->name);
         fflush(stdout);
 
         if (!prepare_log(log)) {

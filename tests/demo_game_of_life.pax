@@ -1,0 +1,217 @@
+//  Conway's Game of Life
+
+main :: () {
+
+    // Two grids for ping-pong simulation
+    grid_a: [GRID_SZ]int;
+    grid_b: [GRID_SZ]int;
+
+    // Zero-initialize both grids
+    i: s64 = 0;
+    while i < GRID_SZ {
+        grid_a[i] = 0;
+        grid_b[i] = 0;
+        i = i + 1;
+    }
+
+    // Seed patterns onto grid_a
+    pa: ^[]int = &grid_a;
+    seed_all(pa);
+
+    // Run the simulation
+    gen:    s64 = 0;
+    active: ^[]int = pa;                   // current displayed grid
+    hidden: ^[]int = &grid_b;              // next-gen buffer
+
+    frame := 0;
+    program_start := __rdtsc();
+
+    while gen < GENS {
+        frame_start := __rdtsc();
+
+        info: FrameInfo;
+        info.index = frame;
+
+        elapsed_cycles := __rdtsc() - program_start;
+        info.time = cast(float)elapsed_cycles / cast(float)CPU_HZ;
+        info.phase = info.time * TAU;
+
+        print_grid(active, gen + 1, GENS);
+        next_gen(active, hidden);
+        // wait until the frame period (1/FPS s) has passed
+        while __rdtsc() - frame_start < CYCLES_PER_FRAME {
+        }
+
+        // Swap buffers
+        tmp: ^[]int = active;
+        active = hidden;
+        hidden = tmp;
+        gen = gen + 1;
+    }
+
+    // Show final state
+    print_grid(active, GENS, GENS);
+    printf("  *** FINAL STATE after %d generations ***\n", GENS);
+}
+
+#import "General.pax"
+
+HEIGHT: s64 = 25;
+WIDTH: s64 = 50;
+GRID_SZ: s64 = 1250;  // HEIGHT * WIDTH (must be literal for arrays)
+GENS: s64 = 300;
+
+// -- Frame buffer (single-printf, no per-cell flicker) --------------------
+FRAME_BUF_SZ: s64 = 1400;     // HEIGHT*(WIDTH+1) + status + null
+frame_buf: [FRAME_BUF_SZ]u8;   // reusable global buffer
+
+TAU := 6.28318530;
+
+FPS := 20;
+CPU_HZ := 3000000000;  // 3.0 GHz
+CYCLES_PER_FRAME := CPU_HZ / FPS;
+
+FrameInfo :: struct {
+    index: int;
+    time:  float;   // seconds since start
+    phase: float;   // radians
+};
+
+
+
+// -- ANSI terminal helpers ------------------------------------------------
+clear :: () {
+    printf("\033[2J\033[H");
+}
+
+// -- Grid helpers (1D array indexing) -------------------------------------
+cell_idx :: (r: s64, c: s64) -> s64 {
+    return r * WIDTH + c;
+}
+
+// Count live neighbors of (r,c) with toroidal wrapping
+count_neighbors :: (grid: ^[]int, r: s64, c: s64) -> int {
+    count: int = 0;
+    dr: s64 = -1;
+    while dr <= 1 {
+        dc: s64 = -1;
+        while dc <= 1 {
+            if dr != 0 || dc != 0 {
+                nr: s64 = r + dr;
+                nc: s64 = c + dc;
+                if nr < 0      { nr = HEIGHT - 1; }
+                if nr >= HEIGHT { nr = 0;          }
+                if nc < 0      { nc = WIDTH - 1;   }
+                if nc >= WIDTH  { nc = 0;           }
+                count = count + grid[cell_idx(nr, nc)];
+            }
+            dc = dc + 1;
+        }
+        dr = dr + 1;
+    }
+    return count;
+}
+
+// Compute one generation
+next_gen :: (src: ^[]int, dst: ^[]int) {
+    r: s64 = 0;
+    while r < HEIGHT {
+        c: s64 = 0;
+        while c < WIDTH {
+            idx: s64 = cell_idx(r, c);
+            n: int = count_neighbors(src, r, c);
+
+            // Conway's rules:
+            //    live + (2 || 3 neighbors) → stays alive
+            //    dead + (3 neighbors)      → becomes alive
+            live: int = src[idx];
+            if live == 1 {
+                if n == 2 || n == 3 {
+                    dst[idx] = 1;
+                } else {
+                    dst[idx] = 0;
+                }
+            } else {
+                if n == 3 {
+                    dst[idx] = 1;
+                } else {
+                    dst[idx] = 0;
+                }
+            }
+            c = c + 1;
+        }
+        r = r + 1;
+    }
+}
+
+// Print the grid to terminal (single printf, no flicker)
+print_grid :: (grid: ^[]int, gen: s64, total: s64) {
+    clear();
+    pos: s64 = 0;
+    r:   s64 = 0;
+    while r < HEIGHT {
+        c: s64 = 0;
+        while c < WIDTH {
+            idx: s64 = cell_idx(r, c);
+            if grid[idx] == 1 {
+                frame_buf[pos] = cast(u8)35;   // '#'
+            } else {
+                frame_buf[pos] = cast(u8)46;   // '.'
+            }
+            pos = pos + 1;
+            c = c + 1;
+        }
+        frame_buf[pos] = cast(u8)10;  // '\n'
+        pos = pos + 1;
+        r = r + 1;
+    }
+    frame_buf[pos] = cast(u8)0;
+    printf("%s", cast(^u8)frame_buf.data);
+    printf("  Gen %d / %d\n", gen, total);
+}
+
+// Copy src grid into dst grid
+copy_grid :: (src: ^[]int, dst: ^[]int) {
+    i: s64 = 0;
+    while i < GRID_SZ {
+        dst[i] = src[i];
+        i = i + 1;
+    }
+}
+
+// Place a pattern at (base_r, base_c) from a list of cell offsets
+// Pattern format: [r1, c1, r2, c2, ...] (pairs of offsets)
+seed_pattern :: (grid: ^[]int, base_r: s64, base_c: s64,
+                  cells: ^[]s64, count: s64) {
+    i: s64 = 0;
+    while i < count {
+        rr: s64 = base_r + cells[i * 2];
+        cc: s64 = base_c + cells[i * 2 + 1];
+        if rr >= 0 && rr < HEIGHT && cc >= 0 && cc < WIDTH {
+            grid[cell_idx(rr, cc)] = 1;
+        }
+        i = i + 1;
+    }
+}
+
+// -- Seed all initial patterns onto the grid -------------------------------
+seed_all :: (pa: ^[]int) {
+
+    // Glider (3x3, moves SE)
+    glider_cells: [10]s64;
+    glider_cells[0] = 0; glider_cells[1] = 1;
+    glider_cells[2] = 1; glider_cells[3] = 2;
+    glider_cells[4] = 2; glider_cells[5] = 0;
+    glider_cells[6] = 2; glider_cells[7] = 1;
+    glider_cells[8] = 2; glider_cells[9] = 2;
+    seed_pattern(pa, 3, 3, &glider_cells, 5);
+
+    // Blinker (3x1 horizontal, period-2 oscillator)
+    blinker_cells: [6]s64;
+    blinker_cells[0] = 0; blinker_cells[1] = 0;
+    blinker_cells[2] = 0; blinker_cells[3] = 1;
+    blinker_cells[4] = 0; blinker_cells[5] = 2;
+    seed_pattern(pa, 12, 10, &blinker_cells, 3);
+
+}
+
