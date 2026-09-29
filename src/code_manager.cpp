@@ -774,7 +774,7 @@ void CodeManager::resolve_unresolved_vars()
     still_unresolved = interp->pool;
 
     FOR(unresolved_vars) {
-        Ast_Declaration *decl = lookup_symbol(it->ident->name);
+        Ast_Declaration *decl = lookup_symbol(it->ident->name, it->my_scope);
         if (!decl) {
             Unresolved_Variable *u = UNRESOLVED_NEW(Unresolved_Variable);
             u->ident = it->ident;
