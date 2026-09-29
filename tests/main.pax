@@ -1,0 +1,40 @@
+#import "General.pax"
+
+main :: () {
+
+    printf("temprature analyser\n");
+
+    temps: [..]float64;
+	
+    temps = NewArray(4, sizeof(float64));
+
+    // printf("fresh dyn: count=%d allocated=%d data=%p\n", temps.count, temps.allocated, temps.data);
+
+    temps[0] = 20.6;
+    temps[1] = 36.7;
+    temps[2] = 47.7;
+    temps[3] = 625.7;
+
+    print_dyn_array(temps);
+
+    avg := calculate_average(temps);
+
+    printf("avg = %f\n", avg);
+}
+
+
+print_dyn_array :: (arr: [..]float64){
+
+    for i:0..arr.count-1 {
+        printf("    Day %d: %f\n", i, arr[i]);
+    }
+}
+
+calculate_average :: (arr: [..]float64) -> float64{
+    acc : float64 = 0.0;
+    for a: arr {
+        acc += a;
+    }
+
+    return acc / arr.count;
+}
