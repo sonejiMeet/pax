@@ -3330,6 +3330,7 @@ Ast_Type_Definition *CodeManager::resolve_type_by_name(const char *name) {
     else if (strcmp(name, "s64") == 0) return interp->type->type_def_s64;
     else if (strcmp(name, "u8") == 0) return interp->type->type_def_u8;
     else if (strcmp(name, "float") == 0) return interp->type->type_def_float;
+    else if (strcmp(name, "float64") == 0) return interp->type->type_def_float64;
     else if (strcmp(name, "string") == 0) return interp->type->type_def_string;
     else if (strcmp(name, "bool") == 0) return interp->type->type_def_bool;
     else if (strcmp(name, "void") == 0) return interp->type->type_def_void;

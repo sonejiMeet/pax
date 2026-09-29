@@ -6,7 +6,7 @@
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/src/pax.exe", 
-            "args": ["/tests/dereference_assigned_value.pax"],
+            "args": ["/tests/main.pax"],
             "stopAtEntry": true,
             "cwd": "${workspaceFolder}",
             "environment": [],

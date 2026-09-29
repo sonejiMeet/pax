@@ -13,7 +13,7 @@ else
     echo "[Default mode]"
 fi
 
-mkdir bin
+mkdir -p bin
 cd src/
 
 COMMAND="g++ -ggdb $DEBUG_FLAG $OPTIMIZE_FLAG -w -o ../bin/pax.exe main.cpp"
